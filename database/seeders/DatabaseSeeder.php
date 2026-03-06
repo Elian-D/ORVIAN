@@ -7,6 +7,7 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Database\Seeders\TenantInit\PlanSeeder;
 use Database\Seeders\TenantInit\DevelopmentSeeder;
+use Database\Seeders\TenantInit\FeatureSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -28,6 +29,7 @@ class DatabaseSeeder extends Seeder
                 GeoDataSeeder::class,
                 PlanSeeder::class, 
                 DevelopmentSeeder::class, 
+                FeatureSeeder::class, 
             ]);
 
     }
