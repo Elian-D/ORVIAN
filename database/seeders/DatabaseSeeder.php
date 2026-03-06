@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Database\Seeders\TenantInit\PlanSeeder;
+use Database\Seeders\TenantInit\DevelopmentSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -26,6 +27,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
                 GeoDataSeeder::class,
                 PlanSeeder::class, 
+                DevelopmentSeeder::class, 
             ]);
 
     }
