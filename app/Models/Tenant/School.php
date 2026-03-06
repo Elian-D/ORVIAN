@@ -5,10 +5,14 @@ namespace App\Models\Tenant;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Geo\District;
 use App\Models\Geo\Municipality;
+use App\Traits\BelongsToSchool;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class School extends Model
 {
+    use HasFactory, BelongsToSchool;
+
     // Constantes de Modalidad
     const MODALITY_ACADEMIC = 'Académica';
     const MODALITY_TECHNICAL = 'Técnico-Profesional';
