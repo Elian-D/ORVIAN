@@ -35,6 +35,16 @@ class School extends Model
         'plan_id', 'is_active', 'is_configured'
     ];
 
+    /**
+     * Determina si la escuela tiene acceso a un módulo específico.
+     * Uso: if($school->canAccess('auth_facial'))
+     */
+    public function canAccess(string $featureSlug): bool
+    {
+        // Cargamos la relación 'plan.features' solo una vez (Eager Loading recomendado)
+        return $this->plan && $this->plan->hasFeature($featureSlug);
+    }
+
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);

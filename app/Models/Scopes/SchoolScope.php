@@ -14,13 +14,21 @@ class SchoolScope implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
-        if (Auth::check() && Auth::user()->school_id) {
-            /** @var Model $model */
-            $column = $model instanceof \App\Models\Tenant\School 
-                ? $model->getKeyName() 
-                : 'school_id';
+        if (Auth::check()) {
+            $user = Auth::user();
             
-            $builder->where($model->getTable() . '.' . $column, Auth::user()->school_id);
+            // Determinamos el ID de la escuela: el propio o el de la sesión (soporte)
+            $schoolId = $user->school_id ?: session('impersonated_school_id');
+
+            if ($schoolId) {
+                /** @var Model $model */
+                $column = $model instanceof \App\Models\Tenant\School 
+                    ? $model->getKeyName() 
+                    : 'school_id';
+                
+                $builder->where($model->getTable() . '.' . $column, $schoolId);
+            }
+            // Si no hay school_id y no hay sesión de soporte, el SuperAdmin sigue viendo todo
         }
     }
 }

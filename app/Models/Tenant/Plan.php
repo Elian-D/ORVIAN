@@ -16,7 +16,8 @@ class Plan extends Model
 
     protected $fillable = [
         'name', 'slug', 'limit_students', 'limit_users', 
-        'price', 'const_name', 'bg_color', 'text_color'
+        'price', 'const_name', 'bg_color', 'text_color',
+        'is_active'
     ];
 
     /**
@@ -31,10 +32,24 @@ class Plan extends Model
     }
 
     /**
+     * Verifica si el plan tiene una característica activa por su slug.
+     */
+    public function hasFeature(string $featureSlug): bool
+    {
+        // Usamos el método 'contains' de la colección para evitar múltiples queries
+        return $this->features->contains('slug', $featureSlug);
+    }
+
+    /**
      * Un plan puede ser tenido por muchas escuelas.
      */
     public function schools(): HasMany
     {
         return $this->hasMany(School::class);
+    }
+
+    public function features()
+    {
+        return $this->belongsToMany(Feature::class)->withPivot('settings');
     }
 }
