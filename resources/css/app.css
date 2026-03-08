@@ -1,3 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+[x-cloak] { display: none !important; }
+
+/* Custom scrollbar para que combine con el diseño de ORVIAN */
+.custom-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+    background: #4545454c;
+    border-radius: 10px;
+}
+
+.dark .custom-scroll::-webkit-scrollbar-thumb {
+    background: #4545454c;
+}
+
