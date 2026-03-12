@@ -75,10 +75,6 @@
 
     @livewireScripts
     @stack('scripts')
-    <div class="fixed top-4 right-0 md:right-4 z-[9999] flex flex-col gap-3 w-full max-w-sm px-4 md:px-0 pointer-events-none">
-        <div class="pointer-events-auto">
-            <x-ui.toasts />
-        </div>
-    </div>
+    <x-ui.toasts />
 </body>
 </html>
