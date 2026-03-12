@@ -1,7 +1,10 @@
 import './bootstrap';
+/* 
+// Importamos Alpine desde el paquete de Livewire (para evitar doble instancia)
+import { Alpine, Livewire } from '../../vendor/livewire/livewire/dist/livewire.esm';
 
-import Alpine from 'alpinejs';
-
+// Lo hacemos disponible para los componentes antiguos de Breeze
 window.Alpine = Alpine;
 
-Alpine.start();
+// No llamamos a Alpine.start(), Livewire lo hace internamente.
+Livewire.start(); */

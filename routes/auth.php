@@ -10,13 +10,20 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
+use App\Livewire\Auth\RegisterInstall;
+use App\Livewire\Auth\RegisterUser;
 
-Route::middleware('guest')->group(function () {
-    Route::get('register', [RegisteredUserController::class, 'create'])
+Route::middleware('guest', 'system.not_installed')->group(function () {
+    
+    // Instalación inicial (Solo Owner)
+    Route::get('register', RegisterInstall::class)
+        ->middleware('system.installed')
         ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
-
+    // Registro Público de Usuarios
+    Route::get('sign-up', RegisterUser::class)
+        ->name('sign-up');
+        
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 

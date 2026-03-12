@@ -3,8 +3,19 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use Database\Seeders\AppInit\{
+    EducationalGeoSeeder,
+    GeoDataSeeder,
+    GradeSeeder,
+    LevelSeeder,
+    RoleAcademicSeeder,
+    RoleOwnerSeeder,
+    TechnicalCatalogSeeder
+};
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Database\Seeders\TenantInit\DevelopmentSeeder;
+use Database\Seeders\TenantInit\PlanFeatureSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -17,9 +28,22 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
+        /*User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
-        ]);
+        ]); */
+
+        $this->call([
+                GeoDataSeeder::class,
+                EducationalGeoSeeder::class,
+                LevelSeeder::class,
+                GradeSeeder::class,
+                TechnicalCatalogSeeder::class,
+                RoleAcademicSeeder::class,
+                //DevelopmentSeeder::class, 
+                PlanFeatureSeeder::class, 
+                RoleOwnerSeeder::class,
+            ]);
+
     }
 }
