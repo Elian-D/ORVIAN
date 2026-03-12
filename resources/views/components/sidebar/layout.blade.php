@@ -11,7 +11,7 @@
     }"
 >
     <div class="h-20 flex items-center px-4 border-b border-white/5 overflow-hidden flex-shrink-0">
-        <a href="{{ route('dashboard') }}" class="flex items-center w-full justify-center transition-all duration-300">
+        <a href="{{ route('admin.hub') }}" class="flex items-center w-full justify-center transition-all duration-300">
             <div x-show="sidebarOpen || hasHover" 
                 x-transition:enter="transition ease-out duration-300"
                 x-transition:enter-start="opacity-0 scale-95"
@@ -61,7 +61,7 @@
                 class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-gray-800 dark:text-white truncate">{{ Auth::user()->name }}</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {{ Auth::user()->hasRole('SuperAdmin') ? 'Super Administrador' : 'Usuario del Sistema' }}
+                    {{ Auth::user()->hasRole('Owner') ? 'Dueño' : 'Usuario del Sistema' }}
                 </p>
             </div>
 
