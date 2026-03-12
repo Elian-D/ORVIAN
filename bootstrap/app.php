@@ -1,8 +1,10 @@
 <?php
 
+
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -11,8 +13,21 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        
+        // Redirección para invitados (sustituye a Authenticate.php antiguo)
+        $middleware->redirectTo(
+            guests: fn (Request $request) => route('login')
+        );
+
         $middleware->web(append: [
             \App\Http\Middleware\IdentifyTenant::class,
+        ]);
+
+        $middleware->alias([
+            'system.not_installed' => \App\Http\Middleware\RedirectIfSystemNotInstalled::class,
+            'system.installed' => \App\Http\Middleware\EnsureSystemIsInstalled::class,
+            'onboarding.complete' => \App\Http\Middleware\EnsureOnboardingIsComplete::class,
+            'admin.global' => \App\Http\Middleware\EnsureGlobalAdminAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

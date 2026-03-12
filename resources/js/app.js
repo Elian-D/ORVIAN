@@ -1,5 +1,5 @@
 import './bootstrap';
-
+/* 
 // Importamos Alpine desde el paquete de Livewire (para evitar doble instancia)
 import { Alpine, Livewire } from '../../vendor/livewire/livewire/dist/livewire.esm';
 
@@ -7,4 +7,4 @@ import { Alpine, Livewire } from '../../vendor/livewire/livewire/dist/livewire.e
 window.Alpine = Alpine;
 
 // No llamamos a Alpine.start(), Livewire lo hace internamente.
-Livewire.start();
+Livewire.start(); */

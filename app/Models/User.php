@@ -53,6 +53,25 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Determina la ruta de redirección según el rol y estado del usuario.
+     */
+    public function redirectPath(): string
+    {
+        // 1. Si es Owner (Global), va al Admin Hub
+        if ($this->hasRole('Owner')) {
+            return route('admin.hub');
+        }
+
+        // 2. Si pertenece a una escuela pero no está configurada, va al Wizard
+        if ($this->school_id && !$this->school->is_configured) {
+            return route('wizard');
+        }
+
+        // 3. Fallback: Dashboard normal (Hub de módulos)
+        return route('app.dashboard');
+    }
+
     public function school(): BelongsTo
     {
         return $this->belongsTo(School::class);

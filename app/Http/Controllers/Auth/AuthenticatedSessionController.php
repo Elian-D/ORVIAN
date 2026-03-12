@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use App\Models\User; // Asegúrate de importar tu modelo
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -22,12 +23,17 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
+
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard'))
+        /** @var User $user */
+        $user = Auth::user();
+
+        // Ahora usamos el método centralizado en el modelo User
+        return redirect()->intended($user->redirectPath())
                 ->with('success', '¡Sesión iniciada correctamente!');
     }
 

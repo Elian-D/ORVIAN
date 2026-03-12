@@ -14,13 +14,13 @@ return new class extends Migration
     {
         Schema::create('schools', function (Blueprint $table) {
             $table->id();
-            $table->string('sigerd_code')->unique();
+            $table->string('sigerd_code')->nullable()->unique();
             $table->string('name');
             
             // Caracterización
             $table->string('modalidad'); // Usaremos constantes en el modelo
             $table->string('sector');    // Público / Privado
-            $table->string('jornada');   // Extendida, etc.
+            /* $table->string('jornada');   // Extendida, etc. */
             
             // Ubicación (Relación con la geografía que ya importamos)
             // Usamos district_id como referencia principal, nullable por si es zona urbana directa

@@ -1,7 +1,6 @@
 <x-app-layout>
-
     <div class="w-full max-w-5xl">
-        
+
         <div class="absolute inset-0 pointer-events-none overflow-hidden dot-pattern opacity-[0.1] text-slate-900 dark:text-white"></div>
 
         <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full pointer-events-none"

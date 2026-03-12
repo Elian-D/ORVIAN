@@ -100,11 +100,7 @@
     <div class="fixed" style="bottom:8%;left:6%;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#3b6fd4,#1a3a8a);box-shadow:0 8px 32px rgba(59,111,212,0.4);pointer-events:none;z-index:1;"></div>
     <div class="fixed" style="top:55%;right:2%;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#5b8dee,#2a50a8);box-shadow:0 6px 24px rgba(91,141,238,0.4);pointer-events:none;z-index:1;"></div>
 
-    <div class="pointer-events-none absolute top-4 right-4 z-50 flex flex-col gap-3 w-full max-w-sm px-4 md:px-0">
-        <div class="pointer-events-auto">
-            <x-ui.toasts />
-        </div>
-    </div>
+    <x-ui.toasts />
 
     {{-- Card principal --}}
     <div class="w-full max-w-5xl rounded-[2rem] overflow-hidden flex flex-col lg:flex-row relative z-10 animate-fade-in-up"

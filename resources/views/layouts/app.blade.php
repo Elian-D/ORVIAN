@@ -24,6 +24,9 @@
             animation: tile-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
     </style>
+    <link rel="icon" href="{{ asset('img/logos/logo-icon-light.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
+
+    <link rel="icon" href="{{ asset('img/logos/logo-icon-dark.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
 </head>
 
 <body class="font-sans antialiased transition-colors duration-300 min-h-screen flex flex-col bg-slate-100 dark:bg-[#080e1a] text-slate-900 dark:text-slate-100">
@@ -142,11 +145,8 @@
 
     <x-ui.footer />
 
-    <div class="fixed top-20 right-0 md:right-4 z-[9999] flex flex-col gap-3 w-full max-w-sm px-4 md:px-0 pointer-events-none">
-        <div class="pointer-events-auto">
-            <x-ui.toasts />
-        </div>
-    </div>
+
+    <x-ui.toasts />
 
     @livewireScripts
 </body>
