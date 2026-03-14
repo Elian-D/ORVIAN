@@ -69,17 +69,6 @@
             <x-heroicon-s-magnifying-glass class="w-5 h-5" />
         </button>
 
-        {{-- Toggle dark mode --}}
-        <button @click="darkMode = !darkMode"
-                class="p-2.5 rounded-xl bg-gray-100 dark:bg-dark-bg text-gray-500 dark:text-gray-400 hover:text-orvian-orange transition-all duration-300 group">
-            <template x-if="darkMode">
-                <x-heroicon-s-sun class="w-5 h-5 text-orvian-orange animate-toggle" />
-            </template>
-            <template x-if="!darkMode">
-                <x-heroicon-s-moon class="w-5 h-5 group-hover:text-orvian-blue" />
-            </template>
-        </button>
-
         <button class="p-2.5 rounded-xl bg-gray-100 dark:bg-dark-bg text-gray-500 dark:text-gray-400 hover:text-orvian-orange transition relative">
             <x-heroicon-s-bell class="w-5 h-5" />
             <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-orvian-orange rounded-full border-2 border-white dark:border-dark-bg"></span>

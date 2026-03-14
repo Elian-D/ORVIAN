@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
-      x-data="{ darkMode: localStorage.getItem('darkMode') === 'true' }"
-      x-init="$watch('darkMode', val => localStorage.setItem('darkMode', val))"
-      :class="{ 'dark': darkMode }">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Hub' }} | {{ config('app.name') }}</title>
+
+    {{-- ⬇ Primero el tema — síncrono, antes de cualquier CSS --}}
+    <x-ui.theme-init />
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 
@@ -24,8 +25,8 @@
             animation: tile-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
     </style>
-    <link rel="icon" href="{{ asset('img/logos/logo-icon-light.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
 
+    <link rel="icon" href="{{ asset('img/logos/logo-icon-light.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
     <link rel="icon" href="{{ asset('img/logos/logo-icon-dark.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
 </head>
 
@@ -60,15 +61,6 @@
 
             {{-- Acciones --}}
             <div class="flex items-center gap-1 sm:gap-2">
-
-                {{-- Toggle tema --}}
-                <button @click="darkMode = !darkMode"
-                        class="p-2 rounded-xl transition-colors text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-amber-500 dark:hover:text-amber-400">
-                    <x-heroicon-o-sun x-show="darkMode" x-cloak class="w-5 h-5" />
-                    <x-heroicon-o-moon x-show="!darkMode" x-cloak class="w-5 h-5" />
-                </button>
-
-                <div class="w-px h-6 mx-1 bg-slate-200 dark:bg-white/10"></div>
 
                 {{-- Usuario --}}
                 <div class="relative" x-data="{ open: false }">
@@ -151,15 +143,5 @@
     <x-ui.toasts />
 
     @livewireScripts
-
-<script>
-    if (localStorage.getItem('darkMode') === 'true' ||
-        (!('darkMode' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-    }
-</script>
-
 </body>
 </html>
