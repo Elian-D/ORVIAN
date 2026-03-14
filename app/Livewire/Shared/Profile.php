@@ -188,13 +188,19 @@ class Profile extends Component
      * Render the component.
      *
      */
-    public function render()
-    {
-        $layout = $this->isAdmin ? 'components.admin' : 'layouts.app';
+public function render()
+{
+    $layout = $this->isAdmin ? 'components.admin' : 'layouts.app-module';
+    
+    /** @var \Livewire\Features\SupportPageComponents\View $view */
+    $view = view('livewire.shared.profile');
 
-        /** @var \Illuminate\View\View $view */
-        $view = view('livewire.shared.profile');
-
-        return $view->layout($layout);
-    }
+    return $view->layout($layout, [
+        'module'      => $this->isAdmin ? null : 'Configuración',
+        'moduleIcon'  => $this->isAdmin ? null : 'heroicon-o-cog-6-tooth',
+        'moduleLinks' => $this->isAdmin ? [] : [
+            ['label' => 'Mi Perfil', 'route' => 'app.profile'],
+        ],
+    ]);
+}
 }
