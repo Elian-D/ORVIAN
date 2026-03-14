@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Limpieza de Stubs: corre diariamente a medianoche
 Schedule::command('orvian:cleanup-stubs')->daily();
+
+// Actualizar estados de usuario cada 5 minutos
+Schedule::command('orvian:update-user-status')->everyFiveMinutes();
