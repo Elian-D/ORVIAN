@@ -165,17 +165,21 @@ class Profile extends Component
         /** @var User $user */
         $user = Auth::user();
 
-        // Recuperamos el array actual para no sobrescribir otras preferencias futuras
         $preferences = $user->preferences ?? [];
         $preferences['theme']             = $this->theme;
-        $preferences['sidebar_collapsed'] = $this->sidebar_collapsed;
+        $preferences['sidebar_collapsed'] = $this->isAdmin
+            ? $this->sidebar_collapsed
+            : ($user->preference('sidebar_collapsed', false)); // mantiene el valor anterior sin tocarlo
 
         $user->update(['preferences' => $preferences]);
 
-        $this->dispatch('notify', type: 'success', message: 'Preferencias actualizadas correctamente.');
-        
-        // Opcional: Despachar un evento al navegador si usas Alpine/JS para aplicar el tema en vivo
-        $this->dispatch('preferences-updated', theme: $this->theme);
+        $this->dispatch('notify-redirect',
+            type:    'success',
+            title:   'Preferencias guardadas',
+            message: 'El tema se ha aplicado correctamente.',
+        );
+
+        $this->redirect(request()->header('Referer') ?? url()->current());
     }
 
     // ── Render con layout dinámico ─────────────────────────

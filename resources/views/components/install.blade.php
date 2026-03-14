@@ -1,27 +1,26 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
-      x-data="{ darkMode: localStorage.getItem('darkMode') !== 'false' }"
-      x-init="$watch('darkMode', val => localStorage.setItem('darkMode', val))"
-      :class="{ 'dark': darkMode }">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Instalación | {{ config('app.name') }}</title>
+
+    {{-- ⬇ Primero el tema — síncrono, antes de cualquier CSS --}}
+    <x-ui.theme-init />
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
     <style>
-        /* Dark mode: puntos blancos sobre fondo muy oscuro */
         html.dark body {
             background-color: #020617;
             background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.06) 1px, transparent 0);
             background-size: 40px 40px;
         }
-        /* Light mode: puntos navy sobre fondo slate claro */
         html:not(.dark) body {
             background-color: #f1f5f9;
             background-image: radial-gradient(circle at 2px 2px, rgba(4,39,95,0.07) 1px, transparent 0);
             background-size: 40px 40px;
         }
-
         @keyframes slide-in-right {
             from { opacity: 0; transform: translateX(28px); }
             to   { opacity: 1; transform: translateX(0); }
@@ -35,7 +34,6 @@
     </style>
 
     <link rel="icon" href="{{ asset('img/logos/logo-icon-light.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
-
     <link rel="icon" href="{{ asset('img/logos/logo-icon-dark.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
 </head>
 
