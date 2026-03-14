@@ -9,11 +9,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
+
 
 /**
  * 🧙 Wizard para Usuarios de Escuela (Públicos)
@@ -23,39 +19,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/wizard', TenantSetupWizard::class)->name('wizard');
 });
 
-/**
- * 🛠 Entorno Administrativo (Owner / Soporte)
- * Usamos una función anónima o una Gate para verificar que NO tengan school_id.
- * Esto engloba a Owner, Support y cualquier rol administrativo futuro.
- */
-Route::middleware(['auth', 'verified', 'admin.global']) // Usamos el alias aquí
-    ->prefix('admin')
-    ->name('admin.')
-    ->group(function () {
-        
-        // Hub Global
-        Route::get('/hub', function () {
-            return view('admin.hub');
-        })->name('hub');
 
-        // Wizard del Owner
-        Route::get('/setup', SchoolWizard::class)->name('setup');
-});
-
-
-/**
- * 🏫 Entorno de Aplicación (Tenants / Escuelas)
- * Protegido por onboarding.complete
- */
+// ── Perfil compartido: usuarios de escuela ──────────────────────────
+// Layout: layouts/app.blade.php | Email: solo lectura
 Route::middleware(['auth', 'verified', 'onboarding.complete'])
     ->prefix('app')
     ->name('app.')
     ->group(function () {
-    
-    Route::get('/dashboard', function () {
-        return view('app.dashboard');
-    })->name('dashboard');
 
-});
+        Route::get('/dashboard', fn () => view('app.dashboard'))->name('dashboard');
+
+        Route::get('/profile', \App\Livewire\Shared\Profile::class)->name('profile');
+        // → routeIs('app.profile') → $isAdmin = false → layout: layouts.app
+    });
+
+
+// ── Perfil desde admin: Owner / Soporte ────────────────────────────
+// Layout: components/admin.blade.php | Email: editable
+Route::middleware(['auth', 'verified', 'admin.global'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+
+        Route::get('/hub', fn () => view('admin.hub'))->name('hub');
+
+        Route::get('/setup', \App\Livewire\Tenant\SchoolWizard::class)->name('setup');
+
+        Route::get('/profile', \App\Livewire\Shared\Profile::class)->name('profile');
+        // → routeIs('admin.profile') → $isAdmin = true → layout: components.admin
+    });
 
 require __DIR__.'/auth.php';
+
