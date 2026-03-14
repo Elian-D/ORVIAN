@@ -382,7 +382,7 @@
                             </div>
 
                             {{-- Sidebar colapsado — solo para usuarios sin school_id (admin/tenant) --}}
-                            @if(empty(auth()->user()->school_id))
+                            @if($isAdmin)
                                 <div class="border-t border-slate-100 dark:border-dark-border pt-6">
                                     <label class="relative flex items-start gap-3 cursor-pointer group">
                                         <div class="flex items-center h-5 mt-0.5">
