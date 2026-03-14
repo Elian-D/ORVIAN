@@ -9,6 +9,8 @@ use App\Events\Tenant\SchoolConfigured;
 use App\Listeners\Tenant\SetupAcademicStructure;
 use App\Listeners\Tenant\CreateInitialAcademicYear;
 use App\Listeners\Tenant\AssignInitialRoles;
+use App\Models\User;
+use App\Observers\UserObserver;
 use Illuminate\Support\Facades\Event;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Observer para lógica de creación de DB/Tenant si aplica
         School::observe(SchoolObserver::class);
+        User::observe(UserObserver::class);
 
 /*         // Registro de los listeners del Onboarding
         Event::listen(
