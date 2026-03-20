@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Tenant\School;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -42,6 +43,18 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'preferences' => 'array', // Cast automático de JSON a Array de PHP
         ];
+    }
+
+    /**
+     * Eager loading centralizado para vistas de tabla/listado.
+     * Elimina el N+1 de Spatie: sin esto, cada fila ejecuta una query
+     * a `roles` + `model_has_roles`. Con esto: 1 query adicional total.
+     *
+     * Uso: User::whereNull('school_id')->withIndexRelations()->paginate(15)
+     */
+    public function scopeWithIndexRelations($query)
+    {
+        return $query->with('roles');
     }
 
     /**
