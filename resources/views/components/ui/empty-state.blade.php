@@ -1,5 +1,5 @@
 @props([
-    'icon' => 'heroicon-o-circle-stacka',
+    'icon' => 'heroicon-o-circle-stack',
     'title' => 'No hay datos para mostrar',
     'description' => 'Parece que aún no hay información registrada en esta sección.',
     'actionLabel' => null,
