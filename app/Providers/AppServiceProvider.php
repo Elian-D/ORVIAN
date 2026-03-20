@@ -12,6 +12,7 @@ use App\Listeners\Tenant\AssignInitialRoles;
 use App\Models\User;
 use App\Observers\UserObserver;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Pagination\Paginator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,6 +26,12 @@ class AppServiceProvider extends ServiceProvider
         // Observer para lógica de creación de DB/Tenant si aplica
         School::observe(SchoolObserver::class);
         User::observe(UserObserver::class);
+
+                // Vista por defecto para toda la aplicación
+        Paginator::defaultView('pagination.orvian-compact');
+    
+        // Vista simple (onlyTrashed, cursor pagination, etc.)
+        Paginator::defaultSimpleView('pagination.orvian-compact');
 
 /*         // Registro de los listeners del Onboarding
         Event::listen(
