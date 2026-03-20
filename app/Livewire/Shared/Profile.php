@@ -200,6 +200,7 @@ public function render()
         'moduleIcon'  => $this->isAdmin ? null : 'heroicon-o-cog-6-tooth',
         'moduleLinks' => $this->isAdmin ? [] : [
             ['label' => 'Mi Perfil', 'route' => 'app.profile'],
+            ['label' => 'Usuarios',   'route' => 'app.users.index'],
         ],
     ]);
 }

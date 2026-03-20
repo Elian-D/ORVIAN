@@ -44,7 +44,7 @@
             <x-navbar.layout />
 
             <main class="flex-1 overflow-y-auto custom-scroll bg-gray-50 dark:bg-dark-bg flex flex-col">
-                <div class="flex-1 p-4 md:p-6 pb-0 md:pb-0 relative">
+                <div class="flex-1 p-4 md:p-6 pb-4 md:pb-4 relative">
                     <x-navbar.breadcrumbs />
                     <div class="animate-fade-in">
                         {{ $slot }}
