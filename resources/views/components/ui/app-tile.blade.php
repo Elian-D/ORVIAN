@@ -1,50 +1,91 @@
+{{--
+    resources/views/components/ui/app-tile.blade.php
+    ------------------------------------------------
+    Tile de módulo estilo Odoo: solo el ícono cuadrado + título debajo.
+    Sin card envolvente. La <a> es transparente, el hover va en el ícono.
+
+    PROPS:
+      icon       — heroicon (fallback)
+      module     — nombre del SVG en public/assets/icons/modules/
+      title      — nombre del módulo
+      subtitle   — texto secundario bajo el título (opcional)
+      color      — clase bg-* para el fondo del contenedor cuando es heroicon
+      accent     — color hex para box-shadow del ícono heroicon
+      url        — ruta de destino
+      badge      — número de notificaciones (opcional)
+      comingSoon — deshabilita navegación y aplica opacidad
+--}}
+
 @props([
-    'icon'     => 'heroicon-o-squares-plus',
+    'icon'       => null,
+    'module'     => null,
     'title',
-    'subtitle',
-    'color'    => 'bg-orvian-navy',
-    'accent'   => null,
-    'url'      => '#',
-    'badge'    => null,
+    'subtitle'   => null,
+    'color'      => 'bg-orvian-navy',
+    'accent'     => null,
+    'url'        => '#',
+    'badge'      => null,
+    'comingSoon' => false,
 ])
 
-<a href="{{ $url }}"
-   {{ $attributes->merge(['class' => 'group relative flex flex-col rounded-2xl border overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-orvian-orange/50 bg-white border-slate-200/80 hover:border-slate-300 dark:bg-[#0f1828] dark:border-white/8 dark:hover:border-white/15']) }}>
-
-    {{-- Barra de color superior --}}
-    <div class="h-1.5 w-full {{ $color }} opacity-90 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-    {{-- Cuerpo --}}
-    <div class="flex flex-col items-center gap-3 px-4 py-5 md:py-6 flex-1">
-
-        {{-- Ícono --}}
-        <div class="relative">
-            <div class="w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 {{ $color }}"
-                 @if($accent) style="box-shadow: 0 8px 24px {{ $accent }}40;" @endif>
-                <x-dynamic-component :component="$icon" class="w-7 h-7 md:w-8 md:h-8 text-white" />
-            </div>
-
-            @if($badge)
-                <span class="absolute -top-1.5 -right-1.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-orvian-orange text-white shadow-sm">
-                    {{ $badge }}
-                </span>
+<a
+    href="{{ $comingSoon ? '#' : $url }}"
+    {{ $attributes->merge(['class' => 'group relative flex flex-col items-center gap-2 focus:outline-none'
+        . ($comingSoon ? ' opacity-50 cursor-not-allowed pointer-events-none' : '')
+    ]) }}
+>
+    {{-- Cuadrado del ícono --}}
+    <div class="relative flex-shrink-0">
+        <div @class([
+            'w-[72px] h-[72px] rounded-2xl flex items-center justify-center
+             transition-all duration-200
+             border border-slate-200/80 dark:border-white/[0.07]
+             bg-white dark:bg-white/[0.06]
+             shadow-sm',
+            'group-hover:shadow-md group-hover:-translate-y-0.5
+             group-hover:border-slate-300 dark:group-hover:border-white/15' => !$comingSoon,
+        ])>
+            @if($module)
+                <x-ui.module-icon :name="$module" class="w-10 h-10" />
+            @elseif($icon)
+                <div @class(['w-10 h-10 rounded-xl flex items-center justify-center', $color])
+                     @if($accent) style="box-shadow: 0 4px 12px {{ $accent }}40;" @endif>
+                    <x-dynamic-component :component="$icon" class="w-6 h-6 text-white" />
+                </div>
             @endif
         </div>
 
-        {{-- Texto --}}
-        <div class="text-center w-full">
-            <p class="text-[15px] font-bold leading-tight truncate transition-colors duration-200 text-slate-800 group-hover:text-orvian-navy dark:text-slate-100 dark:group-hover:text-white">
-                {{ $title }}
-            </p>
-            <p class="text-[10px] mt-1 uppercase tracking-widest font-semibold truncate text-slate-400 dark:text-slate-600">
+        {{-- Badge de notificaciones --}}
+        @if($badge && !$comingSoon)
+            <div class="absolute -top-2 -right-2">
+                <x-ui.badge variant="primary" size="sm" :dot="false">
+                    {{ $badge > 99 ? '99+' : $badge }}
+                </x-ui.badge>
+            </div>
+        @endif
+
+        {{-- Badge "Pronto" --}}
+        @if($comingSoon)
+            <div class="absolute -top-2 -right-2">
+                <x-ui.badge variant="slate" size="sm" :dot="false">Pronto</x-ui.badge>
+            </div>
+        @endif
+    </div>
+
+    {{-- Texto --}}
+    <div class="flex flex-col items-center">
+        <span class="text-[13px] font-semibold text-center leading-tight
+                     text-slate-700 dark:text-slate-200
+                     group-hover:text-orvian-navy dark:group-hover:text-white
+                     transition-colors duration-150">
+            {{ $title }}
+        </span>
+
+        @if($subtitle)
+            <span class="text-[9px] uppercase tracking-[0.12em] font-medium mt-0.5
+                         text-slate-400 dark:text-slate-600">
                 {{ $subtitle }}
-            </p>
-        </div>
+            </span>
+        @endif
     </div>
-
-    {{-- Flecha en hover --}}
-    <div class="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-1 group-hover:translate-x-0">
-        <x-heroicon-s-arrow-right class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-    </div>
-
 </a>
