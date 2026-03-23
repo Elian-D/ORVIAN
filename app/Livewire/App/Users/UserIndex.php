@@ -71,26 +71,24 @@ class UserIndex extends DataTable
 
     public function render()
     {
-        $school = School::with('plan')->find($this->schoolId);
-        $total  = User::where('school_id', $this->schoolId)->count();
-        $limit  = $school?->plan?->limit_users ?? 0;
-        $pct    = $limit > 0 ? ($total / $limit) * 100 : 0;
+        $school  = School::with('plan')->find($this->schoolId);
+        $total   = User::where('school_id', $this->schoolId)->count();
+        $limit   = $school?->plan?->limit_users ?? 0;
+        $pct     = $limit > 0 ? ($total / $limit) * 100 : 0;
         $atLimit = $limit > 0 && $total >= $limit;
-
-        $query = User::where('school_id', $this->schoolId)
-            ->withIndexRelations();
-
+    
+        $query = User::where('school_id', $this->schoolId)->withIndexRelations();
+    
         $users = (new TenantUserFilters($this->filters))
             ->apply($query)
             ->orderBy('id')
             ->paginate($this->perPage);
-
-        // Roles académicos del tenant
-        $roleOptions = \Spatie\Permission\Models\Role::whereNull('school_id')
+    
+        $roleOptions = \Spatie\Permission\Models\Role::where('school_id', $this->schoolId)
             ->orderBy('name')
             ->pluck('name', 'name')
             ->toArray();
-
+    
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.users.index', [
             'users'       => $users,
@@ -102,14 +100,7 @@ class UserIndex extends DataTable
             'atLimit'     => $atLimit,
         ]);
 
-        return $view->layout('layouts.app-module', [
-            'module'      => 'Configuración',
-            'moduleIcon'  => 'heroicon-o-cog-6-tooth',
-            'moduleLinks' => [
-                ['label' => 'Mi Perfil',  'route' => 'app.profile'],
-                ['label' => 'Usuarios',   'route' => 'app.users.index'],
-            ],
-        ]);
+        return $view->layout('layouts.app-module', config('modules.configuracion'));
     }
 
     // ── Formulario ─────────────────────────────────────────────────────────

@@ -16,15 +16,25 @@
 
 <body class="font-sans antialiased min-h-screen flex flex-col bg-slate-100 dark:bg-[#080e1a] text-slate-900 dark:text-slate-100">
 
+    {{--
+        Navbar FIXED — ocupa h-14 (56px) en estado módulo.
+        El <main> tiene pt-14 para que el contenido empiece debajo del navbar,
+        no por detrás de él.
+
+        module-toolbar usa sticky top-14 (default) para quedar justo debajo
+        del navbar fijo — sin solapamiento.
+    --}}
     <x-app.navbar
         :module="$module ?? null"
         :moduleIcon="$moduleIcon ?? null"
         :moduleLinks="$moduleLinks ?? []"
     />
 
-{{--     <x-app.module-toolbar title="..." :stickyOffset="'top-14'"/> --}}
-
-    <main class="flex-1">
+    {{--
+        pt-14 = 56px = h-14 del navbar de módulo.
+        El module-toolbar se coloca dentro del $slot, al inicio de la vista.
+    --}}
+    <main class="flex-1 pt-14">
         {{ $slot }}
     </main>
 
