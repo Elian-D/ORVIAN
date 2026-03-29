@@ -2,58 +2,59 @@
 
 namespace Database\Seeders\AppInit;
 
-use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
+use App\Models\Permission;
+use Illuminate\Database\Seeder;
 
 class RoleAcademicSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Aseguramos el scope global para roles base
         setPermissionsTeamId(null);
 
-        // 2. Definir Roles de Escuela (Inmutables por lógica de negocio)
-        $schoolRoles = [
-            'School Principal' => 'Director con control total sobre su centro educativo.',
-            'Teacher'          => 'Docente con acceso a gestión de notas y asistencia.',
-            'Secretary'        => 'Personal administrativo para inscripciones y reportes.',
-            'Student'          => 'Acceso a perfil académico y materiales de clase.',
-        ];
+    // 1. Roles base de Escuela con sus colores
+    $schoolRoles = [
+        ['name' => 'School Principal', 'color' => '#4F46E5'], // Indigo
+        ['name' => 'Teacher',          'color' => '#0EA5E9'], // Sky
+        ['name' => 'Secretary',        'color' => '#F59E0B'], // Amber
+        ['name' => 'Student',          'color' => '#10B981'], // Emerald
+        ['name' => 'Staff',            'color' => '#64748B'], // Slate
+    ];
 
-        foreach ($schoolRoles as $roleName => $description) {
-            Role::firstOrCreate([
-                'name'       => $roleName,
-                'guard_name' => 'web',
-                'school_id'  => null, // Siguen siendo globales pero se asignarán con scope
-            ]);
-        }
+    foreach ($schoolRoles as $roleData) {
+        Role::firstOrCreate(
+            ['name' => $roleData['name'], 'guard_name' => 'web'],
+            [
+                'school_id' => null, 
+                'color' => $roleData['color'],
+                'is_system' => true
+            ]
+        );
+    }
 
-        // 3. Permisos específicos del Tenant (Escuela)
-        $tenantPermissions = [
-            'manage academic years',
-            'manage sections',
-            'view enrollment',
-            'mark attendance',
-            'upload grades',
-            'manage teachers',
-        ];
-
-        foreach ($tenantPermissions as $permission) {
-            Permission::firstOrCreate([
-                'name'       => $permission,
-                'guard_name' => 'web',
-            ]);
-        }
-
-        // 4. Asignación inicial de permisos a roles base
-        $principal = Role::where('name', 'School Principal')->first();
-        $principal->syncPermissions($tenantPermissions); // El director puede hacer todo lo del tenant
-
-        $teacher = Role::where('name', 'Teacher')->first();
-        $teacher->syncPermissions(['mark attendance', 'upload grades', 'view enrollment']);
+        // 2. Definición de permisos por Rol (Usando los nuevos nombres)
         
+        // El Principal (Director) tiene todo lo del Tenant
+        $principal = Role::where('name', 'School Principal')->first();
+        $tenantPermissions = Permission::whereHas('group', function($q) {
+            $q->where('context', 'tenant');
+        })->get();
+        $principal->syncPermissions($tenantPermissions);
+
+        // Docente
+        $teacher = Role::where('name', 'Teacher')->first();
+        $teacher->syncPermissions([
+            'users.view', 
+            // Aquí agregarás en el futuro: 'asistencia.marcar', 'notas.subir', etc.
+        ]);
+
+        // Secretaria
         $secretary = Role::where('name', 'Secretary')->first();
-        $secretary->syncPermissions(['manage sections', 'view enrollment', 'manage teachers']);
+        $secretary->syncPermissions([
+            'users.view',
+            'users.create',
+            'roles.view',
+            'settings.view',
+        ]);
     }
 }
