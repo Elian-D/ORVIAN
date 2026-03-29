@@ -13,6 +13,8 @@ use App\Models\User;
 use App\Observers\UserObserver;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Gate;
+use Laravel\Pulse\Facades\Pulse;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -32,6 +34,17 @@ class AppServiceProvider extends ServiceProvider
     
         // Vista simple (onlyTrashed, cursor pagination, etc.)
         Paginator::defaultSimpleView('pagination.orvian-compact');
+
+        Pulse::user(fn (User $user) => [
+        'name' => $user->name,
+        'extra' => $user->email,
+        'avatar' => $user->avatar_path, // Para que Pulse use tus avatares
+        ]);
+
+        // Solo tú puedes ver Pulse
+        Gate::define('viewPulse', function (User $user) {
+            return $user->hasRole('Owner'); 
+        });
 
 /*         // Registro de los listeners del Onboarding
         Event::listen(
