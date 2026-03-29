@@ -2,56 +2,63 @@
 
 namespace Database\Seeders\AppInit;
 
-use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
+use App\Models\Permission;
+use Illuminate\Database\Seeder;
 
 class RoleOwnerSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        // 1. IMPORTANTE: Forzamos el team_id a null para crear roles globales
+        // Forzamos scope global
         setPermissionsTeamId(null);
 
-        // 2. Definir Roles Globales
+        // 1. Definir Roles Globales con colores potentes
         $roles = [
-            'Owner' => 'Acceso total al sistema y gestión de escuelas.',
-            'TechnicalSupport' => 'Soporte técnico y visualización de logs.',
-            'Administrative' => 'Gestión de planes, facturación y reportes globales.',
+            ['name' => 'Owner',            'color' => '#7C3AED'], // Violet
+            ['name' => 'TechnicalSupport', 'color' => '#06B6D4'], // Cyan
+            ['name' => 'Administrative',   'color' => '#EC4899'], // Pink
         ];
 
-        foreach ($roles as $roleName => $description) {
-            Role::firstOrCreate([
-                'name' => $roleName,
-                'guard_name' => 'web',
-                'school_id' => null, // Aseguramos que sea global
-            ]);
+        foreach ($roles as $roleData) {
+            Role::firstOrCreate(
+                ['name' => $roleData['name'], 'guard_name' => 'web'],
+                [
+                    'school_id' => null,
+                    'color' => $roleData['color'],
+                    'is_system' => true
+                ]
+            );
         }
 
-        // 3. Permisos básicos de administración global (ejemplos)
-        $permissions = [
-            'access admin hub',
-            'manage schools',
-            'manage plans',
-            'impersonate users',
-        ];
-
-        foreach ($permissions as $permission) {
-            Permission::firstOrCreate([
-                'name' => $permission,
-                'guard_name' => 'web',
-            ]);
-        }
-
-        // 4. Asignar todos los permisos al Owner
+        // 2. Asignar Permisos al Owner (Acceso Total Global)
         $ownerRole = Role::where('name', 'Owner')->first();
-        $ownerRole->syncPermissions(Permission::all());
+        // El Owner recibe todos los permisos que no tienen school_id y pertenecen a grupos globales
+        $globalPermissions = Permission::whereHas('group', function($q) {
+            $q->where('context', 'global');
+        })->get();
+        
+        $ownerRole->syncPermissions($globalPermissions);
 
-        // 5. El Support solo accede al hub y gestiona escuelas (lectura)
+        // 3. TechnicalSupport (Soporte técnico)
         $supportRole = Role::where('name', 'TechnicalSupport')->first();
-        $supportRole->givePermissionTo(['access admin hub', 'manage schools']);
+        $supportRole->syncPermissions([
+            'admin.access',
+            'schools.view',
+            'logs.activity',
+            'logs.auth',
+        ]);
+
+        // 4. Administrative (Gestión comercial)
+        $adminRole = Role::where('name', 'Administrative')->first();
+        $adminRole->syncPermissions([
+            'admin.access',
+            'schools.view',
+            'schools.create',
+            'schools.edit',
+            'plans.view',
+            'plans.manage',
+            'global_users.view',
+        ]);
     }
 }

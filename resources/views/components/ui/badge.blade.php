@@ -1,6 +1,6 @@
-<div {{ $attributes->merge(['class' => $getBadgeClasses()]) }}>
+<div {{ $attributes->merge(['class' => $getBadgeClasses(), 'style' => $getCustomStyles()]) }}>
     @if($dot)
-        <span class="{{ $getDotClasses() }}"></span>
+        <span class="{{ $getDotClasses() }}" style="{{ $getDotStyles() }}"></span>
     @endif
     
     <span>{{ $slot }}</span>

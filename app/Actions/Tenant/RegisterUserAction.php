@@ -3,15 +3,15 @@
 namespace App\Actions\Tenant;
 
 use App\Models\User;
+use App\Models\Role; // <-- Importar
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 
 class RegisterUserAction
 {
-    public function execute(array $data, int $schoolId, string $role = 'Staff'): User
+    public function execute(array $data, int $schoolId, string $roleName = 'Staff'): User
     {
-        return DB::transaction(function () use ($data, $schoolId, $role) {
-            // 1. Crear el usuario
+        return DB::transaction(function () use ($data, $schoolId, $roleName) {
             $user = User::create([
                 'name'      => $data['name'],
                 'email'     => $data['email'],
@@ -19,11 +19,14 @@ class RegisterUserAction
                 'school_id' => $schoolId,
             ]);
 
-            // 2. Configurar el contexto de Spatie para este "Team/School"
             setPermissionsTeamId($schoolId);
 
-            // 3. Asignar el rol (Spatie lo guardará vinculado al school_id)
-            $user->assignRole($role);
+            // EL FIX
+            $tenantRole = Role::where('name', $roleName)
+                ->where('school_id', $schoolId)
+                ->firstOrFail();
+
+            $user->assignRole($tenantRole);
 
             return $user;
         });

@@ -103,15 +103,21 @@
                 </x-data-table.cell>
 
                 <x-data-table.cell column="role" :visible="$visibleColumns">
-                    @php $roleName = $user->getRoleNames()->first() ?? '—' @endphp
-                    @if($roleName !== '—')
-                        <div class="whitespace-nowrap">
-                            <x-ui.badge
-                                :variant="\App\Livewire\Admin\Users\UserIndex::roleBadgeVariant($roleName)"
-                                size="sm" :dot="false">
-                                {{ $roleName }}
-                            </x-ui.badge>
-                        </div>
+                    @php 
+                        // Obtenemos el objeto del primer rol
+                        $role = $user->roles->first(); 
+                    @endphp
+
+                    @if($role)
+                        <x-ui.badge
+                            :hex="$role->color"
+                            variant="slate" 
+                            size="sm" 
+                            :dot="false" 
+                            class="whitespace-nowrap"
+                        >
+                            {{ $role->name }}
+                        </x-ui.badge>
                     @else
                         <span class="text-slate-400 dark:text-slate-600 text-sm">—</span>
                     @endif

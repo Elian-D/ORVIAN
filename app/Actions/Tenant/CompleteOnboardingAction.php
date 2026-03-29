@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\DB;
 class CompleteOnboardingAction
 {
     public function __construct(
-        protected CreateSchoolPrincipalAction $createPrincipal
+        protected CreateSchoolPrincipalAction $createPrincipal,
+        protected \App\Services\School\SchoolRoleService $roleService, 
     ) {}
 
     /**
@@ -48,11 +49,19 @@ class CompleteOnboardingAction
                 $school->technicalTitles()->sync($wizardData['academic']['title_ids']);
             }
 
-            // 4. Crear al Director (Datos anidados en 'principal')
+            // --- PASO CRÍTICO ---
+            // 4. CLONAR ROLES PRIMERO. 
+            // Esto mete en la tabla 'roles' los registros con 'school_id' = $school->id
+            $this->roleService->seedDefaultRoles($school);
+
+            // 5. CREAR DIRECTOR DESPUÉS.
+            // Ahora, cuando CreateSchoolPrincipalAction haga ->assignRole('School Principal'),
+            // Spatie encontrará el rol que acabamos de crear en el paso 3.
             $this->createPrincipal->execute($wizardData['principal'], $school->id);
 
-            // 5. Disparar Evento
-            // Pasamos el array 'academic' completo que contiene las fechas y el nombre del año
+            // 6. Resetear ID de equipo al final de todo para seguridad
+            setPermissionsTeamId(null);
+
             event(new SchoolConfigured($school, $wizardData['academic']));
 
             return $school;

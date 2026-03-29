@@ -14,7 +14,7 @@
     <link rel="icon" href="{{ asset('img/logos/logo-icon-dark.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
 </head>
 
-<body class="font-sans antialiased min-h-screen flex flex-col bg-slate-100 dark:bg-[#080e1a] text-slate-900 dark:text-slate-100">
+<body class="font-sans antialiased min-h-screen flex flex-col bg-slate-100 dark:bg-dark-bg text-slate-900 dark:text-slate-100">
 
     {{--
         Navbar FIXED — ocupa h-14 (56px) en estado módulo.
@@ -39,6 +39,7 @@
     </main>
 
     <x-ui.toasts />
+    @livewire('shared.profile-modal')
     @livewireScripts
 </body>
 </html>

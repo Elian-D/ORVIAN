@@ -10,6 +10,8 @@ use Database\Seeders\AppInit\{
     LevelSeeder,
     RoleAcademicSeeder,
     RoleOwnerSeeder,
+    PermissionGroupSeeder,
+    PermissionSeeder,
     TechnicalCatalogSeeder
 };
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -39,6 +41,8 @@ class DatabaseSeeder extends Seeder
                 LevelSeeder::class,
                 GradeSeeder::class,
                 TechnicalCatalogSeeder::class,
+                PermissionGroupSeeder::class,
+                PermissionSeeder::class,
                 RoleAcademicSeeder::class,
                 //DevelopmentSeeder::class, 
                 PlanFeatureSeeder::class, 

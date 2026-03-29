@@ -12,4 +12,5 @@ use App\Livewire\Admin\Users\UserIndex;
 |
 */
 
-Route::get('/users', UserIndex::class)->name('users.index');
+Route::get('/users', UserIndex::class)->name('users.index')
+    ->middleware('can:global_users.manage');

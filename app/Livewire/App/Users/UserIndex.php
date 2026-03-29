@@ -76,24 +76,25 @@ class UserIndex extends DataTable
         $limit   = $school?->plan?->limit_users ?? 0;
         $pct     = $limit > 0 ? ($total / $limit) * 100 : 0;
         $atLimit = $limit > 0 && $total >= $limit;
-    
+
         $query = User::where('school_id', $this->schoolId)->withIndexRelations();
-    
+
         $users = (new TenantUserFilters($this->filters))
             ->apply($query)
             ->orderBy('id')
             ->paginate($this->perPage);
-    
-        $roleOptions = \Spatie\Permission\Models\Role::where('school_id', $this->schoolId)
-            ->orderBy('name')
+
+        // En la App solemos mostrar TODOS los roles creados para esa escuela
+        $roleOptions = \App\Models\Role::where('school_id', $this->schoolId)
+            ->orderBy('id')
             ->pluck('name', 'name')
             ->toArray();
-    
+
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.users.index', [
             'users'       => $users,
-            'globalRoles' => collect($roleOptions)->keys(),
-            'roleOptions' => $roleOptions,
+            'globalRoles' => $roleOptions, // Para el modal de creación/edición
+            'roleOptions' => $roleOptions, // Para el componente filter-select
             'total'       => $total,
             'limit'       => $limit,
             'pct'         => $pct,
@@ -262,17 +263,6 @@ class UserIndex extends DataTable
         $this->role      = '';
         $this->position  = '';
         $this->resetErrorBag();
-    }
-
-    public static function roleBadgeVariant(string $role): string
-    {
-        return match ($role) {
-            'School Principal' => 'primary',
-            'Teacher'          => 'info',
-            'Secretary'        => 'warning',
-            'Student'          => 'slate',
-            default            => 'slate',
-        };
     }
 
     public static function statusColor(string $status): string

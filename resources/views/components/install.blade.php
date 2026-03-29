@@ -47,24 +47,6 @@
 
     <x-ui.toasts />
 
-    {{-- Toggle de tema --}}
-    <div class="fixed top-5 left-5 z-50">
-        <button @click="darkMode = !darkMode"
-                class="p-2.5 rounded-xl border transition-all duration-200 backdrop-blur-sm
-                       bg-white/80 dark:bg-white/5
-                       border-slate-200 dark:border-white/10
-                       text-slate-500 dark:text-slate-400
-                       hover:text-amber-500 dark:hover:text-amber-400
-                       hover:bg-white dark:hover:bg-white/10">
-            <svg x-show="darkMode" x-cloak class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-            </svg>
-            <svg x-show="!darkMode" x-cloak class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-            </svg>
-        </button>
-    </div>
-
     {{-- Contenido scrollable --}}
     <main class="relative z-10 flex flex-col items-center justify-start min-h-screen w-full px-4 py-12 sm:py-16">
 

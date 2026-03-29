@@ -63,15 +63,20 @@ class UserIndex extends DataTable
             ->orderBy('id')
             ->paginate($this->perPage);
 
-        $roleOptions = \Spatie\Permission\Models\Role::whereNull('school_id')
-            ->orderBy('name')
-            ->pluck('name', 'name')   // ['Owner' => 'Owner', 'TechnicalSupport' => ...]
+        // 1. Roles que son plantillas (excluir de la administración global)
+        $templateRoles = ['School Principal', 'Teacher', 'Secretary', 'Student', 'Staff'];
+
+        // 2. Obtenemos los roles y generamos el array directamente ['Admin' => 'Admin', ...]
+        $roleOptions = \App\Models\Role::whereNull('school_id')
+            ->whereNotIn('name', $templateRoles)
+            ->orderBy('id')
+            ->pluck('name', 'name') // Llave = nombre, Valor = nombre
             ->toArray();
 
         return view('livewire.admin.users.index', [
             'users'       => $users,
-            'globalRoles' => collect($roleOptions)->keys(), // para el modal select
-            'roleOptions' => $roleOptions,                  // para el filter-select
+            'globalRoles' => $roleOptions, // Colección de nombres técnicos para modales
+            'roleOptions' => $roleOptions,
         ]);
     }
 
@@ -211,16 +216,6 @@ class UserIndex extends DataTable
         $this->role      = '';
         $this->position  = '';
         $this->resetErrorBag();
-    }
-
-    public static function roleBadgeVariant(string $role): string
-    {
-        return match ($role) {
-            'Owner'            => 'error',
-            'TechnicalSupport' => 'info',
-            'Administrative'   => 'warning',
-            default            => 'slate',
-        };
     }
 
     public static function statusColor(string $status): string
