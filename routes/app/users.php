@@ -12,5 +12,6 @@ use App\Livewire\App\Users\UserIndex;
 |
 */
 
- 
-Route::get('/users', UserIndex::class)->name('users.index');
+
+Route::get('/users', UserIndex::class)->name('users.index')
+->middleware('can:users.view');

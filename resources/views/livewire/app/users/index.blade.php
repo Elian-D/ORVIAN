@@ -1,42 +1,90 @@
 <div>
-
-    {{-- ══════════════════════════════════════════════════
-         BARRA DE MÓDULO — sticky bajo el navbar principal
-         Título, límite del plan y acción primaria.
-         No hay page-header dentro del contenido.
-    ═══════════════════════════════════════════════════ --}}
-    <x-app.module-toolbar
-        title="Usuarios"
-        :subtitle="$users->total() . ' en total'">
-
-        <x-slot:actions>
-            {{-- Badge de límite del plan --}}
-            @if($limit > 0)
-                <x-ui.badge
-                    :variant="$pct >= 100 ? 'error' : ($pct >= 80 ? 'warning' : 'slate')"
-                    size="sm"
-                    :dot="false">
-                    {{ $total }} / {{ $limit }} usuarios
-                </x-ui.badge>
-            @endif
-
-            {{-- Botón desactivado si se alcanzó el límite --}}
-            <x-ui.button
-                variant="primary"
-                size="sm"
-                iconLeft="heroicon-s-plus"
-                wire:click="create"
-                :disabled="$atLimit">
-                Nuevo Usuario
-            </x-ui.button>
-        </x-slot:actions>
-
-    </x-app.module-toolbar>
+    
 
     {{-- ══════════════════════════════════════════════════
          CONTENIDO — padding para separarse del toolbar
     ═══════════════════════════════════════════════════ --}}
     <div class="p-4 md:p-6 flex flex-col gap-4">
+
+
+        {{-- ── Grid de Cards de Información ── --}}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            
+            {{-- Card: Total Usuarios --}}
+            <div class="bg-white dark:bg-dark-card p-4 rounded-2xl border border-slate-200 dark:border-white/5 flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-orvian-orange/10 flex items-center justify-center flex-shrink-0">
+                    <x-heroicon-o-users class="w-6 h-6 text-orvian-orange" />
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Usuarios en total</p>
+                    <p class="text-2xl font-bold text-slate-800 dark:text-white">{{ $users->total() }}</p>
+                </div>
+            </div>
+
+            {{-- Card: Límite del Plan --}}
+            <div class="bg-white dark:bg-dark-card p-4 rounded-2xl border border-slate-200 dark:border-white/5 flex items-center gap-4">
+                <div @class([
+                    'w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0',
+                    'bg-green-100 dark:bg-green-500/10' => $pct < 80,
+                    'bg-amber-100 dark:bg-amber-500/10' => $pct >= 80 && $pct < 100,
+                    'bg-red-100 dark:bg-red-500/10' => $pct >= 100,
+                ])>
+                    <x-heroicon-o-chart-bar @class([
+                        'w-6 h-6',
+                        'text-green-600' => $pct < 80,
+                        'text-amber-600' => $pct >= 80 && $pct < 100,
+                        'text-red-600' => $pct >= 100,
+                    ]) />
+                </div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-end mb-1">
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Uso del plan</p>
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-300">{{ $total }} / {{ $limit }}</span>
+                    </div>
+                    {{-- Barra de progreso mini --}}
+                    <div class="h-1.5 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                        <div @class([
+                            'h-full transition-all duration-500',
+                            'bg-green-500' => $pct < 80,
+                            'bg-amber-500' => $pct >= 80 && $pct < 100,
+                            'bg-red-500' => $pct >= 100,
+                        ]) style="width: {{ min($pct, 100) }}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Card: Acciones Rápidas (Placeholder funcional) --}}
+            <div class="bg-white dark:bg-dark-card p-4 rounded-2xl border border-slate-200 dark:border-white/5 flex flex-col justify-center gap-2">
+                <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Acciones rápidas</p>
+                <div class="flex gap-2">
+                    <x-ui.button variant="secondary" size="xs" type="outline" class="w-full justify-start py-1.5" iconLeft="heroicon-s-envelope">
+                        Invitar
+                    </x-ui.button>
+                    <x-ui.button variant="secondary" size="xs" type="outline" class="w-full justify-start py-1.5" iconLeft="heroicon-s-arrow-down-tray">
+                        Exportar
+                    </x-ui.button>
+                </div>
+            </div>
+
+        </div>
+        
+        {{-- ── Header de página (Estilo Roles) ── --}}
+        <x-ui.page-header
+            title="Usuarios"
+            description="Gestiona el personal docente, administrativo y de apoyo de tu centro."
+        >
+            <x-slot:actions>
+                <x-ui.button
+                    variant="primary"
+                    size="sm"
+                    iconLeft="heroicon-s-plus"
+                    wire:click="create"
+                    :disabled="$atLimit"
+                >
+                    Nuevo Usuario
+                </x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
         {{-- Aviso si se alcanzó el límite --}}
         @if($atLimit)
@@ -115,12 +163,20 @@
                     </x-data-table.cell>
 
                     <x-data-table.cell column="role" :visible="$visibleColumns">
-                        @php $roleName = $user->getRoleNames()->first() ?? '—' @endphp
-                        @if($roleName !== '—')
+                        @php 
+                            // Obtenemos el objeto del primer rol
+                            $role = $user->roles->first(); 
+                        @endphp
+
+                        @if($role)
                             <x-ui.badge
-                                :variant="\App\Livewire\App\Users\UserIndex::roleBadgeVariant($roleName)"
-                                size="sm" :dot="false">
-                                {{ $roleName }}
+                                :hex="$role->color"
+                                variant="slate" 
+                                size="sm" 
+                                :dot="false" 
+                                class="whitespace-nowrap"
+                            >
+                                {{ $role->name }}
                             </x-ui.badge>
                         @else
                             <span class="text-slate-400 dark:text-slate-600 text-sm">—</span>
