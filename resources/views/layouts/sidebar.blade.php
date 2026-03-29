@@ -22,12 +22,16 @@
         </x-sidebar.item>
     </x-sidebar.group>
 
-    <x-sidebar.title>Configuración</x-sidebar.title>
+    <x-sidebar.title>Observabilidad</x-sidebar.title>
     <x-sidebar.group>
-        <x-sidebar.dropdown id="sistema" icon="heroicon-s-cog-8-tooth" label="Sistema" :activeRoutes="['config.*']">
-            <x-sidebar.subitem href="#" icon="heroicon-s-key">Seguridad & API</x-sidebar.subitem>
-            <x-sidebar.subitem href="#" icon="heroicon-s-document-text">Logs de Errores</x-sidebar.subitem>
-        </x-sidebar.dropdown>
+        {{-- Laravel Pulse --}}
+        <x-sidebar.item href="/admin/pulse" icon="heroicon-s-chart-bar-square" target="_blank">
+            Métricas del Servidor
+        </x-sidebar.item>
+
+        {{-- Log Viewer --}}
+        <x-sidebar.item href="/admin/logs" icon="heroicon-s-document-magnifying-glass" target="_blank">
+            Logs del Sistema
+        </x-sidebar.item>
     </x-sidebar.group>
 </x-sidebar.layout>
-
