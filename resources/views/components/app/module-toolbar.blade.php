@@ -62,7 +62,7 @@
 
 <div @class([
     'sticky top-[52px] z-40 transition-colors duration-300',
-    'bg-white/90 dark:bg-[#0c1220]/90 backdrop-blur-xl',
+    'bg-white/90 dark:bg-dark-card backdrop-blur-xl',
     'border-b border-slate-200 dark:border-white/5' => !$borderless,
     'border-b border-transparent'                   => $borderless,
 ])>

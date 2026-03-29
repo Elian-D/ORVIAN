@@ -40,12 +40,12 @@
              x-transition:leave-end="translate-x-full opacity-0"
              @mouseenter="pause()"
              @mouseleave="resume()"
-             class="relative w-full max-w-sm overflow-hidden rounded-lg border-l-4 shadow-xl transition-all pointer-events-auto bg-white dark:bg-gray-900"
-             :class="config.bgClass">
+            class="relative w-full max-w-sm overflow-hidden rounded-lg border-l-4 shadow-xl transition-all pointer-events-auto bg-white"
+            :class="config.bgClass">
 
-            <div class="p-4 flex items-center gap-3">
+            <div class="p-4 flex items-start gap-3"> {{-- Cambiado a items-start por si el mensaje es largo --}}
                 {{-- Iconos Dinámicos --}}
-                <div class="flex-shrink-0" :class="config.iconClass">
+                <div class="flex-shrink-0 mt-0.5" :class="config.iconClass">
                     <div x-show="toast.type === 'success'"><x-heroicon-s-check-circle class="w-6 h-6" /></div>
                     <div x-show="toast.type === 'error'"><x-heroicon-s-x-circle class="w-6 h-6" /></div>
                     <div x-show="toast.type === 'warning'"><x-heroicon-s-exclamation-triangle class="w-6 h-6" /></div>
@@ -53,22 +53,22 @@
                 </div>
 
                 {{-- Contenido --}}
-                <div class="flex-1">
-                    <h3 class="text-sm font-bold text-gray-900 dark:text-white leading-none" x-text="toast.title"></h3>
-                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-400 font-medium" x-text="toast.message"></p>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight" x-text="toast.title"></h3>
+                    <p class="mt-1 text-xs text-gray-600 dark:text-gray-400 font-medium leading-relaxed" x-text="toast.message"></p>
                 </div>
 
                 {{-- Cerrar --}}
-                <button @click="close()" class="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                <button @click="close()" class="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
                     <x-heroicon-s-x-mark class="w-5 h-5" />
                 </button>
             </div>
 
             {{-- Barra de Progreso --}}
-            <div class="absolute bottom-0 left-0 w-full h-1 bg-black/5 dark:bg-white/5">
+            <div class="absolute bottom-0 left-0 w-full h-1 bg-black/5 dark:bg-white/10">
                 <div class="h-full transition-all ease-linear"
-                     :class="config.progressClass"
-                     :style="`width: ${percent}%`"></div>
+                    :class="config.progressClass"
+                    :style="`width: ${percent}%`"></div>
             </div>
         </div>
     </template>
@@ -120,10 +120,26 @@
             },
             setConfig() {
                 const configs = {
-                    success: { bgClass: 'border-emerald-500 bg-emerald-50', iconClass: 'text-emerald-500', progressClass: 'bg-emerald-500' },
-                    error: { bgClass: 'border-red-500 bg-red-50', iconClass: 'text-red-500', progressClass: 'bg-red-500' },
-                    warning: { bgClass: 'border-amber-500 bg-amber-50', iconClass: 'text-amber-500', progressClass: 'bg-amber-500' },
-                    info: { bgClass: 'border-blue-500 bg-blue-50', iconClass: 'text-blue-500', progressClass: 'bg-blue-500' }
+                    success: { 
+                        bgClass: 'border-emerald-500 bg-emerald-50 dark:bg-dark-card dark:border-emerald-500/50', 
+                        iconClass: 'text-emerald-500', 
+                        progressClass: 'bg-emerald-500' 
+                    },
+                    error: { 
+                        bgClass: 'border-red-500 bg-red-50 dark:bg-dark-card dark:border-red-500/50', 
+                        iconClass: 'text-red-500', 
+                        progressClass: 'bg-red-500' 
+                    },
+                    warning: { 
+                        bgClass: 'border-amber-500 bg-amber-50 dark:bg-dark-card dark:border-amber-500/50', 
+                        iconClass: 'text-amber-500', 
+                        progressClass: 'bg-amber-500' 
+                    },
+                    info: { 
+                        bgClass: 'border-blue-500 bg-blue-50 dark:bg-dark-card dark:border-blue-500/50', 
+                        iconClass: 'text-blue-500', 
+                        progressClass: 'bg-blue-500' 
+                    }
                 };
                 this.config = configs[toast.type] || configs.info;
             },

@@ -28,12 +28,7 @@
             <x-application-logo mode="dynamic" class="h-12 w-auto" />
             
             <div class="flex items-center gap-4">
-                <button @click="darkMode = !darkMode" class="p-2 rounded-lg bg-white/10 border border-white/10 hover:bg-white/20 transition-all">
-                    <x-heroicon-o-sun x-show="darkMode" class="w-5 h-5 text-amber-400" />
-                    <x-heroicon-o-moon x-show="!darkMode" class="w-5 h-5 text-slate-600" />
-                </button>
-                <div class="h-8 w-px bg-slate-200 dark:bg-white/10"></div>
-                <span class="text-sm font-medium text-slate-500 uppercase tracking-widest">Setup v0.1.4</span>
+                <span class="text-sm font-medium text-slate-500 uppercase tracking-widest">Setup v0.2.0</span>
             </div>
         </header>
 
