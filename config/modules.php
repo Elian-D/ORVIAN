@@ -28,9 +28,8 @@ return [
         'module'      => 'Configuración',
         'moduleIcon'  => 'administracion',
         'moduleLinks' => [
-            ['label' => 'Mi Perfil', 'route' => 'app.profile'],
             ['label' => 'Usuarios',  'route' => 'app.users.index'],
-            // ['label' => 'Roles',     'route' => 'app.roles.index'],        // fase futura
+            ['label' => 'Roles',     'route' => 'app.roles.index'],
             // ['label' => 'Permisos',  'route' => 'app.permissions.index'],  // fase futura
         ],
     ],
