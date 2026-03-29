@@ -19,12 +19,12 @@
     @class([
         {{-- FIXED: se clava arriba, el contenido pasa por debajo --}}
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
-        'bg-white/95 dark:bg-[#0c1220]/95 border-b border-slate-200 dark:border-white/5 backdrop-blur-xl shadow-sm h-14' => $isModule,
+        'bg-white/95 dark:bg-dark-card border-b border-slate-200 dark:border-white/5 backdrop-blur-xl shadow-sm h-14' => $isModule,
         'h-[52px]' => !$isModule,
     ])
     @if(!$isModule)
         :class="scrolled
-            ? 'bg-white/95 dark:bg-[#080e1a]/95 border-b border-slate-200/80 dark:border-white/5 backdrop-blur-xl shadow-sm'
+            ? 'bg-white/95 dark:bg-dark-card border-b border-slate-200/80 dark:border-white/5 backdrop-blur-xl shadow-sm'
             : 'bg-transparent border-b border-transparent'"
     @endif
 >
@@ -140,8 +140,8 @@
                      x-transition:leave-start="opacity-100 scale-100 translate-y-0"
                      x-transition:leave-end="opacity-0 scale-95 -translate-y-1"
                      x-cloak
-                     class="absolute right-0 top-full mt-2 w-60 rounded-2xl shadow-2xl border p-2 z-50
-                            bg-white dark:bg-[#0f1828] border-slate-100 dark:border-white/8">
+                     class="absolute right-0 top-full mt-2 w-60 rounded-2xl shadow-xl p-2 z-50
+                            bg-white dark:bg-dark-card border-slate-100 ">
 
                     <div class="px-3 py-3 border-b border-slate-100 dark:border-white/5 flex items-center gap-3">
                         <x-ui.avatar :user="Auth::user()" size="md" showStatus />
@@ -157,14 +157,21 @@
 
                     <div class="my-1 border-t border-slate-100 dark:border-white/5"></div>
 
-                    <a href="{{ route('app.profile') }}"
-                       class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors group
-                              text-slate-600 dark:text-slate-300
-                              hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white">
+                    <button 
+                        x-on:click="$dispatch('open-modal', 'profile-modal')" 
+                        class="flex w-full items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors group
+                            text-slate-600 dark:text-slate-300
+                            hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
+                    >
                         <x-heroicon-o-user-circle class="w-4 h-4 opacity-40 group-hover:opacity-100 group-hover:text-orvian-orange transition-all" />
                         Mi Perfil
+                    </button>
+{{-- 
+                    <a href="{{ route('app.profile') }}"
+                    class="hidden md:flex items-center gap-3 px-3 py-2 rounded-xl text-[11px] uppercase tracking-wider font-bold opacity-50 hover:opacity-100 transition-opacity text-slate-500">
+                        Ir a página de perfil
                     </a>
-
+ --}}
                     <div class="my-1 border-t border-slate-100 dark:border-white/5"></div>
 
                     <form method="POST" action="{{ route('logout') }}">
