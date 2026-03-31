@@ -1,4 +1,10 @@
 import './bootstrap';
+
+// Graficos ApexCharts
+import ApexCharts from 'apexcharts';
+window.ApexCharts = ApexCharts;
+import './charts-helper';
+
 /* 
 // Importamos Alpine desde el paquete de Livewire (para evitar doble instancia)
 import { Alpine, Livewire } from '../../vendor/livewire/livewire/dist/livewire.esm';
