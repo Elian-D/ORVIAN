@@ -15,6 +15,7 @@ El sistema de tablas de ORVIAN combina el **Pipeline Pattern** (filtros), el mot
 - [Guía de Implementación](#guía-de-implementación)
   - [1. Definir la Configuración de Columnas (TableConfig)](#1-definir-la-configuración-de-columnas-tableconfig)
   - [2. Crear el Componente Livewire](#2-crear-el-componente-livewire)
+    - [2.5 Formateo Inteligente de Filtros (Hook Method)](#25-formateo-inteligente-de-filtros-hook-method)
   - [3. Uso en Blade](#3-uso-en-blade)
 - [Componentes de la Suite (x-data-table.*)](#componentes-de-la-suite-x-data-table)
 - [Jerarquía Visual y Page Header](#jerarquía-visual-y-page-header)
@@ -127,58 +128,198 @@ class AdminUserTableConfig implements TableConfig
 
 ### 2. Crear el Componente Livewire
 
-El componente hereda de `DataTable` e implementa solo lo específico del módulo: `getTableDefinition()`, `render()`, y los métodos de negocio (CRUD, etc.).
+El componente base `DataTable` orquesta la lógica de paginación, visibilidad de columnas y filtros genéricos. Los componentes hijos extienden de este e implementan solo lo específico del módulo: `getTableDefinition()`, `render()`, y los métodos de negocio (CRUD, etc.).
 
 ```php
-namespace App\Livewire\Admin\Users;
+namespace App\Livewire\Base;
 
-use App\Filters\Admin\Users\AdminUserFilters;
-use App\Livewire\Base\DataTable;
-use App\Models\User;
-use App\Tables\Admin\AdminUserTableConfig;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
-use Livewire\Attributes\Url;
+use Livewire\Attributes\Lazy;
+use Livewire\Component;
+use Livewire\WithPagination;
 
-#[Title('Usuarios del Sistema')]
-#[Layout('components.admin')]
-class UserIndex extends DataTable
+#[Lazy]
+abstract class DataTable extends Component
 {
-    #[Url]
-    public array $filters = [
-        'search'  => '',
-        'role'    => '',
-        'status'  => '',
-        'trashed' => '',
-    ];
+    use WithPagination;
 
-    protected function getTableDefinition(): string
+    public array $visibleColumns = [];
+    public array $filters        = [];
+    public int   $perPage        = 15;
+
+    public function mount(): void
     {
-        return AdminUserTableConfig::class;
+        // El servidor siempre arranca con defaultDesktop().
+        // Si el cliente está en mobile, column-selector corrige en init() via JS.
+        $this->visibleColumns = $this->getTableDefinition()::defaultDesktop();
     }
 
-    public function render()
+    // ── Hooks ──────────────────────────────────────────────────────────────
+
+    public function updatedFilters(): void
     {
-        $query = User::whereNull('school_id')
-            ->withIndexRelations();  // ← SIEMPRE usar para evitar N+1
+        $this->resetPage();
+    }
 
-        $users = (new AdminUserFilters($this->filters))
-            ->apply($query)
-            ->orderBy('id')
-            ->paginate($this->perPage);  // ← SIEMPRE $this->perPage, nunca literal
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
+    }
 
-        return view('livewire.admin.users.index', [
-            'users' => $users,
+    // ── TableConfig ────────────────────────────────────────────────────────
+
+    /** @return class-string<\App\Tables\Contracts\TableConfig> */
+    abstract protected function getTableDefinition(): string;
+
+    // ── Columnas ───────────────────────────────────────────────────────────
+
+    /**
+     * Alterna la visibilidad de una columna.
+     * Guard: nunca deja la tabla sin columnas.
+     */
+    public function toggleColumn(string $column): void
+    {
+        if (in_array($column, $this->visibleColumns)) {
+            $remaining = array_values(array_diff($this->visibleColumns, [$column]));
+
+            if (count($remaining) === 0) {
+                $this->visibleColumns = $this->getTableDefinition()::defaultDesktop();
+                return;
+            }
+
+            $this->visibleColumns = $remaining;
+        } else {
+            $this->visibleColumns[] = $column;
+        }
+    }
+
+    /**
+     * Restaura las columnas según el dispositivo.
+     *
+     * @param bool $mobile  true → defaultMobile(), false → defaultDesktop()
+     *
+     * Alpine llama: $wire.resetColumns(isMobile)
+     * El botón Restablecer pasa el contexto correcto desde el cliente.
+     */
+    public function resetColumns(bool $mobile = false): void
+    {
+        $this->visibleColumns = $mobile
+            ? $this->getTableDefinition()::defaultMobile()
+            : $this->getTableDefinition()::defaultDesktop();
+    }
+
+    // ── Filtros ────────────────────────────────────────────────────────────
+
+    public function getActiveChips(): array
+    {
+        $labels = $this->getTableDefinition()::filterLabels();
+        $chips  = [];
+
+        foreach ($this->filters as $key => $value) {
+            if ($value === '' || $value === null || $value === false || $value === 0) {
+                continue;
+            }
+
+            $chips[] = [
+                'key'   => $key,
+                'label' => $labels[$key] ?? $key,
+                // Delegamos el formateo al método Hook:
+                'value' => $this->formatFilterValue($key, $value), 
+            ];
+        }
+
+        return $chips;
+    }
+
+    /**
+     * Formatea el valor del filtro para mostrarlo en el Chip.
+     * Patrón Hook: Los componentes hijos pueden sobreescribir este método 
+     * para traducir IDs a nombres legibles (ej. Regional '01' -> 'Regional Norte').
+     */
+    protected function formatFilterValue(string $key, mixed $value): string
+    {
+        return is_bool($value) ? 'Sí' : (string) $value;
+    }
+
+    public function clearFilter(string $key): void
+    {
+        if (array_key_exists($key, $this->filters)) {
+            $current = $this->filters[$key];
+            $this->filters[$key] = match (true) {
+                is_bool($current) => false,
+                is_int($current)  => 0,
+                default           => '',
+            };
+        }
+
+        $this->resetPage();
+    }
+
+    public function clearAllFilters(): void
+    {
+        $this->filters = array_map(function ($value) {
+            return match (true) {
+                is_bool($value) => false,
+                is_int($value)  => 0,
+                default         => '',
+            };
+        }, $this->filters);
+
+        $this->resetPage();
+    }
+
+    public function placeholder(): \Illuminate\Contracts\View\View
+    {
+        return view('components.ui.skeleton', [
+            'type' => 'table',
+            'rows' => $this->perPage,
         ]);
     }
+
+    public function paginationView(): string
+    {
+        return 'pagination.orvian-compact';
+    }
+
+    public function paginationSimpleView(): string
+    {
+        return 'pagination.orvian-compact';
+    }
+
+    abstract public function render();
 }
 ```
 
 > [!IMPORTANT]
-> Nunca uses `->paginate(10)` con un literal. Siempre `->paginate($this->perPage)` para que el selector de per-page del usuario funcione.
+> Nunca uses `->paginate(10)` con un literal en el método `render()` de tus componentes hijos. Siempre utiliza `->paginate($this->perPage)` para que el selector *per-page* del usuario funcione correctamente.
 
 > [!TIP]
-> `#[Lazy]` viene de la clase base `DataTable`. No necesitas redeclararlo en los hijos. Si en un módulo específico no quieres carga diferida, sobreescribe con `#[Lazy(enabled: false)]`.
+> El atributo `#[Lazy]` viene de la clase base `DataTable` para habilitar la carga diferida con skeletons. No necesitas redeclararlo en los hijos. Si en un módulo específico no quieres carga diferida, sobreescribe el componente hijo usando `#[Lazy(enabled: false)]`.
+
+### 2.5 Formateo Inteligente de Filtros (Hook Method)
+
+El componente base es "ciego" respecto a la base de datos para mantenerlo reutilizable. Por defecto, si un filtro utiliza un ID, el chip mostrará ese ID literalmente (ej: `Regional Educativa: 01`). 
+
+Para proporcionar una mejor experiencia de usuario mostrando los nombres reales, **sobreescribe el método `formatFilterValue` en tu componente hijo** utilizando un `match()`:
+
+```php
+// En tu componente hijo (ej. SchoolIndex.php)
+
+protected function formatFilterValue(string $key, mixed $value): string
+{
+    return match ($key) {
+        // Consultas a BD por clave primaria (muy ligeras y sin impacto en rendimiento)
+        'regional' => \App\Models\Geo\RegionalEducation::find($value)?->name ?? $value,
+        'district' => \App\Models\Geo\EducationalDistrict::find($value)?->name ?? $value,
+        'plan'     => \App\Models\Tenant\Plan::find($value)?->name ?? $value,
+        
+        // Traducciones estáticas sin BD
+        'status'   => $value === '1' ? 'Activos / Habilitados' : 'Inactivos / Deshabilitados',
+        
+        // Siempre incluir el default llamando a parent para buscar booleanos o strings simples
+        default    => parent::formatFilterValue($key, $value),
+    };
+}
+```
 
 ---
 
@@ -270,6 +411,7 @@ Ver `docs/architecture/datatable-components.md` para la documentación completa 
 | `x-data-table.search` | Input de búsqueda con debounce y botón × |
 | `x-data-table.per-page-selector` | Select pill para registros por página |
 | `x-data-table.filter-container` | Dropdown/drawer que agrupa los filtros del módulo |
+| `x-data-table.filter-group` | Grupo de filtros del módulo |
 | `x-data-table.filter-select` | Select dentro del filter-container |
 | `x-data-table.filter-toggle` | Toggle booleano dentro del filter-container |
 | `x-data-table.filter-date-range` | Rango de fechas (desde/hasta) |
@@ -284,7 +426,7 @@ Ver `docs/architecture/datatable-components.md` para la documentación completa 
 
 Las **acciones primarias** (Nuevo, Exportar) viven **fuera** de la tabla, en `x-ui.page-header`. Esto establece la jerarquía correcta: las acciones tienen mayor peso visual que los controles de filtrado.
 
-```blade
+```html
 <x-ui.page-header
     title="Nombre del Módulo"
     description="Descripción breve."
@@ -382,7 +524,7 @@ Ver `docs/architecture/n-plus-one.md` para el patrón completo y otros casos com
 
 `x-ui.empty-state` se usa dentro del `@empty` del `@forelse`. No es automático — cada módulo lo declara en su vista.
 
-```blade
+```html
 @empty
     <tr>
         <td colspan="{{ count($visibleColumns) + 1 }}" class="px-6 py-12">
