@@ -320,14 +320,34 @@ abstract class BaseSchoolWizard extends Component
                         ]),
                         'selectedSectionLabels' => ['required', 'array', 'min:1'],
                         'selectedShifts'        => ['required', 'array', 'min:1'],
-                        'year_name'             => ['required', 'string', 'max:20'],
-                        'start_date'            => ['required', 'date'],
-                        'end_date'              => ['required', 'date', 'after:start_date'],
+                        // Nuevas reglas para Fechas:
+                        'start_date' => [
+                            'required', 
+                            'date',
+                            function ($attribute, $value, $fail) {
+                                $limits = $this->getAcademicYearLimits();
+                                if ($value < $limits['min'] || $value > $limits['max']) {
+                                    $fail("La fecha de inicio debe estar dentro del año escolar ({$limits['min']} a {$limits['max']}).");
+                                }
+                            }
+                        ],
+                        'end_date' => [
+                            'required', 
+                            'date', 
+                            'after:start_date',
+                            function ($attribute, $value, $fail) {
+                                $limits = $this->getAcademicYearLimits();
+                                if ($value < $limits['min'] || $value > $limits['max']) {
+                                    $fail("La fecha de cierre debe estar dentro del año escolar ({$limits['min']} a {$limits['max']}).");
+                                }
+                            }
+                        ],
                     ],
                     $this->modalityNeedsTechnical()
                         ? ['selectedTitles' => ['required', 'array', 'min:1']]
                         : []
                 ),
+                
                 [
                     'selectedLevels.required'        => 'Debes seleccionar al menos un nivel educativo.',
                     'selectedSectionLabels.required' => 'Debes elegir al menos una sección (ej. A).',
@@ -335,7 +355,7 @@ abstract class BaseSchoolWizard extends Component
                     'end_date.after'                 => 'La fecha de cierre debe ser posterior a la de inicio.',
                 ]
             ),
-                        4 => $this->validate(['plan_id' => ['required', 'exists:plans,id']]),
+            4 => $this->validate(['plan_id' => ['required', 'exists:plans,id']]),
             default => null,
         };
     }
@@ -362,16 +382,42 @@ abstract class BaseSchoolWizard extends Component
         ];
     }
 
+    /**
+     * Calcula los límites del año escolar actual basados en la fecha del servidor.
+     */
+    protected function getAcademicYearLimits(): array
+    {
+        $currentMonth = now()->month;
+        $currentYear = now()->year;
+        
+        // Si estamos en Agosto (8) o posterior, el año escolar empieza este año.
+        // Si estamos antes de Agosto, el año escolar empezó el año pasado.
+        $startYear = $currentMonth >= 8 ? $currentYear : $currentYear - 1;
+        $endYear = $startYear + 1;
+        
+        return [
+            'name' => "{$startYear}-{$endYear}",
+            'min'  => "{$startYear}-08-01",
+            'max'  => "{$endYear}-07-31",
+        ];
+    }
+
+    /**
+     * Sobrescribimos el payload académico para inyectar el nombre del año calculado.
+     */
     protected function academicPayload(): array
     {
+        // Obtenemos el nombre calculado en backend, ignorando cualquier cosa que pudiera estar en $this->year_name
+        $computedYearName = $this->getAcademicYearLimits()['name'];
+
         return [
-            'level_ids'  => $this->selectedLevels,
+            'level_ids'      => $this->selectedLevels,
             'section_labels' => $this->selectedSectionLabels,
-            'shift_ids'  => $this->selectedShifts,
-            'title_ids'  => $this->selectedTitles,
-            'year_name'  => $this->year_name,
-            'start_date' => $this->start_date,
-            'end_date'   => $this->end_date,
+            'shift_ids'      => $this->selectedShifts,
+            'title_ids'      => $this->selectedTitles,
+            'year_name'      => $computedYearName, // Asignación fuerte desde el backend
+            'start_date'     => $this->start_date,
+            'end_date'       => $this->end_date,
         ];
     }
 }
