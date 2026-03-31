@@ -2,37 +2,69 @@
 <div x-show="$wire.step === 3" style="display:none;" class="space-y-8">
 
     {{-- ── Niveles Educativos ── --}}
-    <div class="space-y-3">
-        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Niveles Educativos <span class="text-state-error ml-0.5">*</span>
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            @foreach($this->levels as $level)
-                <label @class([
-                    'flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all',
-                    'border-orvian-orange bg-orvian-orange/5' => in_array($level->id, $selectedLevels),
-                    'border-slate-200 dark:border-white/6 hover:border-slate-300 dark:hover:border-white/15' => !in_array($level->id, $selectedLevels),
-                ])>
-                    <input type="checkbox" wire:model.live="selectedLevels" value="{{ $level->id }}"
-                           class="w-4 h-4 rounded border-slate-300 text-orvian-orange focus:ring-orvian-orange focus:ring-offset-0" />
-                    <span class="text-sm font-bold text-slate-700 dark:text-slate-200">{{ $level->name }}</span>
-                </label>
-            @endforeach
-        </div>
-        @error('selectedLevels') <p class="text-xs text-state-error mt-1">{{ $message }}</p> @enderror
+    <div class="space-y-6">
+        <div class="space-y-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Estructura Académica <span class="text-state-error ml-0.5">*</span>
+            </p>
 
-        @php $secundariaId = $this->levels->first(fn($l) => $l->slug === 'secundaria-segundo-ciclo')?->id; @endphp
+            @php
+                // Agrupamos los niveles por ciclos (Asumiendo que vienen ordenados del Seeder)
+                // Ciclo 1: 1ro, 2do, 3ro | Ciclo 2: 4to, 5to, 6to
+                $primerCiclo = $this->levels->filter(fn($l) => in_array($l->slug, ['primaria-primer-ciclo', 'secundaria-primer-ciclo']));
+                $segundoCiclo = $this->levels->filter(fn($l) => in_array($l->slug, ['primaria-segundo-ciclo', 'secundaria-segundo-ciclo']));
+                
+                $secundariaId = $this->levels->first(fn($l) => $l->slug === 'secundaria-segundo-ciclo')?->id;
+            @endphp
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {{-- BLOQUE: PRIMER CICLO --}}
+                <div class="space-y-3">
+                    <h4 class="text-[10px] font-black text-orvian-navy/40 dark:text-white/20 uppercase tracking-[0.15em] flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-orvian-orange/40"></span>
+                        Primer Ciclo (1ro – 3ro)
+                    </h4>
+                    
+                    <div class="space-y-2">
+                        @foreach($primerCiclo as $level)
+                            <x-wizard.level-card :level="$level" :selectedLevels="$selectedLevels" />
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- BLOQUE: SEGUNDO CICLO --}}
+                <div class="space-y-3">
+                    <h4 class="text-[10px] font-black text-orvian-navy/40 dark:text-white/20 uppercase tracking-[0.15em] flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-orvian-orange/40"></span>
+                        Segundo Ciclo (4to – 6to)
+                    </h4>
+                    
+                    <div class="space-y-2">
+                        @foreach($segundoCiclo as $level)
+                            <x-wizard.level-card :level="$level" :selectedLevels="$selectedLevels" />
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
+            @error('selectedLevels') <p class="text-xs text-state-error mt-1">{{ $message }}</p> @enderror
+        </div>
+
+        {{-- Aviso de Modalidad Técnica --}}
         <div x-show="$wire.needsTitles && !$wire.selectedLevels.map(String).includes('{{ $secundariaId }}')"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 -translate-y-2"
             style="display:none;"
-            class="flex items-start gap-3 p-4 rounded-xl bg-state-info/5 border border-state-info/20">
-            <svg class="w-4 h-4 text-state-info flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
+            class="flex items-start gap-4 p-4 rounded-2xl bg-state-info/5 border border-state-info/20">
+            <div class="w-8 h-8 rounded-full bg-state-info/10 flex items-center justify-center flex-shrink-0">
+                <x-heroicon-s-information-circle class="w-5 h-5 text-state-info" />
+            </div>
             <div>
-                <p class="text-xs font-bold text-state-info">Esta modalidad requiere el nivel Secundaria Segundo Ciclo</p>
-                <p class="text-[11px] text-state-info/70 mt-0.5 leading-relaxed">
-                    Los títulos técnicos se imparten en el Segundo Ciclo (4to–6to).
-                    Selecciona <strong class="text-state-info">Secundaria Segundo Ciclo</strong> o cambia la modalidad en el Paso 1.
+                <p class="text-sm font-bold text-state-info">Requisito de Modalidad Técnica</p>
+                <p class="text-xs text-state-info/80 mt-1 leading-relaxed">
+                    Para impartir Títulos Técnicos es obligatorio seleccionar el nivel 
+                    <span class="font-bold text-state-info underline decoration-2 underline-offset-2">Secundaria Segundo Ciclo</span>, 
+                    ya que estos cursos corresponden a 4to, 5to y 6to del Bachillerato Técnico.
                 </p>
             </div>
         </div>
@@ -71,7 +103,7 @@
             <p class="text-[10px] text-slate-500">
                 Aprox.
                 <strong class="text-slate-700 dark:text-slate-200"
-                        x-text="$wire.selectedLevels.length * 6 * $wire.selectedSectionLabels.length"></strong>
+                        x-text="$wire.selectedLevels.length * 3 * $wire.selectedSectionLabels.length"></strong>
                 secciones generales
                 <span x-show="$wire.needsTitles && $wire.selectedTitles.length > 0" style="display:none;">
                     + <strong class="text-orvian-orange"
@@ -180,28 +212,44 @@
     {{-- ── Año Escolar ── --}}
     <div class="space-y-3">
         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Período Académico</p>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        @php
+            $currentMonth = now()->month;
+            $currentYear = now()->year;
+            // Si es agosto o posterior, el año escolar empieza este año. Si no, empezó el año pasado.
+            $startYear = $currentMonth >= 8 ? $currentYear : $currentYear - 1;
+            $endYear = $startYear + 1;
+            
+            // Calculamos el nombre del año escolar para mostrarlo
+            $computedYearName = "{$startYear}-{$endYear}";
+            
+            // Establecemos los límites para los inputs de fecha (min y max)
+            $minDate = "{$startYear}-08-01"; // El año escolar suele empezar en agosto
+            $maxDate = "{$endYear}-07-31";   // Y suele terminar en julio del año siguiente
+        @endphp
 
-            {{-- Select de año escolar --}}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {{-- Input de Año Escolar Calculado (Disabled/Readonly) --}}
             <div class="flex flex-col group">
-                <x-ui.forms.select
+                <x-ui.forms.input
                     label="Año Escolar"
                     name="year_name"
-                    wire:model="year_name"
+                    value="{{ $computedYearName }}"
                     icon-left="heroicon-o-academic-cap"
-                    :error="$errors->first('year_name')"
                     placeholder=""
-                    required
-                >
-                    @php $currentYear = now()->year; @endphp
-                    @for($y = $currentYear; $y <= $currentYear + 5; $y++)
-                        <option value="{{ $y }}-{{ $y + 1 }}">{{ $y }}-{{ $y + 1 }}</option>
-                    @endfor
-                </x-ui.forms.select>
+                    readonly
+                    disabled
+                />
+                {{-- 
+                    Nota: Dado que el input está 'disabled', su valor NO se enviará en el payload de Livewire.
+                    Por lo tanto, en el componente BaseSchoolWizard.php debes asegurar que $this->year_name 
+                    se asigne o se calcule de esta misma forma antes de guardar.
+                --}}
+                <p class="text-[10px] text-slate-400 mt-1">Calculado automáticamente por el sistema.</p>
             </div>
 
-            {{-- Fecha inicio --}}
-            <div class="flex flex-col group">
+            {{-- Fecha de Inicio --}}
+            <div class="flex flex-col group relative">
                 <label class="text-[11px] font-bold uppercase tracking-wider mb-2
                               text-slate-400 dark:text-slate-500 group-focus-within:text-orvian-orange transition-colors">
                     Fecha de Inicio <span class="text-state-error ml-0.5">*</span>
@@ -212,16 +260,19 @@
                         <x-heroicon-o-calendar-days class="w-5 h-5" />
                     </span>
                     <input type="date" wire:model="start_date"
+                           min="{{ $minDate }}" max="{{ $maxDate }}"
                            class="w-full border-0 border-b border-slate-200 dark:border-dark-border bg-transparent
                                   rounded-none pl-7 pr-2 py-3 text-sm text-slate-800 dark:text-white
                                   focus:ring-0 focus:outline-none focus:border-orvian-orange transition-colors
                                   [color-scheme:light] dark:[color-scheme:dark]" />
                 </div>
-                @error('start_date') <p class="mt-1.5 text-xs text-state-error">{{ $message }}</p> @enderror
+                @error('start_date') 
+                    <p class="absolute -bottom-5 left-0 text-[10px] text-state-error truncate w-full">{{ $message }}</p> 
+                @enderror
             </div>
 
-            {{-- Fecha cierre --}}
-            <div class="flex flex-col group">
+            {{-- Fecha de Cierre --}}
+            <div class="flex flex-col group relative">
                 <label class="text-[11px] font-bold uppercase tracking-wider mb-2
                               text-slate-400 dark:text-slate-500 group-focus-within:text-orvian-orange transition-colors">
                     Fecha de Cierre <span class="text-state-error ml-0.5">*</span>
@@ -232,14 +283,16 @@
                         <x-heroicon-o-calendar-days class="w-5 h-5" />
                     </span>
                     <input type="date" wire:model="end_date"
+                           min="{{ $minDate }}" max="{{ $maxDate }}"
                            class="w-full border-0 border-b border-slate-200 dark:border-dark-border bg-transparent
                                   rounded-none pl-7 pr-2 py-3 text-sm text-slate-800 dark:text-white
                                   focus:ring-0 focus:outline-none focus:border-orvian-orange transition-colors
                                   [color-scheme:light] dark:[color-scheme:dark]" />
                 </div>
-                @error('end_date') <p class="mt-1.5 text-xs text-state-error">{{ $message }}</p> @enderror
+                @error('end_date') 
+                    <p class="absolute -bottom-5 left-0 text-[10px] text-state-error truncate w-full">{{ $message }}</p> 
+                @enderror
             </div>
-
         </div>
     </div>
 
