@@ -5,13 +5,21 @@
 
     <x-sidebar.title>Operativa</x-sidebar.title>
     <x-sidebar.group>
-        <x-sidebar.dropdown id="escuelas" icon="heroicon-s-academic-cap" label="Gestión Escolar" :activeRoutes="['admin.setup.*']">
+        @can('schools.view')
+        <x-sidebar.dropdown id="escuelas" icon="heroicon-s-academic-cap" label="Gestión Escolar" :activeRoutes="['admin.schools.*']">
+            <x-sidebar.subitem href="{{ route('admin.schools.index') }}" :active="request()->routeIs('admin.schools.index')">Listado de Escuelas</x-sidebar.subitem>
+            @can('schools.create')
             <x-sidebar.subitem href="{{ route('admin.setup') }}" :active="request()->routeIs('admin.setup')">Crear Escuela</x-sidebar.subitem>
-            <x-sidebar.subitem href="#">Módulos Activos</x-sidebar.subitem>
+            @endcan
         </x-sidebar.dropdown>
+        @endcan
         
         <x-sidebar.item href="{{ route('admin.users.index') }}" icon="heroicon-s-user-group" :active="request()->routeIs('admin.users.*')">
             Usuarios Globales
+        </x-sidebar.item>
+
+        <x-sidebar.item href="{{ route('admin.plans.index') }}" icon="heroicon-s-credit-card" :active="request()->routeIs('admin.plans.*')">
+            Planes de Pago
         </x-sidebar.item>
     </x-sidebar.group>
 

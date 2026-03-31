@@ -1,21 +1,17 @@
 <x-app-layout>
-<div class="w-full max-w-4xl">
+<div class="w-full max-w-4xl mx-auto px-4">
 
     {{-- Dot pattern --}}
     <div class="absolute inset-0 pointer-events-none overflow-hidden dot-pattern opacity-[0.08] text-slate-900 dark:text-white"></div>
 
-    {{-- ══════ ENCABEZADO ══════ --}}
     @php
         $hour = now()->hour;
-
-        // Saludo según hora
         $greeting = match(true) {
             $hour >= 5  && $hour < 12 => 'Buenos días',
             $hour >= 12 && $hour < 19 => 'Buenas tardes',
             default                   => 'Buenas noches',
         };
 
-        // Pregunta/subtítulo según hora
         $subtitle = match(true) {
             $hour >= 5  && $hour < 9  => '¿Listo para comenzar el día?',
             $hour >= 9  && $hour < 12 => '¿Qué vas a gestionar hoy?',
@@ -27,6 +23,9 @@
         };
 
         $firstName = explode(' ', auth()->user()->name ?? 'Usuario')[0];
+
+        // Obtenemos los slugs de las features activas en el plan del tenant
+        $activeModules = auth()->user()->school->plan->features->pluck('slug')->toArray() ?? [];
     @endphp
 
     <div class="relative z-10 mb-12">
@@ -44,82 +43,99 @@
     </div>
 
     {{-- ══════ MÓDULOS ══════ --}}
-         <div class="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-x-4 gap-y-6"">
+    <div class="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-x-4 gap-y-8">
 
-            <div class="tile-animate" style="animation-delay: 0.04s;">
-                <x-ui.app-tile
-                    module="administracion"
-                    title="Administración"
-                    subtitle="Sistema"
-                    url="{{ route('app.users.index') }}" />
-            </div>
-
-            <div class="tile-animate" style="animation-delay: 0.08s;">
-                <x-ui.app-tile
-                    module="asistencia"
-                    title="Asistencia"
-                    subtitle="Control"
-                    comingSoon="true"
-                     />
-            </div>
-
-            <div class="tile-animate" style="animation-delay: 0.08s;">
-                <x-ui.app-tile
-                    module="conversaciones"
-                    title="Conversaciones"
-                    subtitle="Chat"
-                    comingSoon="true" />
-            </div>
-
-            <div class="tile-animate" style="animation-delay: 0.12s;">
-                <x-ui.app-tile
-                    module="academico"
-                    title="Académico"
-                    subtitle="Gestión"
-                    comingSoon="true" />
-            </div>
-
-            <div class="tile-animate" style="animation-delay: 0.16s;">
-                <x-ui.app-tile
-                    module="notas"
-                    title="Notas"
-                    subtitle="Calificaciones"
-                    comingSoon="true" />
-            </div>
-
-            <div class="tile-animate" style="animation-delay: 0.20s;">
-                <x-ui.app-tile
-                    module="classroom"
-                    title="Classroom"
-                    subtitle="Virtual"
-                    comingSoon="true" />
-            </div>
-
-            <div class="tile-animate" style="animation-delay: 0.24s;">
-                <x-ui.app-tile
-                    module="horarios"
-                    title="Horarios"
-                    subtitle="Planificación"
-                    comingSoon="true" />
-            </div>
-
-            <div class="tile-animate" style="animation-delay: 0.28s;">
-                <x-ui.app-tile
-                    module="reportes"
-                    title="Reportes"
-                    subtitle="Analítica"
-                    comingSoon="true" />
-            </div>
-
-            <div class="tile-animate" style="animation-delay: 0.32s;">
-                <x-ui.app-tile
-                    module="web"
-                    title="Web"
-                    subtitle="Página"
-                    comingSoon="true" />
-            </div>
-
+        {{-- Administración - Global (Sin restricción de plan por ser core) --}}
+        <div class="tile-animate" style="animation-delay: 0.05s;">
+            <x-ui.app-tile
+                module="administracion"
+                title="Administración"
+                subtitle="Sistema"
+                url="{{ route('app.users.index') }}" 
+                :active="true" />
         </div>
+
+        {{-- Asistencia - Basado en attendance_qr --}}
+        <div class="tile-animate" style="animation-delay: 0.10s;">
+            <x-ui.app-tile
+                module="asistencia"
+                title="Asistencia"
+                subtitle="Control"
+                url="#"
+                :active="in_array('attendance_qr', $activeModules)" />
+        </div>
+
+        {{-- Conversaciones - Global / Chat --}}
+        <div class="tile-animate" style="animation-delay: 0.15s;">
+            <x-ui.app-tile
+                module="conversaciones"
+                title="Conversaciones"
+                subtitle="Chat"
+                :active="true"
+                comingSoon="true" />
+        </div>
+
+        {{-- Académico - Basado en academic_grades --}}
+        <div class="tile-animate" style="animation-delay: 0.20s;">
+            <x-ui.app-tile
+                module="academico"
+                title="Académico"
+                subtitle="Gestión"
+                :active="in_array('academic_grades', $activeModules)"
+                comingSoon="true" />
+        </div>
+
+        {{-- Notas - Dependiente de academic_grades (Mismo permiso) --}}
+        <div class="tile-animate" style="animation-delay: 0.25s;">
+            <x-ui.app-tile
+                module="notas"
+                title="Notas"
+                subtitle="Calificaciones"
+                :active="in_array('academic_grades', $activeModules)"
+                comingSoon="true" />
+        </div>
+
+        {{-- Classroom - Basado en classroom_internal --}}
+        <div class="tile-animate" style="animation-delay: 0.30s;">
+            <x-ui.app-tile
+                module="classroom"
+                title="Classroom"
+                subtitle="Virtual"
+                :active="in_array('classroom_internal', $activeModules)"
+                comingSoon="true" />
+        </div>
+
+        {{-- Horarios - Global --}}
+        <div class="tile-animate" style="animation-delay: 0.35s;">
+            <x-ui.app-tile
+                module="horarios"
+                title="Horarios"
+                subtitle="Planificación"
+                :active="true"
+                comingSoon="true" />
+        </div>
+
+        {{-- Reportes - Basado en reports_advanced --}}
+        <div class="tile-animate" style="animation-delay: 0.40s;">
+            <x-ui.app-tile
+                module="reportes"
+                title="Reportes"
+                subtitle="Analítica"
+                :active="in_array('reports_advanced', $activeModules)"
+                comingSoon="true" />
+        </div>
+
+        {{-- Web - Global --}}
+        <div class="tile-animate" style="animation-delay: 0.45s;">
+            <x-ui.app-tile
+                module="web"
+                title="Web"
+                subtitle="Página"
+                :active="true"
+                comingSoon="true" />
+        </div>
+
+    </div>
 
     {{-- ══════ ACCESOS RECIENTES ══════ --}}
     <div class="relative z-10 mt-14">

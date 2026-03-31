@@ -91,11 +91,21 @@ abstract class DataTable extends Component
             $chips[] = [
                 'key'   => $key,
                 'label' => $labels[$key] ?? $key,
-                'value' => is_bool($value) ? 'Sí' : $value,
+                // Cambiamos esta línea para usar el nuevo método:
+                'value' => $this->formatFilterValue($key, $value), 
             ];
         }
 
         return $chips;
+    }
+
+    /**
+     * Formatea el valor del filtro para mostrarlo en el Chip.
+     * Los componentes hijos pueden sobreescribir este método para traducir IDs a Nombres.
+     */
+    protected function formatFilterValue(string $key, mixed $value): string
+    {
+        return is_bool($value) ? 'Sí' : (string) $value;
     }
 
     public function clearFilter(string $key): void

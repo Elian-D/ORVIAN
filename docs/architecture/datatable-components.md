@@ -16,7 +16,8 @@ Los componentes se dividen en tres grupos funcionales:
 `search` · `per-page-selector` · `filter-container` · `column-selector`
 
 **Filtros internos** — viven dentro de `filter-container`:
-`filter-select` · `filter-toggle` · `filter-date-range` · `filter-range`
+`filter-select` · `filter-toggle` · `filter-date-range` · `filter-range`. Pueden agruparse con `filter-group` (nuevo).
+
 
 **Feedback reactivo** — responden al estado de los filtros:
 `filter-chips` · `cell`
@@ -128,6 +129,38 @@ Contenedor dropdown para agrupar los filtros del módulo. En mobile se convierte
 
 ---
 
+## x-data-table.filter-group 
+
+Componente de agrupación colapsable para organizar filtros relacionados. Ideal para módulos con alta densidad de filtros (ej. Geografía + Suscripción).
+
+### Props
+
+| Prop | Tipo | Default | Descripción |
+|---|---|---|---|
+| `title` | `string` | — | Título del grupo (se muestra en uppercase) |
+| `collapsed` | `bool` | `false` | Si el grupo arranca cerrado |
+| `activeCount` | `int` | `0` | Filtros activos *dentro* de este grupo (muestra contador lateral) |
+
+### Comportamiento
+
+- **Estado Persistente:** Usa Alpine `x-collapse` para una animación suave de apertura/cierre.
+- **Feedback Visual:** Si `activeCount > 0`, el encabezado resalta y muestra el número de filtros aplicados, incluso si el grupo está colapsado.
+- **Diseño Adaptativo:** Ajusta sus márgenes negativos (`-mx-1`) para alinearse perfectamente con los bordes del `filter-container`.
+
+### Ejemplo
+
+```html
+<x-data-table.filter-group 
+    title="Ubicación" 
+    :activeCount="(!empty($filters['regional']) ? 1 : 0) + (!empty($filters['district']) ? 1 : 0)"
+>
+    <x-data-table.filter-select label="Regional" filterKey="regional" :options="$regionals" />
+    <x-data-table.filter-select label="Distrito" filterKey="district" :options="$districts" />
+</x-data-table.filter-group>
+```
+
+---
+
 ## x-data-table.filter-select
 
 Select de filtro con label encima. Solo funciona dentro de `filter-container`.
@@ -171,35 +204,39 @@ Select de filtro con label encima. Solo funciona dentro de `filter-container`.
 
 ## x-data-table.filter-toggle
 
-Toggle booleano para filtros de tipo on/off.
+Toggle booleano para filtros de tipo on/off con sincronización en tiempo real.
 
 ### Props
 
 | Prop | Tipo | Default | Descripción |
 |---|---|---|---|
 | `label` | `string` | `''` | Texto descriptivo del toggle |
-| `filterKey` | `string` | `''` | Clave en `$filters` (debe ser `bool` o `false`) |
+| `filterKey` | `string` | `''` | Clave en `$filters` (debe ser booleano) |
 | `description` | `string\|null` | `null` | Subtexto bajo el label |
 
 ### Comportamiento
 
-- Estado gestionado 100% por Alpine — no hay `wire:model` directo
-- Alpine lee el valor inicial desde `$wire.filters.{filterKey}`
-- Al hacer click, Alpine niega el valor local y llama `$wire.set('filters.{filterKey}', value)`
-- Un `$watch` mantiene Alpine sincronizado si el filtro se limpia externamente
+- **Sincronización Total:** Utiliza `$wire.entangle().live` para que cualquier cambio en el switch dispare la actualización de la tabla inmediatamente sin necesidad de un botón de "Aplicar".
+- **Estado Dual:** Alpine.js gestiona la suavidad de la animación, mientras que Livewire gestiona la persistencia y el filtrado SQL.
+- **Auto-Update:** Si el filtro se limpia desde un "Badge" o un botón de "Limpiar todo", el toggle se apagará automáticamente gracias al entrelazado de datos.
 
 > [!IMPORTANT]
-> El campo en `$filters` del componente Livewire **debe** ser `bool`, no string. Decláralo como `'only_active' => false`, no como `'only_active' => ''`. De lo contrario `clearFilter()` no preserva el tipo correctamente.
+> Para que la reactividad sea óptima, inicializa la clave en el array de filtros del componente Livewire como `false` (booleano) y no como `''` (string).
+> 
+> ```php
+> public array $filters = [
+>     'suspended' => false, // Correcto
+> ];
+> ```
 
-### Ejemplo
+### Ejemplo de Uso
 
 ```html
 <x-data-table.filter-toggle
-    label="Solo activos"
-    filterKey="only_active"
-    description="Ocultar usuarios desactivados"
+    label="Solo Suspendidos"
+    filterKey="suspended"
+    description="Muestra centros con servicios pausados por pago"
 />
-```
 
 ---
 
