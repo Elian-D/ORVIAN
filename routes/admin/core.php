@@ -2,7 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/hub', fn () => view('admin.hub'))->name('hub');
+use App\Livewire\Admin\Dashboard\StatsOverview;
+
+// Cambiamos la función anónima por el componente de clase
+Route::get('/hub', StatsOverview::class)->name('hub');
 
 Route::get('/setup', \App\Livewire\Tenant\SchoolWizard::class)->name('setup');
 
