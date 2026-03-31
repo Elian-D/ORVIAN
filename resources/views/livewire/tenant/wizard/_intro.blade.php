@@ -65,7 +65,8 @@
                 @endif
             </div>
 
-            <div class="px-8 py-5 border-t border-slate-200 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.01]">
+            <div class="px-8 py-5 border-t border-slate-200 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.01] space-y-3">
+                {{-- Botón Principal --}}
                 <x-ui.button
                     variant="primary"
                     :fullWidth="true"
@@ -75,6 +76,21 @@
                 >
                     Comenzar Configuración
                 </x-ui.button>
+
+                {{-- Botón de Retorno: Solo para el Owner (Administrador Global sin escuela asignada) --}}
+                @if(auth()->user()->school_id === null)
+                    <div class="flex justify-center">
+                        <x-ui.button
+                            variant="info"
+                            :fullWidth="true"
+                            type="ghost"
+                            href="{{ route('admin.schools.index') }}"
+                            iconLeft="heroicon-s-arrow-left"
+                        >
+                            Volver al listado de escuelas
+                        </x-ui.button>
+                    </div>
+                @endif
             </div>
 
         </div>{{-- /intro --}}
