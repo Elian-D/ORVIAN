@@ -25,12 +25,12 @@
 return [
 
     'configuracion' => [
-        'module'      => 'Configuración',
+        'module'      => 'Administración',
         'moduleIcon'  => 'administracion',
         'moduleLinks' => [
+            ['label' => 'Centro',  'route' => 'app.school.settings'],  // fase futura
             ['label' => 'Usuarios',  'route' => 'app.users.index'],
             ['label' => 'Roles',     'route' => 'app.roles.index'],
-            // ['label' => 'Permisos',  'route' => 'app.permissions.index'],  // fase futura
         ],
     ],
 
