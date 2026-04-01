@@ -372,6 +372,7 @@ abstract class BaseSchoolWizard extends Component
             'regional_education_id'   => $this->regional_education_id,
             'educational_district_id' => $this->educational_district_id,
             'municipality_id'         => $this->municipality_id,
+            'province_id'             => $this->province_id,
             'phone'                   => $this->phone,
             'address_detail'          => implode(', ', array_filter([
                 $this->address,
