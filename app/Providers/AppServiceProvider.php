@@ -17,6 +17,10 @@ use Illuminate\Support\Facades\Gate;
 use Laravel\Pulse\Facades\Pulse;
 use App\Models\Tenant\Plan;
 use App\Observers\Tenant\PlanObserver;
+use App\Models\Tenant\Student;
+use App\Models\Tenant\Teacher;
+use App\Observers\Tenant\StudentObserver;
+use App\Observers\Tenant\TeacherObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +35,10 @@ class AppServiceProvider extends ServiceProvider
         School::observe(SchoolObserver::class);
         User::observe(UserObserver::class);
         Plan::observe(PlanObserver::class);
+        
+        // Observers para lógica específica de cada modelo
+        Student::observe(StudentObserver::class);
+        Teacher::observe(TeacherObserver::class);
 
                 // Vista por defecto para toda la aplicación
         Paginator::defaultView('pagination.orvian-compact');

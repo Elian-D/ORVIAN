@@ -14,8 +14,18 @@ return new class extends Migration
         Schema::create('school_shifts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('school_id')->constrained('schools')->cascadeOnDelete();
-            $table->string('type'); // Matutina, Vespertina, etc.
+            
+            // Ejemplo: Matutina, Vespertina, Nocturna, Jornada Extendida
+            $table->string('type'); 
+            
+            // Horarios de la tanda
+            $table->time('start_time')->comment('Hora de inicio de la tanda');
+            $table->time('end_time')->comment('Hora de finalización de la tanda');
+            
             $table->timestamps();
+
+            // Evitar tandas duplicadas del mismo tipo en la misma escuela
+            $table->unique(['school_id', 'type']);
         });
     }
 
