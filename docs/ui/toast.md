@@ -139,23 +139,23 @@ public function save(): void
 {
     // ... lógica de guardado
 
-    $this->dispatch('notify', [
-        'type'    => 'success',
-        'title'   => '¡Guardado!',
-        'message' => 'El registro fue actualizado correctamente.',
-    ]);
+    $this->dispatch('notify',
+        type: 'success',
+        title: '¡Guardado!',
+        message: 'El registro fue actualizado correctamente.',
+    );
 }
 
 public function delete(): void
 {
     // ... lógica de eliminación
 
-    $this->dispatch('notify', [
-        'type'    => 'warning',
-        'title'   => 'Registro eliminado',
-        'message' => 'Esta acción no puede deshacerse.',
-        'duration' => 8000,
-    ]);
+    $this->dispatch('notify',
+        type: 'warning',
+        title: 'Registro eliminado',
+        message: 'Esta acción no puede deshacerse.',
+        duration: 8000,
+    );
 }
 ```
 
