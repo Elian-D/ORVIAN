@@ -1,11 +1,12 @@
 @props(['href', 'icon', 'active' => false])
 
 <a href="{{ $href }}" 
-   class="group flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 relative
-          {{ $active 
+    {{ $attributes->merge([
+        'class' => 'group flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 relative ' . 
+        ($active 
             ? 'bg-orvian-orange/10 text-orvian-orange shadow-sm' 
-            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-orvian-blue dark:hover:text-white' 
-          }}">
+            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-orvian-blue dark:hover:text-white')
+    ]) }}>
     
     @if($active)
         <div class="absolute left-0 w-1 h-5 bg-orvian-orange rounded-r-full"></div>

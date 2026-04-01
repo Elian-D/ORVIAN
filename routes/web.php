@@ -9,11 +9,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
+
 
 /**
  * 🧙 Wizard para Usuarios de Escuela (Públicos)
@@ -23,39 +19,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/wizard', TenantSetupWizard::class)->name('wizard');
 });
 
-/**
- * 🛠 Entorno Administrativo (Owner / Soporte)
- * Usamos una función anónima o una Gate para verificar que NO tengan school_id.
- * Esto engloba a Owner, Support y cualquier rol administrativo futuro.
- */
-Route::middleware(['auth', 'verified', 'admin.global']) // Usamos el alias aquí
-    ->prefix('admin')
-    ->name('admin.')
-    ->group(function () {
-        
-        // Hub Global
-        Route::get('/hub', function () {
-            return view('admin.hub');
-        })->name('hub');
+// ── Rutas de Aviso de Estado (Fuera del middleware restrictivo para evitar bucles)
+Route::middleware(['auth'])->prefix('app/notice')->name('app.notice.')->group(function () {
+    Route::get('/suspended', function () {
+        return view('errors.school-status', ['type' => 'suspended']);
+    })->name('suspended');
 
-        // Wizard del Owner
-        Route::get('/setup', SchoolWizard::class)->name('setup');
+    Route::get('/inactive', function () {
+        return view('errors.school-status', ['type' => 'inactive']);
+    })->name('inactive');
 });
 
-
-/**
- * 🏫 Entorno de Aplicación (Tenants / Escuelas)
- * Protegido por onboarding.complete
- */
-Route::middleware(['auth', 'verified', 'onboarding.complete'])
+// ── Perfil compartido: usuarios de escuela ──────────────────────────
+// Se añade 'school.active' al middleware group
+Route::middleware(['auth', 'verified', 'onboarding.complete', 'school.active'])
     ->prefix('app')
     ->name('app.')
     ->group(function () {
-    
-    Route::get('/dashboard', function () {
-        return view('app.dashboard');
-    })->name('dashboard');
+        foreach (glob(base_path('routes/app/*.php')) as $file) {
+            require $file;
+        }
+    });
 
-});
+
+// ── Perfil desde admin: Owner / Soporte ────────────────────────────
+// Layout: components/admin.blade.php | Email: editable
+Route::middleware(['auth', 'verified', 'admin.global'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        foreach (glob(base_path('routes/admin/*.php')) as $file) {
+            require $file;
+        }
+    });
 
 require __DIR__.'/auth.php';
+

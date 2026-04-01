@@ -141,8 +141,9 @@
 
                     {{-- Resumen --}}
                     <div class="flex items-center gap-3 p-4 rounded-2xl bg-orvian-orange/5 border border-orvian-orange/15">
-                        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-orvian-orange to-amber-400 flex items-center justify-center text-white text-sm font-black flex-shrink-0"
-                             x-text="$wire.name.charAt(0).toUpperCase() || 'O'"></div>
+                        {{-- Pasamos el nombre del input de Livewire directamente --}}
+                        <x-ui.avatar :name="$name" size="sm" />
+                        
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-bold text-slate-800 dark:text-white truncate">{{ $name ?: 'Sin nombre' }}</p>
                             <p class="text-xs text-slate-500 truncate">{{ $email ?: 'Sin email' }}</p>

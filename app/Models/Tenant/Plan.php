@@ -17,7 +17,14 @@ class Plan extends Model
     protected $fillable = [
         'name', 'slug', 'limit_students', 'limit_users', 
         'price', 'const_name', 'bg_color', 'text_color',
+        'is_featured',
         'is_active'
+    ];
+
+    protected $casts = [
+        'is_featured' => 'boolean', // <--- IMPORTANTE
+        'is_active' => 'boolean',
+        'price' => 'decimal:2',
     ];
 
     /**

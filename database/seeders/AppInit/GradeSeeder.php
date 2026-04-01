@@ -12,8 +12,10 @@ class GradeSeeder extends Seeder
     public function run(): void
     {
         $structure = [
-            'primaria' => [
+            'primaria-primer-ciclo' => [
                 'Primer Ciclo'  => ['1ro', '2do', '3ro'],
+            ],
+            'primaria-segundo-ciclo' => [
                 'Segundo Ciclo' => ['4to', '5to', '6to'],
             ],
             'secundaria-primer-ciclo' => [

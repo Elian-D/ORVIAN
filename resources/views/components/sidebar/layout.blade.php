@@ -42,17 +42,7 @@
         <div class="flex items-center relative transition-all duration-300" 
             :class="(sidebarOpen || hasHover) ? 'gap-3' : 'justify-center'">
             
-            @php
-                $nameParts = explode(' ', Auth::user()->name);
-                $initials = strtoupper(substr($nameParts[0], 0, 1));
-                if (count($nameParts) > 1) {
-                    $initials .= strtoupper(substr($nameParts[1], 0, 1));
-                }
-            @endphp
-
-            <div class="w-10 h-10 rounded-full bg-orvian-orange flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg border-2 border-white/20 text-base transition-transform duration-300">
-                {{ $initials }}
-            </div>
+            <x-ui.avatar :user="Auth::user()" size="sm" showStatus />
             
             <div x-show="sidebarOpen || hasHover" 
                 x-transition:enter="transition ease-out duration-300"
@@ -72,28 +62,55 @@
             </button>
         </div>
 
+        {{-- ══════════════════════════════════════════════════════
+            DROPDOWN SIDEBAR  —  reemplaza el bloque completo
+            Ruta: resources/views/layouts/sidebar.blade.php
+            ══════════════════════════════════════════════════════ --}}
+
         <div x-show="userMenuOpen && (sidebarOpen || hasHover)"
             @click.away="userMenuOpen = false"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 translate-y-2"
             x-transition:enter-end="opacity-100 translate-y-0"
-            class="absolute bottom-full left-0 mb-3 w-full bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5 rounded-2xl shadow-2xl p-2 z-50">
-            
-            <div class="px-3 py-2 border-b border-gray-100 dark:border-white/5 mb-2">
-                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ Auth::user()->name }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ Auth::user()->email }}</p>
+            class="absolute bottom-full left-0 mb-3 w-full
+                    bg-white dark:bg-dark-card border border-gray-100 dark:border-white/5
+                    rounded-2xl shadow-2xl p-2 z-50">
+
+            {{-- Cabecera --}}
+            <div class="px-3 py-2 border-b border-gray-100 dark:border-white/5 mb-2 flex items-center gap-3">
+                <x-ui.avatar :user="Auth::user()" size="sm" showStatus />
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
+                        {{ Auth::user()->name }}
+                    </p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {{ Auth::user()->email }}
+                    </p>
+                </div>
             </div>
 
-            <a href="{{ route('profile.edit') }}" 
-            class="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-orvian-blue/5 dark:hover:bg-white/5 hover:text-orvian-blue dark:hover:text-white transition duration-200 group">
+            {{-- Estado (sub-dropdown vía Livewire) --}}
+            @livewire('shared.user-status')
+
+            <div class="my-1 border-t border-gray-100 dark:border-white/5"></div>
+
+            <a href="{{ route('admin.profile') }}"
+            class="flex w-full items-center gap-3 px-3 py-2 rounded-xl text-sm
+                    text-gray-600 dark:text-gray-300
+                    hover:bg-orvian-blue/5 dark:hover:bg-white/5
+                    hover:text-orvian-blue dark:hover:text-white
+                    transition duration-200 group">
                 <x-heroicon-s-user class="w-4 h-4 text-gray-400 group-hover:text-orvian-blue dark:group-hover:text-white" />
                 <span>Mi Perfil</span>
             </a>
 
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
-                <button type="submit" 
-                        class="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 transition duration-200 group">
+                <button type="submit"
+                        class="flex w-full items-center gap-3 px-3 py-2 rounded-xl text-sm
+                            text-gray-600 dark:text-gray-300
+                            hover:bg-red-50 dark:hover:bg-red-950/30
+                            hover:text-red-600 transition duration-200 group">
                     <x-heroicon-s-arrow-left-on-rectangle class="w-4 h-4 text-gray-400 group-hover:text-red-600" />
                     <span>Cerrar sesión</span>
                 </button>

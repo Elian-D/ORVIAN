@@ -9,7 +9,7 @@
     $ignoredSegments = ['admin', 'dashboard', 'app', 'hub']; 
     
     // Ruta base dinámica según el contexto
-    $homeRoute = $isAdminContext ? 'admin.hub' : 'dashboard';
+    $homeRoute = $isAdminContext ? 'admin.hub' : 'app.dashboard';
     $homeLabel = $isAdminContext ? 'Admin Hub' : 'Dashboard';
 @endphp
 

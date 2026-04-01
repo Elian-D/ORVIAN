@@ -7,10 +7,12 @@ use App\Models\Tenant\Academic\AcademicYear;
 use App\Models\Tenant\Academic\Level;
 use App\Models\Tenant\Academic\SchoolShift;
 use App\Models\Tenant\Academic\TechnicalTitle;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
 
 class School extends Model
 {
@@ -38,20 +40,27 @@ class School extends Model
     protected $fillable = [
         'sigerd_code', 
         'name', 
+        'logo_path',
         'regimen_gestion',
         'modalidad',  
         'phone',
         'address_detail',
+        'latitude',
+        'longitude',
         'regional_education_id',
         'educational_district_id',
         'municipality_id', 
+        'province_id',
         'plan_id', 
         'is_active', 
+        'is_suspended',
         'is_configured',
         'stub_expires_at'
     ];
 
     protected $casts = [
+    'is_active'       => 'boolean', 
+    'is_suspended'    => 'boolean', 
     'is_configured'   => 'boolean',
     'stub_expires_at' => 'datetime',
 ];
@@ -153,6 +162,47 @@ class School extends Model
         return $this->plan && $this->plan->hasFeature($featureSlug);
     }
 
+    /**
+     * Determina si el centro puede operar normalmente.
+     * Debe estar activo y NO estar suspendido.
+     */
+    public function isOperational(): bool
+    {
+        return $this->is_active && !$this->is_suspended;
+    }
+
+    /**
+     * Retorna el estado semántico para la UI.
+     */
+    public function getStatusLabel(): string
+    {
+        if (!$this->is_active) return 'Inactivo';
+        if ($this->is_suspended) return 'Suspendido';
+        return 'Activo';
+    }
+    
+    /**
+     * Retorna el color para los badges de la UI.
+     */
+    public function getStatusVariant(): string
+    {
+        if (!$this->is_active) return 'slate';
+        if ($this->is_suspended) return 'error'; // Rojo o Ámbar según tu paleta
+        return 'success';
+    }
+
+    /**
+     * Retorna el año académico activo de la escuela.
+     * Si no hay uno marcado como activo, retorna el más reciente.
+     */
+    public function activeYear()
+    {
+        return $this->academicYears()
+            ->where('is_active', true)
+            ->first() 
+            ?? $this->academicYears()->latest('start_date')->first();
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Relations
@@ -192,27 +242,56 @@ class School extends Model
         return $this->belongsTo(District::class);
     }
     /**
- * Relación con los niveles educativos de la escuela (Many-to-Many).
- * Asegúrate de tener la tabla pivote 'school_levels'.
- */
-public function levels(): BelongsToMany
-{
-    return $this->belongsToMany(Level::class, 'school_levels');
-}
+     * Relación con los niveles educativos de la escuela (Many-to-Many).
+     * Asegúrate de tener la tabla pivote 'school_levels'.
+     */
+    public function levels(): BelongsToMany
+    {
+        return $this->belongsToMany(Level::class, 'school_levels');
+    }
 
-/**
- * Relación con las tandas/jornadas de la escuela.
- */
-public function shifts(): \Illuminate\Database\Eloquent\Relations\HasMany
-{
-    return $this->hasMany(SchoolShift::class);
-}
+    /**
+     * Relación con las tandas/jornadas de la escuela.
+     */
+    public function shifts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SchoolShift::class);
+    }
 
-/**
- * Relación con los años académicos.
- */
-public function academicYears(): \Illuminate\Database\Eloquent\Relations\HasMany
-{
-    return $this->hasMany(AcademicYear::class);
-}
+    /**
+     * Relación con los años académicos.
+     */
+    public function academicYears(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(AcademicYear::class);
+    }
+
+    public function users(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        // Usamos el string del namespace para evitar problemas de importación circular
+        return $this->hasMany(\App\Models\User::class);
+    }
+    
+    public function principal() 
+    {
+        return $this->hasOne(\App\Models\User::class, 'school_id')
+            ->whereExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('model_has_roles')
+                    ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                    ->whereColumn('model_has_roles.model_id', 'users.id')
+                    ->where('roles.name', 'School Principal')
+                    // Forzamos a que coincida el school_id de la tabla de permisos 
+                    // con el school_id del usuario
+                    ->whereColumn('model_has_roles.school_id', 'users.school_id'); 
+            });
+    }
+
+    /**
+     * Relación con la Provincia (Geografía Política)
+     */
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Geo\Province::class);
+    }
 }

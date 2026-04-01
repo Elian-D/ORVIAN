@@ -2,13 +2,18 @@
 
 namespace App\Actions\Tenant;
 
+use App\Events\Tenant\SchoolConfigured;
 use App\Models\Tenant\School;
 use App\Models\User;
-use App\Events\Tenant\SchoolConfigured;
+use App\Services\School\SchoolRoleService;
 use Illuminate\Support\Facades\DB;
 
 class CompleteTenantOnboardingAction
 {
+    public function __construct(
+        protected SchoolRoleService $roleService,
+    ) {}
+
     /**
      * Finaliza la configuración para una escuela que ya existe (Stub).
      */
@@ -26,19 +31,20 @@ class CompleteTenantOnboardingAction
                 'regional_education_id'   => $wizardData['school']['regional_education_id'],
                 'educational_district_id' => $wizardData['school']['educational_district_id'],
                 'municipality_id'         => $wizardData['school']['municipality_id'],
+                'province_id'             => $wizardData['school']['province_id'],
                 'phone'                   => $wizardData['school']['phone'],
                 'address_detail'          => $wizardData['school']['address_detail'],
                 'plan_id'                 => $wizardData['plan_id'],
                 'is_active'               => true,
                 'is_configured'           => true,
-                'stub_expires_at'         => null, // Limpiamos el TTL de expiración
+                'stub_expires_at'         => null,
             ]);
 
             // 2. Sincronizar Niveles
             $school->levels()->sync($wizardData['academic']['level_ids']);
 
-            // 3. Gestionar Tandas (Shifts)
-            $school->shifts()->delete(); 
+            // 3. Gestionar Tandas
+            $school->shifts()->delete();
             foreach ($wizardData['academic']['shift_ids'] as $type) {
                 $school->shifts()->create(['type' => $type]);
             }
@@ -48,14 +54,25 @@ class CompleteTenantOnboardingAction
                 $school->technicalTitles()->sync($wizardData['academic']['title_ids']);
             }
 
-            // 5. Asignar Rol de Director al usuario actual
-            // Importante: Usamos el scope de Spatie para el school_id
-            setPermissionsTeamId($school->id);
-            if (!$principalUser->hasRole('School Principal')) {
-                $principalUser->assignRole('School Principal');
-            }
+            // 5. Crear roles base del tenant ANTES de asignarlos al usuario.
+            //    El service maneja setPermissionsTeamId internamente y lo resetea a null al terminar.
+            $this->roleService->seedDefaultRoles($school);
 
-            // 6. Disparar Evento para que los Listeners creen la estructura académica
+            // 6. Asignar rol de Director al usuario actual.
+            setPermissionsTeamId($school->id);
+            
+            // EL FIX: Buscamos la instancia en lugar de usar el string
+            $tenantRole = \App\Models\Role::where('name', 'School Principal')
+                ->where('school_id', $school->id)
+                ->firstOrFail();
+
+            if (! $principalUser->hasRole($tenantRole)) {
+                $principalUser->assignRole($tenantRole);
+            }
+            
+            setPermissionsTeamId(null); // Resetear scope antes de disparar el evento
+
+            // 7. Disparar Evento
             event(new SchoolConfigured($school, $wizardData['academic']));
 
             return $school;
