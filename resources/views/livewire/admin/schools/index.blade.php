@@ -120,15 +120,7 @@
                 <x-data-table.cell column="name" :visible="$visibleColumns">
                     <div class="flex items-center gap-3">
                         {{-- Componente de logo institucional (o fallback de iniciales) --}}
-                        <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center overflow-hidden">
-                            @if($school->logo_path)
-                                <img src="{{ Storage::url($school->logo_path) }}" class="w-full h-full object-cover">
-                            @else
-                                <span class="text-xs font-bold text-slate-400 uppercase">
-                                    {{ substr($school->name, 0, 2) }}
-                                </span>
-                            @endif
-                        </div>
+                        <x-ui.school-logo :school="$school" size="sm" />
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-slate-800 dark:text-white truncate">
                                 {{ $school->name }}
