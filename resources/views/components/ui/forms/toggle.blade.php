@@ -1,13 +1,22 @@
-{{--
-    x-ui.forms.toggle
-    -----------------
-    Props: label, name, id, checked, description, disabled
-    Interactividad: Alpine.js. Compatible con wire:model pasando el atributo al <input type="checkbox">.
-    Para Livewire: <x-ui.forms.toggle name="advanced" wire:model="advanced" />
---}}
+{{-- resources/views/components/ui/forms/toggle.blade.php --}}
+@php
+    $wireModel = $attributes->wire('model');
+@endphp
 
 <div
-    x-data="{ on: {{ $checked ? 'true' : 'false' }} }"
+    x-data="{ 
+        {{-- Si hay wire:model, lo entrelazamos. Si no, usamos el prop checked --}}
+        on: @if($wireModel->value()) 
+                @entangle($wireModel) 
+            @else 
+                {{ $checked ? 'true' : 'false' }} 
+            @endif,
+        
+        toggle() {
+            if ({{ $disabled ? 'true' : 'false' }}) return;
+            this.on = !this.on;
+        }
+    }"
     class="flex items-center justify-between gap-4 {{ $disabled ? 'opacity-50' : '' }}"
 >
     {{-- Label y descripción --}}
@@ -26,17 +35,18 @@
 
     {{-- Toggle visual --}}
     <div class="relative flex-shrink-0">
-        {{--
-            Input oculto que mantiene el valor real.
-            Se le pasan wire:model / x-model via $attributes para integración con Livewire.
+        {{-- 
+            Eliminamos el x-model de aquí para evitar conflictos, 
+            ya que 'on' ya está entrelazado con wire:model arriba 
         --}}
         <input
             type="checkbox"
             name="{{ $name }}"
             id="{{ $id }}"
-            x-model="on"
+            :checked="on"
+            class="sr-only"
             @disabled($disabled)
-            {{ $attributes->merge(['class' => 'sr-only']) }}
+            {{ $attributes->whereDoesntStartWith('wire:model') }}
         />
 
         {{-- Pista del toggle --}}
@@ -44,7 +54,7 @@
             type="button"
             role="switch"
             :aria-checked="on"
-            @click="!{{ $disabled ? 'false' : 'true' }} && (on = !on)"
+            @click="toggle()"
             :class="on
                 ? 'bg-orvian-orange shadow-orvian-orange/30 shadow-md'
                 : 'bg-slate-200 dark:bg-dark-border'"

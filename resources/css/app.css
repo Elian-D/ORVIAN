@@ -14,11 +14,11 @@
 
 .custom-scroll::-webkit-scrollbar-thumb {
     background: #4545454c;
-    border-radius: 10px;
+    border-radius: 12px;
 }
 
 .dark .custom-scroll::-webkit-scrollbar-thumb {
-    background: #4545454c;
+    background: #5c5c5c4c;
 }
 
 /* resources/css/app.css */

@@ -9,7 +9,14 @@ use App\Events\Tenant\SchoolConfigured;
 use App\Listeners\Tenant\SetupAcademicStructure;
 use App\Listeners\Tenant\CreateInitialAcademicYear;
 use App\Listeners\Tenant\AssignInitialRoles;
+use App\Models\User;
+use App\Observers\UserObserver;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Gate;
+use Laravel\Pulse\Facades\Pulse;
+use App\Models\Tenant\Plan;
+use App\Observers\Tenant\PlanObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +29,25 @@ class AppServiceProvider extends ServiceProvider
     {
         // Observer para lógica de creación de DB/Tenant si aplica
         School::observe(SchoolObserver::class);
+        User::observe(UserObserver::class);
+        Plan::observe(PlanObserver::class);
+
+                // Vista por defecto para toda la aplicación
+        Paginator::defaultView('pagination.orvian-compact');
+    
+        // Vista simple (onlyTrashed, cursor pagination, etc.)
+        Paginator::defaultSimpleView('pagination.orvian-compact');
+
+        Pulse::user(fn (User $user) => [
+        'name' => $user->name,
+        'extra' => $user->email,
+        'avatar' => $user->avatar_path, // Para que Pulse use tus avatares
+        ]);
+
+        // Solo tú puedes ver Pulse
+        Gate::define('viewPulse', function (User $user) {
+            return $user->hasRole('Owner'); 
+        });
 
 /*         // Registro de los listeners del Onboarding
         Event::listen(

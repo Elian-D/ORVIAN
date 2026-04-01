@@ -2,11 +2,10 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-
 use App\Models\Tenant\School;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
@@ -15,42 +14,56 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, Notifiable, HasRoles, SoftDeletes;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'email',
         'password',
         'school_id',
+        'avatar_path',
+        'avatar_color',
+        'phone',
+        'position',
+        'status',
+        'last_login_at',
+        'preferences',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_login_at' => 'datetime',
+            'preferences' => 'array', // Cast automático de JSON a Array de PHP
         ];
+    }
+
+    /**
+     * Eager loading centralizado para vistas de tabla/listado.
+     * Elimina el N+1 de Spatie: sin esto, cada fila ejecuta una query
+     * a `roles` + `model_has_roles`. Con esto: 1 query adicional total.
+     *
+     * Uso: User::whereNull('school_id')->withIndexRelations()->paginate(15)
+     */
+    public function scopeWithIndexRelations($query)
+    {
+        return $query->with('roles');
+    }
+
+    /**
+     * Helper para obtener preferencias con dot notation.
+     * Ejemplo: $user->preference('theme', 'light')
+     */
+    public function preference(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->preferences, $key, $default);
     }
 
     /**
@@ -58,17 +71,14 @@ class User extends Authenticatable
      */
     public function redirectPath(): string
     {
-        // 1. Si es Owner (Global), va al Admin Hub
         if ($this->hasRole('Owner')) {
             return route('admin.hub');
         }
 
-        // 2. Si pertenece a una escuela pero no está configurada, va al Wizard
         if ($this->school_id && !$this->school->is_configured) {
             return route('wizard');
         }
 
-        // 3. Fallback: Dashboard normal (Hub de módulos)
         return route('app.dashboard');
     }
 
@@ -85,10 +95,13 @@ class User extends Authenticatable
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
                 'school_id' => $schoolId,
+                // Al crear, el Observer asignará el avatar_color
+                'preferences' => [
+                    'theme' => 'system',
+                    'sidebar_collapsed' => false,
+                ],
             ]);
 
-            // Al crear el usuario con el school_id seteado, 
-            // Spatie sabrá que este rol pertenece a esa "escuela/team"
             setPermissionsTeamId($schoolId);
             $user->assignRole($data['role'] ?? 'Staff');
 

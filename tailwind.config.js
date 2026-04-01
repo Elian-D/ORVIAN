@@ -27,7 +27,7 @@ export default {
                     'blue': '#13294c',
                     'blue-light': '#0a3d8f',
                     'blue-dark': '#021a41',
-                    'navy': '#002855',
+                    'navy': '#064083',
                     
                     // Naranja Secundario (Action Orange)
                     'orange': '#f78904',
@@ -41,10 +41,16 @@ export default {
                 },
                 // Definimos una paleta de grises neutros para el Modo Oscuro
                 dark: {
-                    'bg': '#0f172a',    // Fondo principal dark
-                    'card': '#1e293b',  // Fondo de tarjetas dark
-                    'border': '#334155' // Bordes dark
+                    'bg': '#0a0a0b',     // Un gris neutro ultra-profundo. Casi negro.
+                    'card': '#111113',   // Un tono apenas más claro. La separación es sutil pero elegante.
+                    'border': '#1e1e21'  // Un gris oscuro para los bordes del "Line UI".
                 }
+                // OPCION DOS SI QUIERO UN CAMBIO
+                // dark: {
+                //     'bg': '#000000',     // Negro puro.
+                //     'card': '#09090b',   // Un gris zinc muy oscuro.
+                //     'border': '#1e1e21'  // Un gris neutro oscuro.
+                // }
             },
             borderRadius: {
                 'orvian': '12px', // <--- Clave para el diseño redondeado

@@ -1,4 +1,4 @@
-<footer {{ $attributes->merge(['class' => 'w-full mt-12 transition-colors duration-300']) }}>
+<footer {{ $attributes->merge(['class' => 'w-full transition-colors duration-300']) }}>
     {{-- Línea divisoria de lado a lado --}}
     <div class="w-full border-t border-slate-200 dark:border-white/5"></div>
 

@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'system.installed' => \App\Http\Middleware\EnsureSystemIsInstalled::class,
             'onboarding.complete' => \App\Http\Middleware\EnsureOnboardingIsComplete::class,
             'admin.global' => \App\Http\Middleware\EnsureGlobalAdminAccess::class,
+            'school.active' => \App\Http\Middleware\EnsureSchoolIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

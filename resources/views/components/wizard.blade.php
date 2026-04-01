@@ -1,15 +1,16 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
-      x-data="{ darkMode: localStorage.getItem('darkMode') !== 'false' }"
-      x-init="$watch('darkMode', val => localStorage.setItem('darkMode', val))"
-      :class="{ 'dark': darkMode }">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Configuración' }} | ORVIAN</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <link rel="icon" href="{{ asset('img/logos/logo-icon-light.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
 
+    {{-- ⬇ Primero el tema — síncrono, antes de cualquier CSS --}}
+    <x-ui.theme-init />
+
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <link rel="icon" href="{{ asset('img/logos/logo-icon-light.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
     <link rel="icon" href="{{ asset('img/logos/logo-icon-dark.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
 </head>
 <body class="font-sans antialiased min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-x-hidden">
@@ -27,12 +28,7 @@
             <x-application-logo mode="dynamic" class="h-12 w-auto" />
             
             <div class="flex items-center gap-4">
-                <button @click="darkMode = !darkMode" class="p-2 rounded-lg bg-white/10 border border-white/10 hover:bg-white/20 transition-all">
-                    <x-heroicon-o-sun x-show="darkMode" class="w-5 h-5 text-amber-400" />
-                    <x-heroicon-o-moon x-show="!darkMode" class="w-5 h-5 text-slate-600" />
-                </button>
-                <div class="h-8 w-px bg-slate-200 dark:bg-white/10"></div>
-                <span class="text-sm font-medium text-slate-500 uppercase tracking-widest">Setup v0.1.4</span>
+                <span class="text-sm font-medium text-slate-500 uppercase tracking-widest">Setup v0.2.0</span>
             </div>
         </header>
 
