@@ -5,9 +5,8 @@
             
             {{-- Contenedor del Logo --}}
             <div class="relative flex-shrink-0">
-                <div class="w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-orvian-blue/20 flex items-center justify-center bg-gray-50 dark:bg-dark-card overflow-hidden shadow-xl dark:shadow-2xl">
-                    <x-heroicon-o-academic-cap class="w-14 h-14 text-orvian-blue" />
-                </div>
+                {{-- Pasamos 'newLogo' que es la propiedad pública que creamos en el componente Livewire --}}
+                <x-ui.school-logo :school="$school" size="xl" uploadModel="newLogo" />
             </div>
 
             {{-- Bloque de Texto e Información --}}
@@ -58,7 +57,7 @@
                     <div class="flex items-center justify-center md:justify-start gap-2 text-gray-500 dark:text-gray-400">
                         <x-heroicon-s-map-pin class="w-5 h-5 text-orvian-orange" />
                         <p class="text-sm md:text-base font-medium">
-                            {{ $school->municipality?->name }}, RD — <span class="text-gray-400 dark:text-gray-500 uppercase text-xs font-bold tracking-widest">Distrito {{ $school->educationalDistrict?->id }}</span>
+                            {{ $school->province?->name }}, {{ $school->municipality?->name }}, RD — <span class="text-gray-400 dark:text-gray-500 uppercase text-xs font-bold tracking-widest">Distrito {{ $school->educationalDistrict?->id }}</span>
                         </p>
                     </div>
                 </div>

@@ -28,6 +28,7 @@ class CompleteOnboardingAction
                 'regional_education_id'   => $wizardData['school']['regional_education_id'],
                 'educational_district_id' => $wizardData['school']['educational_district_id'],
                 'municipality_id'         => $wizardData['school']['municipality_id'],
+                'province_id'             => $wizardData['school']['province_id'],
                 'phone'                   => $wizardData['school']['phone'],
                 'address_detail'          => $wizardData['school']['address_detail'],
                 'plan_id'                 => $wizardData['plan_id'], // Este sí está en la raíz

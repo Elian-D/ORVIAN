@@ -12,10 +12,15 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use App\Models\Tenant\Academic\Grade;
 use App\Models\Tenant\Academic\AcademicYear;
+use Illuminate\Support\Facades\Storage;
+use Livewire\WithFileUploads;
 
 class SchoolShow extends Component
 {
+    use WithFileUploads;
+
     public School $school;
+    public $newLogo;
 
     public string $activeTab = 'general';
 
@@ -26,6 +31,7 @@ class SchoolShow extends Component
             'regional', 
             'educationalDistrict', 
             'municipality',
+            'province',
             'principal'
         ]);
     }
@@ -48,6 +54,29 @@ class SchoolShow extends Component
 
         $status = $this->school->is_suspended ? 'suspendido por pagos' : 'restaurado (pagos al día)';
         $this->dispatch('notify', type: $this->school->is_suspended ? 'warning' : 'success', message: "El servicio para \"{$this->school->name}\" ha sido {$status}.");
+    }
+
+    public function updatedNewLogo()
+    {
+        $this->validate([
+            'newLogo' => 'image|max:2048', // 2MB Max
+        ]);
+
+        // 1. Borrar logo anterior si existe
+        if ($this->school->logo_path) {
+            Storage::disk('public')->delete($this->school->logo_path);
+        }
+
+        // 2. Guardar el nuevo (Carpeta por ID de escuela)
+        $path = $this->newLogo->store("schools/{$this->school->id}/branding", 'public');
+
+        // 3. Actualizar modelo
+        $this->school->update(['logo_path' => $path]);
+
+        $this->dispatch('notify', 
+            type: 'success', 
+            message: "El logo institucional de \"{$this->school->name}\" ha sido actualizado."
+        );
     }
 
     public function toggleActiveStatus(): void

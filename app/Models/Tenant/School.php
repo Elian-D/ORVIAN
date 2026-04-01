@@ -40,6 +40,7 @@ class School extends Model
     protected $fillable = [
         'sigerd_code', 
         'name', 
+        'logo_path',
         'regimen_gestion',
         'modalidad',  
         'phone',
@@ -49,6 +50,7 @@ class School extends Model
         'regional_education_id',
         'educational_district_id',
         'municipality_id', 
+        'province_id',
         'plan_id', 
         'is_active', 
         'is_suspended',
@@ -189,6 +191,18 @@ class School extends Model
         return 'success';
     }
 
+    /**
+     * Retorna el año académico activo de la escuela.
+     * Si no hay uno marcado como activo, retorna el más reciente.
+     */
+    public function activeYear()
+    {
+        return $this->academicYears()
+            ->where('is_active', true)
+            ->first() 
+            ?? $this->academicYears()->latest('start_date')->first();
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Relations
@@ -271,5 +285,13 @@ class School extends Model
                     // con el school_id del usuario
                     ->whereColumn('model_has_roles.school_id', 'users.school_id'); 
             });
+    }
+
+    /**
+     * Relación con la Provincia (Geografía Política)
+     */
+    public function province(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Geo\Province::class);
     }
 }

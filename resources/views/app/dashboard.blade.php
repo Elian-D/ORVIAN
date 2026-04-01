@@ -51,7 +51,7 @@
                 module="administracion"
                 title="Administración"
                 subtitle="Sistema"
-                url="{{ route('app.users.index') }}" 
+                url="{{ route('app.school.settings') }}" 
                 :active="true" />
         </div>
 
