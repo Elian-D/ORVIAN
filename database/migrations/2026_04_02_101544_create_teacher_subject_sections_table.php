@@ -21,15 +21,18 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            // REGLA DE ORO: Evita que el mismo maestro tenga la misma materia 
-            // en la misma sección durante el mismo año escolar.
+            // REGLA DE ORO: Evita duplicados de asignación
             $table->unique(
                 ['teacher_id', 'subject_id', 'school_section_id', 'academic_year_id'], 
                 'unique_teacher_assignment'
             );
 
-            // Índice para velocidad de carga de horarios y listados por sección/año
-            $table->index(['school_section_id', 'academic_year_id']);
+            // CORRECCIÓN: Se agrega un nombre corto al índice ('tss_section_year_idx')
+            // para evitar el error de los 64 caracteres de MySQL.
+            $table->index(
+                ['school_section_id', 'academic_year_id'], 
+                'tss_section_year_index' 
+            );
         });
     }
 
