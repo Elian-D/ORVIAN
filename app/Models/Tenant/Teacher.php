@@ -2,6 +2,8 @@
 
 namespace App\Models\Tenant;
 
+use App\Models\Tenant\Academic\Subject;
+use App\Models\Tenant\Academic\TeacherSubjectSection;
 use App\Models\User;
 use App\Traits\BelongsToSchool;
 use Illuminate\Database\Eloquent\Casts\Attribute;

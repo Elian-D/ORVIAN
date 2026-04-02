@@ -6,22 +6,18 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('school_technical_titles', function (Blueprint $table) {
-            $table->id();
+            // Eliminamos $table->id() y $table->timestamps()
             $table->foreignId('school_id')->constrained()->cascadeOnDelete();
             $table->foreignId('technical_title_id')->constrained()->cascadeOnDelete();
-            $table->timestamps();
+            
+            // Agregamos la llave primaria compuesta para evitar duplicados
+            $table->primary(['school_id', 'technical_title_id']);
         });
     }
-    
-    /**
-     * Reverse the migrations.
-     */
+
     public function down(): void
     {
         Schema::dropIfExists('school_technical_titles');
