@@ -29,4 +29,16 @@ class SchoolShift extends Model
         'start_time' => 'datetime:H:i',
         'end_time'   => 'datetime:H:i',
     ];
+
+    // Relación inversa
+    public function sections()
+    {
+        return $this->hasMany(SchoolSection::class);
+    }
+
+    // Scope útil
+    public function scopeWithSectionCount($query)
+    {
+        return $query->withCount('sections');
+    }
 }

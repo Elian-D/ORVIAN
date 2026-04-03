@@ -40,10 +40,21 @@
                         </x-ui.badge>
                     </div>
 
-                    {{-- Código SIGERD --}}
-                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-card border border-gray-200 dark:border-gray-800 shadow-inner">
-                        <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">SIGERD:</span>
-                        <span class="text-xs font-mono text-gray-900 dark:text-white font-bold">{{ $school->sigerd_code ?? $school->id }}</span>
+                    {{-- Tandas --}}
+                    <div class="flex items-center gap-2 bg-gray-100 dark:bg-dark-card pl-2 pr-1 py-1 rounded-lg border border-gray-200 dark:border-gray-800">
+                        <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Tandas:</span>
+                        <div class="flex -space-x-1">
+                            @foreach($school->shifts as $shift)
+                                <x-ui.badge 
+                                    variant="info" 
+                                    size="sm"
+                                    class="font-bold border-2 border-white dark:border-dark-card"
+                                    title="{{ $shift->start_time->format('h:i A') }} - {{ $shift->end_time->format('h:i A') }}"
+                                >
+                                    {{ substr($shift->type, 0, 1) }}
+                                </x-ui.badge>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
 

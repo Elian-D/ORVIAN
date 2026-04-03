@@ -196,69 +196,112 @@ class SchoolShow extends Component
             ->first();
     }
 
-    // ── Estructura Académica (Cursos y Grados) ───────────────────
-
+      /**
+       * Estructura académica agrupada por Tanda > Nivel > Ciclo > Familia > Grado
+       */
     #[Computed]
     public function academicStructure(): array
     {
-        $levelIds = DB::table('school_levels')
-            ->where('school_id', $this->school->id)
-            ->pluck('level_id');
-
-        $grades = Grade::whereIn('level_id', $levelIds)
-            ->orderBy('level_id')
-            ->orderBy('order')
-            ->get();
-
+        // 1. Obtener todas las secciones con relaciones completas
         $sections = SchoolSection::withoutGlobalScope(SchoolScope::class)
-            ->with(['technicalTitle.family', 'grade'])
+            ->with([
+                'shift:id,type,start_time,end_time',
+                'grade:id,name,level_id,cycle,allows_technical',
+                'grade.level:id,name',
+                'technicalTitle:id,name,code,technical_family_id',
+                'technicalTitle.family:id,name',
+            ])
             ->where('school_id', $this->school->id)
             ->get();
+
+        if ($sections->isEmpty()) {
+            return [];
+        }
 
         $structure = [];
 
-        foreach ($grades as $grade) {
-            $nivel = str_contains(strtolower($grade->name), 'primaria') ? 'Primario' : 'Secundario';
-            $ciclo = $grade->cycle;
+        // 2. Agrupar primero por Tanda
+        $sectionsByShift = $sections->groupBy('school_shift_id');
 
-            if (!isset($structure[$nivel])) $structure[$nivel] = [];
-            if (!isset($structure[$nivel][$ciclo])) $structure[$nivel][$ciclo] = [];
+        foreach ($sectionsByShift as $shiftId => $shiftSections) {
+            $shift = $shiftSections->first()->shift;
+            $shiftType = $shift->type;
 
-            $gradeSections = $sections->where('grade_id', $grade->id);
+            $structure[$shiftType] = [
+                'shift' => $shift,
+                'sections_count' => $shiftSections->count(),
+                'levels' => [],
+            ];
 
-            if ($nivel === 'Secundario' && $ciclo === 'Segundo Ciclo') {
-                // Agrupamos por Familia Técnica para el Segundo Ciclo de Secundaria
-                $sectionsByFamily = $gradeSections->groupBy(function($section) {
-                    return $section->technicalTitle->technical_family_id ?? 'COMUN';
-                });
+            // 3. Dentro de cada tanda, agrupar por Nivel (Primario/Secundario)
+            foreach ($shiftSections as $section) {
+                $grade = $section->grade;
+                $level = $grade->level;
+                $nivel = $level->name; // "Nivel Inicial", "Nivel Primario", etc.
+                $ciclo = $grade->cycle;
 
-                foreach ($sectionsByFamily as $familyId => $items) {
-                    $familyName = $items->first()->technicalTitle->family->name ?? 'MODALIDAD ACADÉMICA';
+                // Inicializar estructura si no existe
+                if (!isset($structure[$shiftType]['levels'][$nivel])) {
+                    $structure[$shiftType]['levels'][$nivel] = [];
+                }
+
+                if (!isset($structure[$shiftType]['levels'][$nivel][$ciclo])) {
+                    $structure[$shiftType]['levels'][$nivel][$ciclo] = [];
+                }
+
+                // 4. Lógica de agrupación por Familia Técnica (solo Segundo Ciclo Secundaria)
+                if ($grade->allows_technical && $section->technical_title_id) {
+                    $familyName = $section->technicalTitle->family->name;
                     
-                    if (!isset($structure[$nivel][$ciclo][$familyName])) {
-                        $structure[$nivel][$ciclo][$familyName] = [];
+                    if (!isset($structure[$shiftType]['levels'][$nivel][$ciclo][$familyName])) {
+                        $structure[$shiftType]['levels'][$nivel][$ciclo][$familyName] = [];
                     }
 
-                    $structure[$nivel][$ciclo][$familyName][] = [
-                        'title' => explode(' ', $grade->name)[0],
-                        'subtitle' => mb_strtoupper($items->first()->technicalTitle->name ?? 'General'),
-                        'is_technical' => $familyId !== 'COMUN',
-                        'family_id' => $familyId,
-                        'sections' => $items->sortBy('label')->values()->all()
-                    ];
-                }
-            } else {
-                // Estructura normal para Primaria y Primer Ciclo de Secundaria
-                if (!isset($structure[$nivel][$ciclo]['General'])) {
-                    $structure[$nivel][$ciclo]['General'] = [];
-                }
+                    // Buscar o crear entrada para este grado específico
+                    $gradeKey = $grade->id . '-' . $section->technicalTitle->id;
+                    
+                    if (!isset($structure[$shiftType]['levels'][$nivel][$ciclo][$familyName][$gradeKey])) {
+                        $structure[$shiftType]['levels'][$nivel][$ciclo][$familyName][$gradeKey] = [
+                            'title' => explode(' ', $grade->name)[0], // "Cuarto", "Quinto", etc.
+                            'subtitle' => mb_strtoupper($section->technicalTitle->name),
+                            'is_technical' => true,
+                            'family_id' => $section->technicalTitle->technical_family_id,
+                            'sections' => collect([]),
+                        ];
+                    }
 
-                $structure[$nivel][$ciclo]['General'][] = [
-                    'title' => explode(' ', $grade->name)[0],
-                    'subtitle' => mb_strtoupper(explode(' ', $grade->name)[1] ?? $nivel),
-                    'is_technical' => false,
-                    'sections' => $gradeSections->sortBy('label')->values()->all()
-                ];
+                    $structure[$shiftType]['levels'][$nivel][$ciclo][$familyName][$gradeKey]['sections']->push($section);
+                } else {
+                    // 5. Grados estándar (sin título técnico)
+                    if (!isset($structure[$shiftType]['levels'][$nivel][$ciclo]['General'])) {
+                        $structure[$shiftType]['levels'][$nivel][$ciclo]['General'] = [];
+                    }
+
+                    $gradeKey = $grade->id;
+
+                    if (!isset($structure[$shiftType]['levels'][$nivel][$ciclo]['General'][$gradeKey])) {
+                        $structure[$shiftType]['levels'][$nivel][$ciclo]['General'][$gradeKey] = [
+                            'title' => explode(' ', $grade->name)[0],
+                            'subtitle' => mb_strtoupper(explode(' ', $grade->name)[1] ?? $nivel),
+                            'is_technical' => false,
+                            'sections' => collect([]),
+                        ];
+                    }
+
+                    $structure[$shiftType]['levels'][$nivel][$ciclo]['General'][$gradeKey]['sections']->push($section);
+                }
+            }
+
+            // 6. Ordenar secciones dentro de cada grado
+            foreach ($structure[$shiftType]['levels'] as $nivel => $ciclos) {
+                foreach ($ciclos as $ciclo => $familias) {
+                    foreach ($familias as $familia => $grados) {
+                        foreach ($grados as $gradeKey => $grado) {
+                            $structure[$shiftType]['levels'][$nivel][$ciclo][$familia][$gradeKey]['sections'] = 
+                                $grado['sections']->sortBy('label')->values();
+                        }
+                    }
+                }
             }
         }
 
