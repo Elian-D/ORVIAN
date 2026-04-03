@@ -70,54 +70,14 @@
         </div>
     </div>
 
-    {{-- ── Secciones (Paralelos) ── --}}
-    <div class="space-y-3">
-        <div class="flex items-center justify-between">
-            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Secciones (Paralelos) <span class="text-state-error ml-0.5">*</span>
-            </p>
-            <span class="text-[10px] font-bold text-orvian-orange"
-                  x-text="$wire.selectedSectionLabels.length + ' seleccionada(s)'"></span>
-        </div>
-        <p class="text-[10px] text-slate-500 leading-relaxed">
-            Cada letra representa un paralelo por grado. Ej: <strong>A, B, C</strong> → 1roA, 1roB, 1roC en cada grado.
-        </p>
-        <div class="flex flex-wrap gap-2">
-            @foreach($this->availableSectionLabels() as $letter)
-                <label @class([
-                    'flex items-center justify-center w-10 h-10 rounded-xl border-2 cursor-pointer transition-all text-sm font-black select-none',
-                    'border-orvian-orange bg-orvian-orange/10 text-orvian-orange shadow-[0_0_8px_rgba(247,137,4,0.2)]' => in_array($letter, $selectedSectionLabels),
-                    'border-slate-200 dark:border-white/6 text-slate-400 hover:border-slate-300 dark:hover:border-white/15' => !in_array($letter, $selectedSectionLabels),
-                ])>
-                    <input type="checkbox" wire:model.live="selectedSectionLabels" value="{{ $letter }}" class="hidden" />
-                    {{ $letter }}
-                </label>
-            @endforeach
-        </div>
-
-        {{-- Preview --}}
-        <div x-show="$wire.selectedLevels.length > 0 && $wire.selectedSectionLabels.length > 0"
-             style="display:none;"
-             class="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5">
-            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Vista previa</p>
-            <p class="text-[10px] text-slate-500">
-                Aprox.
-                <strong class="text-slate-700 dark:text-slate-200"
-                        x-text="$wire.selectedLevels.length * 3 * $wire.selectedSectionLabels.length"></strong>
-                secciones generales
-                <span x-show="$wire.needsTitles && $wire.selectedTitles.length > 0" style="display:none;">
-                    + <strong class="text-orvian-orange"
-                              x-text="3 * $wire.selectedSectionLabels.length * $wire.selectedTitles.length"></strong>
-                    técnicas
-                </span>.
-            </p>
-        </div>
-        @error('selectedSectionLabels') <p class="text-xs text-state-error mt-1">{{ $message }}</p> @enderror
-    </div>
-
     {{-- ── Títulos Técnicos (condicional) ── --}}
     <div x-show="$wire.needsTitles" style="display:none;"
-         class="space-y-4 p-5 rounded-2xl border border-slate-200 dark:border-white/6 bg-slate-50/30 dark:bg-white/[0.01]">
+         class="space-y-4 p-5 rounded-2xl transition-all
+            {{-- Borde de líneas (Dashed) --}}
+            border border-dashed border-slate-300 dark:border-white/10 
+            {{-- Gradiente Diferenciado (Emerald/Slate) --}}
+            bg-gradient-to-br from-slate-50/50 via-slate-50/30 to-emerald-500/5 
+            dark:from-white/[0.02] dark:via-transparent dark:to-emerald-500/10 shadow-sm">
         <div class="flex items-center gap-2">
             <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Títulos Técnicos</p>
             <x-ui.badge variant="warning" size="sm" :dot="false">Requerido</x-ui.badge>
@@ -162,51 +122,174 @@
         @error('selectedTitles') <p class="text-xs text-state-error mt-1">{{ $message }}</p> @enderror
     </div>
 
-    {{-- ── Tandas ── --}}
-    <div class="space-y-3">
-        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Tandas Disponibles <span class="text-state-error ml-0.5">*</span>
-        </p>
-        @php
-            $shiftMeta = [
-                'Matutina'         => ['icon' => '☀️',  'hours' => '7:30 AM – 12:30 PM'],
-                'Vespertina'       => ['icon' => '🌤️',  'hours' => '1:30 PM – 6:00 PM'],
-                'Jornada Extendida'=> ['icon' => '🌞',  'hours' => '8:00 AM – 4:00 PM'],
-                'Nocturna'         => ['icon' => '🌙',  'hours' => '6:00 PM – 10:00 PM'],
-            ];
-        @endphp
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            @foreach($this->shifts as $key => $label)
-                @php $meta = $shiftMeta[$label] ?? ['icon' => '🕐', 'hours' => '']; @endphp
-                <label @class([
-                    'relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 text-center select-none',
-                    'border-orvian-orange bg-orvian-orange/5 ring-1 ring-orvian-orange/20' => in_array($key, $selectedShifts),
-                    'border-slate-200 dark:border-white/6 hover:border-slate-300 dark:hover:border-white/15' => !in_array($key, $selectedShifts),
-                ])>
-                    <input type="checkbox" wire:model.live="selectedShifts" value="{{ $key }}" class="hidden" />
+        {{-- 2. Selección de Tandas (Con Validación de Exclusividad) --}}
+    @php
+        // Definimos el FQN de la clase para evitar errores de "Class not found"
+        $shiftModel = \App\Models\Tenant\Academic\SchoolShift::class;
+    @endphp
 
-                    {{-- Check badge --}}
-                    @if(in_array($key, $selectedShifts))
-                        <span class="absolute top-2 right-2 w-5 h-5 bg-orvian-orange rounded-full flex items-center justify-center">
-                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                            </svg>
-                        </span>
-                    @endif
+    <div class="space-y-4" 
+        x-data="{
+            selectedShifts: $wire.entangle('selectedShifts'),
+            {{-- Usamos las constantes del modelo con comillas porque son strings en la BD --}}
+            get hasExtended() { return this.selectedShifts.includes('{{ $shiftModel::TYPE_EXTENDED }}') },
+            get hasMorning() { return this.selectedShifts.includes('{{ $shiftModel::TYPE_MORNING }}') },
+            get hasAfternoon() { return this.selectedShifts.includes('{{ $shiftModel::TYPE_AFTERNOON }}') },
+            
+            get showConflictWarning() { 
+                return this.hasExtended && (this.hasMorning || this.hasAfternoon);
+            }
+        }">
+        
+        <div class="flex items-center justify-between">
+            <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Tandas / Jornadas <span class="text-state-error ml-0.5">*</span>
+            </label>
+            
+            {{-- Advertencia de Conflicto en tiempo real con Alpine --}}
+            <div x-show="showConflictWarning" 
+                x-transition 
+                style="display:none;"
+                class="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                <x-heroicon-s-exclamation-triangle class="w-4 h-4" />
+                <span>Conflicto: La Jornada Extendida es exclusiva.</span>
+            </div>
+        </div>
 
-                    <span class="text-2xl leading-none">{{ $meta['icon'] }}</span>
-                    <div>
-                        <p @class([
-                            'text-xs font-black leading-tight',
-                            'text-orvian-orange' => in_array($key, $selectedShifts),
-                            'text-slate-700 dark:text-slate-200' => !in_array($key, $selectedShifts),
-                        ])>{{ $label }}</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {{-- En BaseSchoolWizard, shifts() devuelve un array [id => label] --}}
+            @foreach($this->shifts as $id => $label)
+                @php
+                    $meta = match($label) {
+                        $shiftModel::TYPE_MORNING   => ['icon' => '☀️', 'hours' => '7:30 AM – 12:30 PM', 'conflict' => 'hasExtended'],
+                        $shiftModel::TYPE_AFTERNOON => ['icon' => '🌤️', 'hours' => '1:30 PM – 6:00 PM',  'conflict' => 'hasExtended'],
+                        $shiftModel::TYPE_EXTENDED  => ['icon' => '🌞', 'hours' => '8:00 AM – 4:00 PM',  'conflict' => 'hasMorning || hasAfternoon'],
+                        $shiftModel::TYPE_NIGHT     => ['icon' => '🌙', 'hours' => '6:00 PM – 10:00 PM', 'conflict' => 'false'],
+                        default => ['icon' => '🕐', 'hours' => '', 'conflict' => 'false'],
+                    };
+                @endphp
+
+                <label 
+                    class="relative flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all cursor-pointer select-none"
+                    :class="{
+                        'border-orvian-orange bg-orvian-orange/5 ring-1 ring-orvian-orange/20': selectedShifts.includes('{{ $id }}'),
+                        'border-slate-200 dark:border-white/6 opacity-40 cursor-not-allowed': {{ $meta['conflict'] }},
+                        'border-slate-200 dark:border-white/6 hover:border-slate-300': !selectedShifts.includes('{{ $id }}') && !({{ $meta['conflict'] }})
+                    }">
+                    
+                    <input 
+                        type="checkbox" 
+                        wire:model.live="selectedShifts"
+                        value="{{ $id }}"
+                        class="hidden"
+                        :disabled="{{ $meta['conflict'] }}"
+                    >
+                    
+                    <span class="text-2xl">{{ $meta['icon'] }}</span>
+                    <div class="text-center">
+                        <p class="text-xs font-black text-gray-900 dark:text-white leading-tight">{{ $label }}</p>
                         <p class="text-[10px] text-slate-400 mt-0.5">{{ $meta['hours'] }}</p>
+                    </div>
+
+                    {{-- Icono de Checkmark --}}
+                    <div x-show="selectedShifts.includes('{{ $id }}')" class="absolute top-2 right-2">
+                        <x-heroicon-s-check-circle class="w-5 h-5 text-orvian-orange" />
                     </div>
                 </label>
             @endforeach
         </div>
-        @error('selectedShifts') <p class="text-xs text-state-error mt-1">{{ $message }}</p> @enderror
+
+        @error('selectedShifts')
+            <p class="text-xs text-state-error mt-1">{{ $message }}</p>
+        @enderror
+    </div>
+
+    {{-- ── Secciones (Paralelos) ── --}}
+    <div class="space-y-3">
+        <div class="flex items-center justify-between">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Secciones (Paralelos) <span class="text-state-error ml-0.5">*</span>
+            </p>
+            <span class="text-[10px] font-bold text-orvian-orange"
+                  x-text="$wire.selectedSectionLabels.length + ' seleccionada(s)'"></span>
+        </div>
+        <p class="text-[10px] text-slate-500 leading-relaxed">
+            Cada letra representa un paralelo por grado. Ej: <strong>A, B, C</strong> → 1roA, 1roB, 1roC en cada grado.
+        </p>
+        <div class="flex flex-wrap gap-2">
+            @foreach($this->availableSectionLabels() as $letter)
+                <label @class([
+                    'flex items-center justify-center w-10 h-10 rounded-xl border-2 cursor-pointer transition-all text-sm font-black select-none',
+                    'border-orvian-orange bg-orvian-orange/10 text-orvian-orange shadow-[0_0_8px_rgba(247,137,4,0.2)]' => in_array($letter, $selectedSectionLabels),
+                    'border-slate-200 dark:border-white/6 text-slate-400 hover:border-slate-300 dark:hover:border-white/15' => !in_array($letter, $selectedSectionLabels),
+                ])>
+                    <input type="checkbox" wire:model.live="selectedSectionLabels" value="{{ $letter }}" class="hidden" />
+                    {{ $letter }}
+                </label>
+            @endforeach
+        </div>
+
+        {{-- Preview de Secciones a Crear --}}
+        @php $estimation = $this->estimatedSections; @endphp
+
+        @if($estimation['total'] > 0)
+            <div class="p-4 bg-gradient-to-br from-slate-50 to-orvian-blue/5 dark:from-white/[0.02] dark:to-orvian-orange/5 border border-dashed border-slate-300 dark:border-white/10 rounded-2xl transition-all">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <div class="p-2 bg-orvian-orange/10 rounded-lg">
+                            <x-heroicon-s-calculator class="w-5 h-5 text-orvian-orange" />
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-800 dark:text-gray-200">Resumen de Estructura</h4>
+                            <p class="text-[10px] text-slate-500 uppercase tracking-wider">Cálculo basado en selección actual</p>
+                        </div>
+                    </div>
+                    
+                    <div class="text-right">
+                        <span class="text-2xl font-black text-orvian-orange leading-none">
+                            {{ $estimation['total'] }}
+                        </span>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase">Secciones</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                    {{-- Detalle Académico --}}
+                    <div class="p-2.5 rounded-xl bg-white/50 dark:bg-black/20 border border-slate-200 dark:border-white/5">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Cursos Generales</p>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-lg font-bold text-slate-700 dark:text-slate-300">{{ $estimation['academic'] }}</span>
+                            <span class="text-[10px] text-slate-500">secciones</span>
+                        </div>
+                    </div>
+
+                    {{-- Detalle Técnico (Solo se muestra si hay títulos o modalidad técnica) --}}
+                    @if($this->needsTitles)
+                        <div class="p-2.5 rounded-xl bg-orvian-orange/[0.03] border border-orvian-orange/20">
+                            <p class="text-[10px] font-bold text-orvian-orange/80 uppercase mb-1">Cursos Técnicos</p>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-lg font-bold text-orvian-orange">{{ $estimation['technical'] }}</span>
+                                <span class="text-[10px] text-orvian-orange/60">secciones</span>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Explicación de la fórmula (Dinámica) --}}
+                <div class="mt-3 pt-3 border-t border-slate-200 dark:border-white/5">
+                    <p class="text-[10px] text-slate-500 leading-relaxed italic">
+                        * Nota: 
+                        @if($this->needsTitles && count($selectedTitles) > 0)
+                            Se calculan {{ count($selectedSectionLabels) }} paralelos por cada uno de los {{ count($selectedTitles) }} títulos técnicos en los grados de 2do Ciclo.
+                        @else
+                            Se calculan {{ count($selectedSectionLabels) }} paralelos uniformes para todos los grados seleccionados.
+                        @endif
+                    </p>
+                </div>
+            </div>
+        @endif
+
+        @error('selectedSectionLabels') <p class="text-xs text-state-error mt-1">{{ $message }}</p> @enderror
     </div>
 
     {{-- ── Año Escolar ── --}}
