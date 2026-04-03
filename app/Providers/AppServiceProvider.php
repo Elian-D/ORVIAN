@@ -9,6 +9,7 @@ use App\Events\Tenant\SchoolConfigured;
 use App\Listeners\Tenant\SetupAcademicStructure;
 use App\Listeners\Tenant\CreateInitialAcademicYear;
 use App\Listeners\Tenant\AssignInitialRoles;
+use App\Models\Tenant\AttendanceExcuse;
 use App\Models\User;
 use App\Observers\UserObserver;
 use Illuminate\Support\Facades\Event;
@@ -19,6 +20,7 @@ use App\Models\Tenant\Plan;
 use App\Observers\Tenant\PlanObserver;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Teacher;
+use App\Observers\Tenant\AttendanceExcuseObserver;
 use App\Observers\Tenant\StudentObserver;
 use App\Observers\Tenant\TeacherObserver;
 
@@ -39,6 +41,8 @@ class AppServiceProvider extends ServiceProvider
         // Observers para lógica específica de cada modelo
         Student::observe(StudentObserver::class);
         Teacher::observe(TeacherObserver::class);
+         // Nuevo
+        AttendanceExcuse::observe(AttendanceExcuseObserver::class);
 
                 // Vista por defecto para toda la aplicación
         Paginator::defaultView('pagination.orvian-compact');
