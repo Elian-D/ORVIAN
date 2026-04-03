@@ -5,54 +5,56 @@ namespace App\Listeners\Tenant;
 use App\Events\Tenant\SchoolConfigured;
 use App\Models\Tenant\Academic\Level;
 use App\Models\Tenant\Academic\SchoolSection;
-use App\Models\Tenant\Academic\TechnicalTitle;
+use App\Models\Tenant\Academic\SchoolShift; // Asegúrate de importar esto
 
 class SetupAcademicStructure
 {
     public function handle(SchoolConfigured $event): void
     {
-        $school        = $event->school;
-        $academicData  = $event->academicData;
+        $school = $event->school;
+        $data = $event->academicData;
 
-        $sectionLabels = $academicData['section_labels'] ?? ['A'];
-        $titleIds      = $academicData['title_ids']      ?? [];
+        $levelIds = $data['level_ids'];
+        $sectionLabels = $data['section_labels'] ?? ['A'];
+        $titleIds = $data['title_ids'] ?? [];
 
-        $levels = Level::with('grades')
-            ->whereIn('id', $academicData['level_ids'])
-            ->get();
+        // --- SOLUCIÓN AQUÍ ---
+        // Buscamos los IDs reales de las tandas que pertenecen a esta escuela
+        // basándonos en los tipos que recibimos (Matutina, Vespertina, etc.)
+        $shiftIds = SchoolShift::where('school_id', $school->id)
+            ->whereIn('type', $data['shift_ids'] ?? [])
+            ->pluck('id')
+            ->toArray();
 
-        $titles = $titleIds
-            ? TechnicalTitle::whereIn('id', $titleIds)->get()
-            : collect();
+        // Si por alguna razón no hay tandas, no podemos crear secciones con shift_id
+        if (empty($shiftIds)) return;
+        // ---------------------
+
+        $levels = Level::whereIn('id', $levelIds)->with('grades')->get();
 
         foreach ($levels as $level) {
             foreach ($level->grades as $grade) {
-
-                if ($grade->allows_technical && $titles->isNotEmpty()) {
-                    // Segundo Ciclo Secundaria con títulos técnicos:
-                    // En DR los politécnicos NO tienen secciones "generales" en 4to-6to.
-                    // Cada sección pertenece a una especialidad específica.
-                    foreach ($titles as $title) {
-                        foreach ($sectionLabels as $label) {
-                            SchoolSection::firstOrCreate([
-                                'school_id'          => $school->id,
-                                'grade_id'           => $grade->id,
-                                'label'              => $label,
-                                'technical_title_id' => $title->id,
-                            ]);
-                        }
-                    }
-                } else {
-                    // Primaria, Secundaria Primer Ciclo,
-                    // o Segundo Ciclo sin títulos (modalidad académica pura):
-                    // solo secciones generales.
+                foreach ($shiftIds as $shiftId) {
                     foreach ($sectionLabels as $label) {
-                        SchoolSection::firstOrCreate([
-                            'school_id'          => $school->id,
-                            'grade_id'           => $grade->id,
-                            'label'              => $label,
-                            'technical_title_id' => null,
-                        ]);
+                        
+                        $baseData = [
+                            'school_id'       => $school->id,
+                            'school_shift_id' => $shiftId, // Ahora sí es un ID (1, 2, 3...)
+                            'grade_id'        => $grade->id,
+                            'label'           => $label,
+                        ];
+
+                        if ($grade->allows_technical && !empty($titleIds)) {
+                            foreach ($titleIds as $titleId) {
+                                SchoolSection::firstOrCreate(array_merge($baseData, [
+                                    'technical_title_id' => $titleId
+                                ]));
+                            }
+                        } else {
+                            SchoolSection::firstOrCreate(array_merge($baseData, [
+                                'technical_title_id' => null
+                            ]));
+                        }
                     }
                 }
             }
