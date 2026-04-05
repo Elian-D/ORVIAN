@@ -57,11 +57,30 @@ class SchoolSection extends Model
     public function scopeWithFullRelations($query)
     {
         return $query->with([
-            'shift:id,name,start_time,end_time',
+            'shift:id,type,start_time,end_time',
             'grade:id,name,level_id,cycle',
             'grade.level:id,name',
             'technicalTitle:id,name,code',
             'technicalTitle.family:id,name',
         ]);
+    }
+
+    public function getFullLabelAttribute(): string
+    {
+        $gradeName = $this->grade ? $this->grade->name : 'Sin Grado';
+        $sectionLabel = $this->label ?? 'Sin Letra';
+        
+        $name = "{$gradeName} - {$sectionLabel}";
+
+        if ($this->technicalTitle) {
+            $name .= " ({$this->technicalTitle->name})";
+        }
+
+        // Corregimos la lógica: Si hay un turno y no es Jornada Extendida, mostrarlo
+        if ($this->shift && $this->shift->type !== 'Jornada Extendida') {
+            $name .= " [{$this->shift->type}]";
+        }
+
+        return $name;
     }
 }
