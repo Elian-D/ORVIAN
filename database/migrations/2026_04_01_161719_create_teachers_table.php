@@ -39,7 +39,7 @@ return new class extends Migration
             
             // Estado
             $table->boolean('is_active')->default(true);
-            $table->date('hire_date');
+            $table->date('hire_date')->nullable();
             $table->date('termination_date')->nullable();
             $table->text('termination_reason')->nullable();
             

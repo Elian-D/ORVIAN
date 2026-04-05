@@ -87,10 +87,15 @@ class User extends Authenticatable
         return $this->belongsTo(School::class);
     }
 
-    // app/Models/User.php
     public function student()
     {
         return $this->hasOne(\App\Models\Tenant\Student::class);
+    }
+
+    // app/Models/User.php
+    public function teacher()
+    {
+        return $this->hasOne(\App\Models\Tenant\Teacher::class);
     }
 
     public static function createWithSchool(array $data, int $schoolId): self
