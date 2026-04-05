@@ -71,22 +71,41 @@ class UserIndex extends DataTable
 
     public function render()
     {
-        $school  = School::with('plan')->find($this->schoolId);
+        $school = School::with('plan')->find($this->schoolId);
         
-        // 1. Ajustamos el conteo total para que coincida con lo que se ve (Usuarios que no son Student)
-        $total   = User::where('school_id', $this->schoolId)
+        // 1. Conteo total con lógica condicional para Teachers
+        $total = User::where('school_id', $this->schoolId)
+            // Excluir estudiantes
             ->whereDoesntHave('roles', function ($q) {
                 $q->where('name', 'Student');
-            })->count();
+            })
+            // Lógica para Teachers: Si tiene el rol 'Teacher', la entidad Teacher debe estar activa
+            ->where(function ($query) {
+                $query->whereDoesntHave('roles', function ($q) {
+                    $q->where('name', 'Teacher');
+                })
+                ->orWhereHas('teacher', function ($q) {
+                    $q->where('is_active', true); // Solo contamos si el profesor está activo
+                });
+            })
+            ->count();
 
         $limit   = $school?->plan?->limit_users ?? 0;
         $pct     = $limit > 0 ? ($total / $limit) * 100 : 0;
         $atLimit = $limit > 0 && $total >= $limit;
 
-        // 2. Filtramos la Query principal para excluir el rol 'Student'
+        // 2. Filtramos la Query principal con la misma lógica para que la tabla coincida con el contador
         $query = User::where('school_id', $this->schoolId)
             ->whereDoesntHave('roles', function ($q) {
                 $q->where('name', 'Student');
+            })
+            ->where(function ($query) {
+                $query->whereDoesntHave('roles', function ($q) {
+                    $q->where('name', 'Teacher');
+                })
+                ->orWhereHas('teacher', function ($q) {
+                    $q->where('is_active', true);
+                });
             })
             ->withIndexRelations();
 
@@ -95,9 +114,9 @@ class UserIndex extends DataTable
             ->orderBy('id')
             ->paginate($this->perPage);
 
-        // 3. Filtramos las opciones de roles para que no se pueda asignar o filtrar por 'Student' aquí
+        // 3. Opciones de roles (sin cambios, excluyendo Student)
         $roleOptions = \App\Models\Role::where('school_id', $this->schoolId)
-            ->where('name', '!=', 'Student') // Excluir de la lista de selección
+            ->where('name', '!=', 'Student')
             ->orderBy('id')
             ->pluck('name', 'name')
             ->toArray();

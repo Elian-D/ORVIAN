@@ -76,13 +76,19 @@ class SchoolIndex extends DataTable
                     $q->select('id', 'school_id', 'name', 'email');
                 }
             ])
-            // 1. Conteo de Estudiantes ACTUIVOS (Directo a la tabla students)
+            // 1. Conteo de Estudiantes ACTIVOS (Sin cambios)
             ->withCount(['students as students_count' => function($q) {
                 $q->where('is_active', true);
             }])
-            // 2. Conteo de Staff (Usuarios que no tienen un registro en la tabla students)
+            // 2. Conteo de Staff (Usuarios que no son estudiantes y tienen ficha docente activa o inexistente)
             ->withCount(['users as staff_count' => function($q) {
-                $q->whereDoesntHave('student'); 
+                $q->whereDoesntHave('student') // Excluimos estudiantes
+                ->where(function($query) {
+                    $query->whereDoesntHave('teacher') // Contamos administrativos puros
+                            ->orWhereHas('teacher', function($q) {
+                                $q->where('is_active', true); // Contamos docentes solo si están activos
+                            });
+                });
             }])
             ->withMax('users as last_activity', 'last_login_at');
 
@@ -241,19 +247,26 @@ class SchoolIndex extends DataTable
         $totalSchools = (clone $baseQuery)->count();
 
         // 3. Cálculo de Usuarios "Operativos" (Staff + Estudiantes Activos)
-        // Contamos Staff: Usuarios de esas escuelas que NO son estudiantes
+        
+        // --- CAMBIO AQUÍ: Contamos Staff con validación de Teacher activo ---
         $staffCount = \App\Models\User::whereIn('school_id', $schoolIds)
-            ->whereDoesntHave('student')
+            ->whereDoesntHave('student') // No es estudiante
+            ->where(function ($query) {
+                $query->whereDoesntHave('teacher') // Es administrativo puro
+                    ->orWhereHas('teacher', function ($q) {
+                        $q->where('is_active', true); // Es profesor y está activo
+                    });
+            })
             ->count();
 
-        // Contamos Estudiantes Activos: Registros en la tabla students con is_active = true
+        // Contamos Estudiantes Activos: Se mantiene igual para no dañar su contabilidad
         $activeStudentsCount = \App\Models\Tenant\Student::whereIn('school_id', $schoolIds)
-            ->active() // Usando el scope que definimos antes
+            ->active() 
             ->count();
 
         $totalUsers = $staffCount + $activeStudentsCount;
 
-        // 4. Cálculo de MRR (Resolviendo ambigüedad con el prefijo 'schools.')
+        // 4. Cálculo de MRR
         $mrr = (clone $baseQuery)
             ->where('schools.is_active', true)
             ->where('schools.is_suspended', false)

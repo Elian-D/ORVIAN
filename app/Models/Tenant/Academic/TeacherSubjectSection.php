@@ -5,6 +5,9 @@ namespace App\Models\Tenant\Academic;
 use App\Models\Tenant\Teacher; // Asumiendo que Teacher está en Tenant
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Tenant\ClassroomAttendanceRecord; // Asegúrate de importar el modelo
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 
 class TeacherSubjectSection extends Model
 {
@@ -50,5 +53,14 @@ class TeacherSubjectSection extends Model
     public function academicYear(): BelongsTo
     {
         return $this->belongsTo(AcademicYear::class, 'academic_year_id');
+    }
+
+
+    /**
+     * Registros de asistencia vinculados a esta asignación específica.
+     */
+    public function classroomAttendanceRecords(): HasMany
+    {
+        return $this->hasMany(ClassroomAttendanceRecord::class, 'teacher_subject_section_id');
     }
 }
