@@ -294,4 +294,9 @@ class School extends Model
     {
         return $this->belongsTo(\App\Models\Geo\Province::class);
     }
+
+    public function students()
+    {
+        return $this->hasMany(\App\Models\Tenant\Student::class);
+    }
 }

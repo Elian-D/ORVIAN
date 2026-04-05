@@ -32,7 +32,7 @@ class Student extends Model
         'metadata' => 'array',
     ];
 
-    protected $appends = ['full_name', 'age', 'has_face_encoding', 'has_user_account'];
+    protected $appends = ['full_name', 'age', 'has_face_encoding', 'has_user_account', 'full_section_name'];
 
 
     // Relaciones
@@ -92,6 +92,26 @@ class Student extends Model
         );
     }
 
+    /**
+     * Obtiene el nombre completo de la sección (Grado + Letra + Área + Tanda)
+     * directamente desde el objeto Estudiante.
+     */
+    protected function fullSectionName(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                // Si el estudiante no tiene sección, retornamos el fallback
+                if (!$this->section) {
+                    return 'Sin asignar';
+                }
+
+                // Delegamos la lógica al accessor que YA EXISTE en SchoolSection
+                // para no repetir código (DRY - Don't Repeat Yourself)
+                return $this->section->full_label;
+            }
+        );
+    }
+
     // Scopes
     public function scopeActive($query)
     {
@@ -107,8 +127,15 @@ class Student extends Model
     {
         return $query->with([
             'school:id,name',
-            'section:id,grade_id,label',
-            'section.grade:id,name',
+            'section' => function($q) {
+                // Agregamos technicalTitle y shift para que full_label funcione completo
+                $q->select('id', 'grade_id', 'label', 'technical_title_id', 'school_shift_id')
+                ->with([
+                    'grade:id,name',
+                    'technicalTitle:id,name', // <--- IMPORTANTE
+                    'shift:id,type'           // <--- IMPORTANTE
+                ]);
+            },
             'user:id,email',
         ]);
     }

@@ -14,34 +14,40 @@ return new class extends Migration
         Schema::create('students', function (Blueprint $table) {
             $table->id();
             $table->foreignId('school_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('school_section_id')->constrained('school_sections');
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete(); // Para Classroom Virtual
             
-            // Datos personales
+            // Hacemos la sección nullable por si importan estudiantes pero aún no los asignan a un curso
+            $table->foreignId('school_section_id')->nullable()->constrained('school_sections');
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete(); 
+            
+            // DATOS PERSONALES ESENCIALES (Obligatorios)
             $table->string('first_name', 100);
             $table->string('last_name', 100);
-            $table->enum('gender', ['M', 'F']);
-            $table->date('date_of_birth');
-            $table->string('place_of_birth', 255)->nullable();
-            $table->string('rnc', 13)->nullable()->unique(); // Cédula: 402-1234567-8
             
-            // Datos médicos
+            // DATOS PERSONALES FLEXIBLES (Ahora opcionales)
+            $table->enum('gender', ['M', 'F'])->nullable();
+            $table->date('date_of_birth')->nullable();
+            $table->string('place_of_birth', 255)->nullable();
+            $table->string('rnc', 20)->nullable()->unique(); // Subí a 20 por si hay formatos extraños
+            
+            // DATOS MÉDICOS (Opcionales)
             $table->string('blood_type', 3)->nullable();
             $table->text('allergies')->nullable();
             $table->text('medical_conditions')->nullable();
             
-            // Identificación y biometría
+            // IDENTIFICACIÓN Y BIOMETRÍA
             $table->string('photo_path')->nullable();
-            $table->string('qr_code', 32)->unique()->index();
-            $table->longText('face_encoding')->nullable(); // JSON encoding facial
+            $table->string('qr_code', 32)->unique()->index(); // Obligatorio: Es el motor del módulo de asistencia
+            $table->longText('face_encoding')->nullable(); 
             
-            // Estado y fechas
+            // ESTADO Y FECHAS
             $table->boolean('is_active')->default(true);
-            $table->date('enrollment_date');
+            $table->date('enrollment_date')->nullable(); // Ahora opcional
             $table->date('withdrawal_date')->nullable();
             $table->text('withdrawal_reason')->nullable();
             
-            // Metadata flexible
+            // METADATA FLEXIBLE
+            // NOTA: Aquí podrás guardar el ID del estudiante del sistema MINERD cuando logres hacer la importación
+            // Ej: {"minerd_id": "12345678"}
             $table->json('metadata')->nullable();
             
             $table->timestamps();

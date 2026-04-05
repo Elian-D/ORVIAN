@@ -72,20 +72,32 @@ class UserIndex extends DataTable
     public function render()
     {
         $school  = School::with('plan')->find($this->schoolId);
-        $total   = User::where('school_id', $this->schoolId)->count();
+        
+        // 1. Ajustamos el conteo total para que coincida con lo que se ve (Usuarios que no son Student)
+        $total   = User::where('school_id', $this->schoolId)
+            ->whereDoesntHave('roles', function ($q) {
+                $q->where('name', 'Student');
+            })->count();
+
         $limit   = $school?->plan?->limit_users ?? 0;
         $pct     = $limit > 0 ? ($total / $limit) * 100 : 0;
         $atLimit = $limit > 0 && $total >= $limit;
 
-        $query = User::where('school_id', $this->schoolId)->withIndexRelations();
+        // 2. Filtramos la Query principal para excluir el rol 'Student'
+        $query = User::where('school_id', $this->schoolId)
+            ->whereDoesntHave('roles', function ($q) {
+                $q->where('name', 'Student');
+            })
+            ->withIndexRelations();
 
         $users = (new TenantUserFilters($this->filters))
             ->apply($query)
             ->orderBy('id')
             ->paginate($this->perPage);
 
-        // En la App solemos mostrar TODOS los roles creados para esa escuela
+        // 3. Filtramos las opciones de roles para que no se pueda asignar o filtrar por 'Student' aquí
         $roleOptions = \App\Models\Role::where('school_id', $this->schoolId)
+            ->where('name', '!=', 'Student') // Excluir de la lista de selección
             ->orderBy('id')
             ->pluck('name', 'name')
             ->toArray();
@@ -93,8 +105,8 @@ class UserIndex extends DataTable
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.users.index', [
             'users'       => $users,
-            'globalRoles' => $roleOptions, // Para el modal de creación/edición
-            'roleOptions' => $roleOptions, // Para el componente filter-select
+            'globalRoles' => $roleOptions, 
+            'roleOptions' => $roleOptions, 
             'total'       => $total,
             'limit'       => $limit,
             'pct'         => $pct,
@@ -109,7 +121,10 @@ class UserIndex extends DataTable
     public function create(): void
     {
         // Guard: no crear si se alcanzó el límite del plan
-        $total   = User::where('school_id', $this->schoolId)->count();
+        $total   = User::where('school_id', $this->schoolId)
+            ->whereDoesntHave('roles', function ($q) {
+                $q->where('name', 'Student');
+            })->count();
         $school  = School::with('plan')->find($this->schoolId);
         $limit   = $school?->plan?->limit_users ?? 0;
 

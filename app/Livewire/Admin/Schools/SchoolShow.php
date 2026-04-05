@@ -121,25 +121,22 @@ class SchoolShow extends Component
     #[Computed]
     public function quotaStats(): array
     {
-        $studentCount = User::withoutGlobalScope(SchoolScope::class)
-            ->where('school_id', $this->school->id)
-            ->whereExists(function ($query) {
-                $query->select(DB::raw(1))
-                    ->from('model_has_roles')
-                    ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
-                    ->whereColumn('model_has_roles.model_id', 'users.id')
-                    ->where('roles.name', 'Student')
-                    ->where('model_has_roles.school_id', $this->school->id);
-            })->count();
+        // 1. Contamos directamente desde el modelo Student filtrando por activos
+        $studentCount = \App\Models\Tenant\Student::where('school_id', $this->school->id)
+            ->active() // Usamos el scope que ya tienes definido
+            ->count();
 
         $limit = $this->school->plan->limit_students ?? 0;
-        $percentage = $limit > 0 ? min(($studentCount / $limit) * 100, 100) : 0;
+        
+        // 2. Calculamos el porcentaje
+        $percentage = $limit > 0 ? ($studentCount / $limit) * 100 : 0;
 
         return [
-            'used' => $studentCount,
-            'limit' => $limit,
-            'percentage' => round($percentage),
-            'remaining' => max($limit - $studentCount, 0),
+            'used'       => $studentCount,
+            'limit'      => $limit,
+            'percentage' => round(min($percentage, 100)),
+            'remaining'  => max($limit - $studentCount, 0),
+            'atLimit'    => $limit > 0 && $studentCount >= $limit, // Útil para deshabilitar botones
         ];
     }
 
