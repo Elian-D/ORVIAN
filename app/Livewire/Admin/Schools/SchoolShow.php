@@ -145,6 +145,7 @@ class SchoolShow extends Component
     {
         return User::withoutGlobalScope(SchoolScope::class)
             ->where('school_id', $this->school->id)
+            // 1. Mantenemos la exclusión de estudiantes sin modificar
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
                     ->from('model_has_roles')
@@ -152,7 +153,16 @@ class SchoolShow extends Component
                     ->whereColumn('model_has_roles.model_id', 'users.id')
                     ->where('roles.name', 'Student')
                     ->where('model_has_roles.school_id', $this->school->id);
-            })->count();
+            })
+            // 2. Nueva lógica: Si es Teacher, la entidad Teacher DEBE estar activa.
+            // Los usuarios que no son Teachers (Administradores, etc.) se cuentan normal.
+            ->where(function ($query) {
+                $query->whereDoesntHave('teacher') // Si no tiene relación teacher, es administrativo y cuenta.
+                    ->orWhereHas('teacher', function ($q) {
+                        $q->where('is_active', true); // Si tiene relación, debe estar activo.
+                    });
+            })
+            ->count();
     }
 
     #[Computed]
