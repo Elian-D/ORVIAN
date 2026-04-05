@@ -26,6 +26,16 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
+        // Si la petición trae un qr_code, email y password dejan de ser obligatorios
+        if ($this->filled('qr_code')) {
+            return [
+                'qr_code' => ['required', 'string'],
+                'email' => ['nullable', 'string'],
+                'password' => ['nullable', 'string'],
+            ];
+        }
+
+        // Reglas normales para login manual
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
