@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Livewire\App\Attendance\ClassroomAttendanceLive;
+use App\Livewire\App\Attendance\ExcuseIndex;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,8 +14,14 @@ use App\Livewire\App\Attendance\ClassroomAttendanceLive;
 */
 
 
-Route::middleware(['can:attendance_classroom.view'])->prefix('attendance')->name('attendance.')->group(function () {
+Route::prefix('attendance')->name('attendance.')->group(function () {
+    
+    Route::prefix('excuses')->name('excuses.')->group(function () {
+        Route::get('/', ExcuseIndex::class)->middleware('can:excuses.view')->name('index');
+    });
+
+
+
     // Agregamos el parámetro opcional o requerido en la URL
     Route::get('/{assignmentId}', ClassroomAttendanceLive::class)->name('index');
-    
 });
