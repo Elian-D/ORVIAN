@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
             guests: fn (Request $request) => route('login')
         );
 
+        // Fix produccion
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             \App\Http\Middleware\IdentifyTenant::class,
         ]);
