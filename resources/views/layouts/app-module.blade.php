@@ -41,5 +41,6 @@
     <x-ui.toasts />
     @livewire('shared.profile-modal')
     @livewireScripts
+    @stack('scripts')
 </body>
 </html>
