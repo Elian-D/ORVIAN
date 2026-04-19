@@ -184,61 +184,64 @@
             @endforelse
         </div>
     </div>
+    <div class="mt-8">
+        {{ $students->links('pagination.orvian-ledger') }}
+    </div>
 
-{{-- Action Bar Flotante (Cápsula de Selección) --}}
-@if($totalSelected > 0)
-    <div 
-        x-data
-        x-transition:enter="transition ease-out duration-300"
-        x-transition:enter-start="opacity-0 translate-y-10"
-        x-transition:enter-end="opacity-100 translate-y-0"
-        x-transition:leave="transition ease-in duration-200"
-        x-transition:leave-start="opacity-100 translate-y-0"
-        x-transition:leave-end="opacity-0 translate-y-10"
-        class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-[95%] md:w-auto"
-    >
-        <div class="bg-slate-900/90 dark:bg-dark-card/95 backdrop-blur-md border border-white/10 dark:border-gray-700/50 rounded-full px-4 py-2 shadow-2xl flex items-center justify-between md:justify-start gap-4 md:gap-6">
-            
-            {{-- Indicador de Cantidad --}}
-            <div class="flex items-center gap-3 pr-4 border-r border-white/10">
-                <div class="w-7 h-7 rounded-full bg-orvian-orange flex items-center justify-center shadow-lg shadow-orvian-orange/20">
-                    <span class="text-xs font-black text-white">{{ $totalSelected }}</span>
-                </div>
-                <span class="hidden md:block text-sm font-bold text-white tracking-wide">Seleccionados</span>
-            </div>
-
-            {{-- Acciones Principales --}}
-            <div class="flex items-center gap-2">
-                {{-- Ver Plantilla (Link en blanco) --}}
-                @php
-                    $ids = implode(',', $selectedStudents);
-                    $previewUrl = route('app.academic.students.print-qr-sheet', ['students' => $ids]);
-                @endphp
+    {{-- Action Bar Flotante (Cápsula de Selección) --}}
+    @if($totalSelected > 0)
+        <div 
+            x-data
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-10"
+            x-transition:enter-end="opacity-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 translate-y-10"
+            class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-[95%] md:w-auto"
+        >
+            <div class="bg-slate-900/90 dark:bg-dark-card/95 backdrop-blur-md border border-white/10 dark:border-gray-700/50 rounded-full px-4 py-2 shadow-2xl flex items-center justify-between md:justify-start gap-4 md:gap-6">
                 
-                <x-ui.button 
-                    variant="secondary" 
-                    size="sm" 
-                    type="ghost"
-                    iconLeft="heroicon-s-document-text"
-                    href="{{ $previewUrl }}"
-                    target="_blank"
-                    class="!text-slate-300 hover:!bg-white/10"
-                >
-                    <span class="hidden sm:inline">Ver Plantilla</span>
-                </x-ui.button>
-            </div>
+                {{-- Indicador de Cantidad --}}
+                <div class="flex items-center gap-3 pr-4 border-r border-white/10">
+                    <div class="w-7 h-7 rounded-full bg-orvian-orange flex items-center justify-center shadow-lg shadow-orvian-orange/20">
+                        <span class="text-xs font-black text-white">{{ $totalSelected }}</span>
+                    </div>
+                    <span class="hidden md:block text-sm font-bold text-white tracking-wide">Seleccionados</span>
+                </div>
 
-            {{-- Botón Deseleccionar Todo (La X) --}}
-            <div class="pl-2 border-l border-white/10">
-                <button 
-                    wire:click="clearSelection"
-                    title="Deseleccionar todo"
-                    class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                >
-                    <x-heroicon-s-x-mark class="w-5 h-5" />
-                </button>
+                {{-- Acciones Principales --}}
+                <div class="flex items-center gap-2">
+                    {{-- Ver Plantilla (Link en blanco) --}}
+                    @php
+                        $ids = implode(',', $selectedStudents);
+                        $previewUrl = route('app.academic.students.print-qr-sheet', ['students' => $ids]);
+                    @endphp
+                    
+                    <x-ui.button 
+                        variant="secondary" 
+                        size="sm" 
+                        type="ghost"
+                        iconLeft="heroicon-s-document-text"
+                        href="{{ $previewUrl }}"
+                        target="_blank"
+                        class="!text-slate-300 hover:!bg-white/10"
+                    >
+                        <span class="hidden sm:inline">Ver Plantilla</span>
+                    </x-ui.button>
+                </div>
+
+                {{-- Botón Deseleccionar Todo (La X) --}}
+                <div class="pl-2 border-l border-white/10">
+                    <button 
+                        wire:click="clearSelection"
+                        title="Deseleccionar todo"
+                        class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                    >
+                        <x-heroicon-s-x-mark class="w-5 h-5" />
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-@endif
+    @endif
 </div>

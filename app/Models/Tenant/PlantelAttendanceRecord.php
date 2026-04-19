@@ -48,6 +48,7 @@ class PlantelAttendanceRecord extends Model
 
     protected $casts = [
         'date'        => 'date',
+        'time'        => 'datetime',
         'temperature' => 'decimal:2',
         'metadata'    => 'array',
         'verified_at' => 'datetime',

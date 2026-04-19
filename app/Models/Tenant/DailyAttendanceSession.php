@@ -72,4 +72,13 @@ class DailyAttendanceSession extends Model
     {
         return $query->whereNull('closed_at');
     }
+
+    public function scopeWithIndexRelations($query)
+    {
+        return $query->with([
+            'shift:id,type,start_time,end_time',
+            'openedBy:id,name,avatar_path,avatar_color',
+            'closedBy:id,name',
+        ]);
+    }
 }

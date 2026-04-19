@@ -29,8 +29,10 @@ class PlantelAttendanceService
             throw new \Exception('Ya existe una sesión abierta para esta fecha y tanda.');
         }
 
+        // Aplicamos el filtro de la tanda usando el nuevo scope
         $totalExpected = Student::active()
             ->where('school_id', $schoolId)
+            ->inShift($shiftId) // <-- FILTRO APLICADO
             ->count();
 
         return DailyAttendanceSession::create([
@@ -150,8 +152,10 @@ class PlantelAttendanceService
         $studentsWithRecord = PlantelAttendanceRecord::where('daily_attendance_session_id', $session->id)
             ->pluck('student_id');
 
+        // Filtramos para que solo traiga los ausentes de ESTA tanda
         $absentStudents = Student::active()
             ->where('school_id', $session->school_id)
+            ->inShift($session->school_shift_id) // <-- FILTRO APLICADO
             ->whereNotIn('id', $studentsWithRecord)
             ->get();
 
