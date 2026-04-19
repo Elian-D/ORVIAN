@@ -123,6 +123,16 @@ class Student extends Model
         return $query->where('school_section_id', $sectionId);
     }
 
+    /**
+     * Filtra los estudiantes basándose en la tanda (shift) de su sección.
+     */
+    public function scopeInShift($query, $shiftId)
+    {
+        return $query->whereHas('section', function ($q) use ($shiftId) {
+            $q->where('school_shift_id', $shiftId);
+        });
+    }
+
     public function scopeWithIndexRelations($query)
     {
         return $query->with([
