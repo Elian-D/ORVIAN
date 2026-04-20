@@ -38,7 +38,12 @@ class ClassroomAttendanceService
             ->first();
 
         if ($existing) {
-            throw new \Exception('Ya existe registro de asistencia para este estudiante en esta clase.');
+            $existing->update([
+                'status'       => $data['status'],
+                'class_time'   => $data['class_time'],
+                'teacher_notes' => $data['teacher_notes'] ?? $existing->teacher_notes,
+            ]);
+            return $existing->fresh();
         }
 
         return ClassroomAttendanceRecord::create($data);

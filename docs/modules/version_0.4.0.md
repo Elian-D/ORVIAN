@@ -6039,7 +6039,7 @@ La vista se dividió para ser mantenible y escalable:
 
 ### 10.1 — Rutas
 
-- [ ] **Agregar en `routes/app/attendance.php`:**
+- [x] **Agregar en `routes/app/attendance.php`:**
   ```php
   Route::middleware('can:attendance_classroom.record')->group(function () {
       Route::get('/attendance/classroom', ClassroomAttendanceLive::class)->name('attendance.classroom.live');
@@ -6052,27 +6052,32 @@ La vista se dividió para ser mantenible y escalable:
 
 ### 10.2 — Vista del Maestro (Pase de Lista)
 
-- [ ] **Crear `app/Livewire/App/Attendance/ClassroomAttendanceLive.php`:**
-  - `mount()`: carga las asignaciones del maestro autenticado para el año activo (`Teacher::where('user_id', auth()->id())`)
-  - Propiedades: `selectedAssignmentId`, `selectedDate`, `studentStatuses` (array `[id => status]`), `showDiscrepancyWarnings` (array de warnings de validación cruzada)
-  - Método `loadStudents()`: carga estudiantes de la sección de la asignación seleccionada + verifica registro de plantel de cada uno
-  - Método `setStatus(int $studentId, string $status)`:
-    1. Llama `ClassroomAttendanceService::validateCrossAttendance()` silenciosamente
-    2. Si estudiante ausente en plantel → añade warning a `$showDiscrepancyWarnings` (no bloquea, pero advierte)
-    3. Si estudiante marcado ausente/excused en plantel y se intenta `present` → lanza error
-    4. Actualiza `$studentStatuses[$studentId]`
-  - Método `saveAttendance()`: llama `ClassroomAttendanceService::takeClassAttendance()` con el array completo; notifica cuántos se guardaron
-  - `->layout('layouts.app-module', config('modules.asistencia'))`
+- [x] **Componente `app/Livewire/App/Attendance/ClassroomAttendanceLive.php`:**
+  - `mount()`: Carga por defecto las asignaciones del maestro autenticado (`teacher_subject_sections`). 
+  - **Feature Sustitutos:** Implementar un toggle `$isSubstituteMode` que, al activarse, permite buscar y seleccionar cualquier sección del año académico actual.
+  - Método `loadStudents()`: 
+    - Carga los estudiantes de la sección.
+    - **Cruza los datos (Pre-llenado):** Consulta `PlantelAttendanceRecord` para el día actual.
+    - Inicializa el array `$studentStatuses` **heredando el estado del plantel** (Ej: Si está Presente en plantel, `$studentStatuses[$id] = 'present'`).
+  - Método `setStatus()`: 
+    - Actualiza el estado local en Livewire.
+  - Método `saveAttendance()`: 
+    - Llama a `ClassroomAttendanceService::takeClassAttendance()`.
+    - Maneja la respuesta (`$recorded`, `$skipped`, `$errors`) y muestra un toast/alerta de éxito.
 
-- [ ] **Vista `resources/views/livewire/app/attendance/classroom-attendance-live.blade.php`:**
-  - Selector de asignación (dropdown con "Materia — Sección" como label)
-  - Selector de fecha (default hoy)
-  - Panel de advertencias de validación cruzada: banner amarillo "Los siguientes estudiantes no han registrado entrada al plantel hoy: [nombres]" — no bloquea pero es visible
-  - Lista de estudiantes con:
-    - Foto + nombre + estado plantel (badge pequeño: 🟢/🟡/🔴/⚫ según registro de plantel)
-    - Botones de estado de aula: Presente / Ausente / Tardanza / Excusado
-    - Si el estado de plantel es `absent` o `excused`, el botón "Presente" aparece deshabilitado con tooltip "Ausente en plantel"
-  - Botón "Guardar Pase de Lista" al final + confirmación si quedan estudiantes sin marcar
+- [x] **Vista `resources/views/livewire/app/attendance/classroom-attendance-live.blade.php`:**
+  - **Selector Inteligente:** Un `select` agrupado (Mis Clases vs Sustituciones) o un switch para cambiar la consulta de secciones. Selector de fecha bloqueado a "Hoy" por defecto.
+  - **Panel de Alertas (Pasilleo):** Un banner que calcule dinámicamente cuántos estudiantes están marcados como "Presentes" en la lista pero "Ausentes" en plantel (para alertar antes de guardar).
+  - **UI Móvil (Gestión por Excepción):**
+    - Lista de estudiantes en formato de tarjetas compactas (Card layout), no en tabla tradicional.
+    - **Controles Segmentados:** En lugar de 4 botones separados, usar un *segmented control* (estilo iOS) por fila para Presente/Tarde/Ausente, lo que evita clics accidentales.
+    - **Estados de Bloqueo (Read-Only):** Si el estudiante está Excusado o Ausente en el Plantel, la tarjeta completa se atenúa (opacity-50). El selector de estado se desactiva (disabled) y se muestra un badge explicativo: 🔒 "Ausente en Plantel" o 🛡️ "Excusa Médica".
+  - **Floating Action Button (FAB) / Sticky Footer:** El botón "Guardar Pase de Lista" debe estar anclado en la parte inferior de la pantalla en móviles, para que el maestro no tenga que hacer scroll hasta el final si los primeros 10 estudiantes están bien y quiere guardar rápido.
+
+### EXTRAS
+
+- En el modelo TeacherSubjectSection y su migracion agregar campo de tenant `school_id` para filtrar por escuela.
+- EL servicio `TeacherService` se acutalizo el metodo para crear código de empleado para que sea más robusto y no genere códigos duplicados.
 
 ---
 

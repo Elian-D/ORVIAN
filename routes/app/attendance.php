@@ -4,6 +4,7 @@ use App\Livewire\App\Attendance\AttendanceAudit;
 use App\Livewire\App\Attendance\AttendanceSessionHub;
 use App\Livewire\App\Attendance\AttendanceSessionManager;
 use App\Livewire\App\Attendance\ClassroomAttendanceLive;
+use App\Livewire\App\Attendance\ClassroomAttendanceHistory;
 use App\Livewire\App\Attendance\ExcuseIndex;
 use App\Livewire\App\Attendance\ManualAttendance;
 use Illuminate\Support\Facades\Route;
@@ -48,8 +49,12 @@ Route::prefix('attendance')->name('attendance.')->group(function () {
         Route::get('/manual', ManualAttendance::class)->name('manual');
     });
 
-    // --- Fase 9: Asistencia de Salón (Classroom) ---
-    Route::get('/classroom/{assignmentId}', ClassroomAttendanceLive::class)
-        ->middleware('can:attendance_classroom.view')
-        ->name('classroom.index');
+    // --- Fase 10: Asistencia de Aula (Pase de Lista del Maestro) ---
+    Route::middleware('can:attendance_classroom.record')->group(function () {
+        Route::get('/classroom', ClassroomAttendanceLive::class)->name('classroom.live');
+    });
+
+    Route::middleware('can:attendance_classroom.view')->group(function () {
+        Route::get('/classroom/history', ClassroomAttendanceHistory::class)->name('classroom.history');
+    });
 });

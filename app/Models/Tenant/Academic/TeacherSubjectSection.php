@@ -2,20 +2,24 @@
 
 namespace App\Models\Tenant\Academic;
 
-use App\Models\Tenant\Teacher; // Asumiendo que Teacher está en Tenant
+use App\Models\Tenant\Teacher;
+use App\Traits\BelongsToSchool;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Tenant\ClassroomAttendanceRecord; // Asegúrate de importar el modelo
+use App\Models\Tenant\ClassroomAttendanceRecord;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 
 class TeacherSubjectSection extends Model
 {
+    use BelongsToSchool;
+
     protected $fillable = [
-        'teacher_id', 
-        'subject_id', 
-        'school_section_id', 
-        'academic_year_id', 
+        'school_id',
+        'teacher_id',
+        'subject_id',
+        'school_section_id',
+        'academic_year_id',
         'is_active',
     ];
 
