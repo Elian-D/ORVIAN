@@ -19,11 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             guests: fn (Request $request) => route('login')
         );
 
-<<<<<<< HEAD
         // FIX (Produccion)
-=======
-        // Fix produccion
->>>>>>> main
         $middleware->trustProxies(at: '*');
 
         $middleware->web(append: [
