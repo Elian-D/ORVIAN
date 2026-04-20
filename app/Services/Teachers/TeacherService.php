@@ -21,9 +21,15 @@ class TeacherService
 
     public function generateEmployeeCode(int $schoolId): string
     {
-        $year = now()->year;
+        $year  = now()->year;
         $count = Teacher::where('school_id', $schoolId)->count() + 1;
-        return sprintf('EMP-%d-%04d', $year, $count);
+
+        do {
+            $code = sprintf('EMP-%d-SC%d-%04d', $year, $schoolId, $count);
+            $count++;
+        } while (Teacher::where('employee_code', $code)->exists());
+
+        return $code;
     }
 
     public function createTeacher(array $data): Teacher
