@@ -6404,13 +6404,14 @@ Esta fase implementa el soporte para que el módulo de asistencia funcione sin i
 
 ---
 
+
 ## Fase 13 — Microservicio de Reconocimiento Facial (Python)
 **Rama:** `feature/facial-recognition-microservice`
 **Repositorio separado:** `orvian-facial-recognition`
 
 ### 13.1 — Estructura del Proyecto Python
 
-- [ ] Crear repositorio `orvian-facial-recognition` con estructura:
+- [x] Crear repositorio `orvian-facial-recognition` con estructura:
   ```
   orvian-facial-recognition/
   ├── app/
@@ -6432,12 +6433,14 @@ Esta fase implementa el soporte para que el módulo de asistencia funcione sin i
   ├── requirements.txt
   ├── Dockerfile
   ├── docker-compose.yml
+  ├── README.md
+  ├── .gitignore
   └── .env.example
   ```
 
 ### 13.2 — Dependencias (`requirements.txt`)
 
-- [ ] Definir dependencias exactas:
+- [x] Definir dependencias exactas:
   ```
   fastapi==0.110.0
   uvicorn[standard]==0.27.1
@@ -6454,7 +6457,7 @@ Esta fase implementa el soporte para que el módulo de asistencia funcione sin i
 
 ### 13.3 — Configuración (`app/config.py`)
 
-- [ ] `Settings` con `pydantic_settings.BaseSettings`:
+- [x] `Settings` con `pydantic_settings.BaseSettings`:
   - `API_KEY`: requerido, valida header de autenticación
   - `ALLOWED_ORIGINS`: list[str]
   - `FACE_DETECTION_MODEL`: `"hog"` (CPU) o `"cnn"` (GPU, más preciso)
@@ -6465,50 +6468,50 @@ Esta fase implementa el soporte para que el módulo de asistencia funcione sin i
 
 ### 13.4 — Servicios Python
 
-- [ ] **`FaceDetectionService`:**
+- [x] **`FaceDetectionService`:**
   - `detect_faces(image_bytes) → List[Tuple]`: usa `face_recognition.face_locations(model=self.model)`
   - `has_single_face(image_bytes) → bool`
   - `get_largest_face(image_bytes) → Optional[Tuple]`: devuelve el más grande si hay varios
 
-- [ ] **`FaceEncodingService`:**
+- [x] **`FaceEncodingService`:**
   - `generate_encoding(image_bytes) → Optional[List[float]]`: devuelve lista de 128 floats o `None` si no detecta rostro
   - `generate_multiple_encodings(image_bytes, num_jitters=10) → List[List[float]]`: para enrollment más robusto
 
-- [ ] **`FaceMatchingService`:**
+- [x] **`FaceMatchingService`:**
   - `compare_faces(known, unknown) → Dict`: retorna `{match: bool, distance: float, confidence: float}`
   - `find_best_match(unknown_encoding, known_encodings) → Optional[Dict]`: itera lista de `{id, name, encoding}` y devuelve el mejor match dentro de tolerancia
 
 ### 13.5 — Endpoints
 
-- [ ] **`GET /health`** → `{"status": "healthy", "version": "1.0.0"}`
-- [ ] **`POST /api/v1/enroll/`** (multipart):
+- [x] **`GET /health`** → `{"status": "healthy", "version": "1.0.0"}`
+- [x] **`POST /api/v1/enroll/`** (multipart):
   - Params: `student_id`, `school_id`, imagen en `image`
   - Respuesta: `{success, student_id, encoding: [128 floats], faces_detected, message}`
   - Casos de error: sin rostro, múltiples rostros, fallo de encoding
-- [ ] **`POST /api/v1/verify/`** (multipart):
+- [x] **`POST /api/v1/verify/`** (multipart):
   - Params: `school_id`, `known_encodings: [{id, name, encoding}]` (JSON), imagen en `image`
   - Respuesta: `{success, matched, student_id?, student_name?, confidence?, distance?, faces_detected, message}`
 
 ### 13.6 — Dockerización
 
-- [ ] **`Dockerfile`** basado en `python:3.11-slim` con dependencias del sistema: `build-essential`, `cmake`, `libopenblas-dev`, `liblapack-dev`
-- [ ] **`docker-compose.yml`** con servicios `facial-api` (puerto 8001) y `redis` (puerto 6379)
+- [x] **`Dockerfile`** basado en `python:3.11-slim` con dependencias del sistema: `build-essential`, `cmake`, `libopenblas-dev`, `liblapack-dev`
+- [x] **`docker-compose.yml`** con servicios `facial-api` (puerto 8001) y `redis` (puerto 6379)
 
 ### 13.7 — Cliente HTTP en Laravel
 
-- [ ] **Crear `app/Services/FacialRecognition/FacialApiClient.php`:**
+- [x] **Crear `app/Services/FacialRecognition/FacialApiClient.php`:**
   - `health() → array`
   - `enrollFace(int $studentId, int $schoolId, UploadedFile $image) → array`
   - `verifyFace(int $schoolId, array $knownEncodings, UploadedFile $image) → array`
   - Timeout: 5s en health, 30s en enroll/verify
   - Lanza `\Exception` si `!$response->successful()`
 
-- [ ] **Crear `app/Services/FacialRecognition/FaceEncodingManager.php`:**
+- [x] **Crear `app/Services/FacialRecognition/FaceEncodingManager.php`:**
   - `enrollStudent(Student $student, UploadedFile $photo) → bool`: llama API, guarda encoding en DB si éxito
   - `identifyStudent(int $schoolId, UploadedFile $photo) → ?array`: carga todos los encodings activos del school + llama verify + retorna `{student_id, student_name, confidence, distance}`
   - `isServiceHealthy() → bool`
 
-- [ ] **Agregar a `config/services.php`:**
+- [x] **Agregar a `config/services.php`:**
   ```php
   'facial_api' => [
       'url' => env('FACIAL_API_URL', 'http://localhost:8001'),
@@ -6516,7 +6519,15 @@ Esta fase implementa el soporte para que el módulo de asistencia funcione sin i
   ],
   ```
 
-- [ ] **Actualizar `.env.example`** con `FACIAL_API_URL` y `FACIAL_API_KEY`
+- [x] **Actualizar `.env.example`** con `FACIAL_API_URL` y `FACIAL_API_KEY`
+
+### Extras
+
+- Quitar reloj de la interfaz de attendance-scaner.blade.php para hacerla más liegara.
+- Mejorar el `resources/views/livewire/app/attendance/partials/scanner-visor.blade.php` para que use face-api js y deje de hacer frame por frame. Y también mejoarar las aletras.
+- Agregaar boton de navegar hacia el sacner desde `resources/views/livewire/app/attendance/manual-attendance.blade.php`
+- En student tanto vista como componete livewire form hacer un modal para que cuando se tome una foto sea más facil.
+- Actualizar .env.example con las variables necesarias para el microservicio de reconocimiento facial, incluyendo `FACIAL_API_URL` y `FACIAL_API_KEY`.
 
 ---
 

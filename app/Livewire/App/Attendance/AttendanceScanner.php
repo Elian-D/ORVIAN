@@ -42,6 +42,20 @@ class AttendanceScanner extends Component
     // ── Listeners ─────────────────────────────────────────────────
     protected $listeners = ['qrCodeScanned', 'facialCaptureReady'];
 
+    public function setModeQr(): void
+    {
+        if ($this->mode === 'qr') return;
+        $this->mode = 'qr';
+        $this->dispatch('mode-changed', mode: 'qr');
+    }
+
+    public function setModeFacial(): void
+    {
+        if ($this->mode === 'facial') return;
+        $this->mode = 'facial';
+        $this->dispatch('mode-changed', mode: 'facial');
+    }
+
     public function mount(): void
     {
         
@@ -113,7 +127,7 @@ class AttendanceScanner extends Component
                 ->first();
 
             if ($existing) {
-                $this->showFlash('warning', "⚠️ {$student->full_name} ya registró entrada hoy");
+                $this->showFlash('warning', "{$student->full_name} ya registró entrada hoy");
                 $this->isProcessing = false;
                 return;
             }
@@ -169,7 +183,7 @@ class AttendanceScanner extends Component
             );
 
             if (!$result) {
-                $this->showFlash('error', '😕 Rostro no reconocido. Intenta de nuevo.');
+                $this->showFlash('error', 'Rostro no reconocido. Intenta de nuevo.');
                 $this->reset('capturedPhoto');
                 $this->isProcessing = false;
                 return;
@@ -191,7 +205,7 @@ class AttendanceScanner extends Component
                 ->first();
 
             if ($existing) {
-                $this->showFlash('warning', "⚠️ {$student->full_name} ya registró entrada hoy");
+                $this->showFlash('warning', "{$student->full_name} ya registró entrada hoy");
                 $this->reset('capturedPhoto');
                 $this->isProcessing = false;
                 return;
@@ -231,7 +245,7 @@ class AttendanceScanner extends Component
 
         // Actualizar UI
         $this->addToRecentScans($student, $record);
-        $this->showFlash('success', "✅ {$student->full_name} registrado correctamente");
+        $this->showFlash('success', "{$student->full_name} registrado correctamente");
 
         // Notificar éxito
         $this->dispatch('attendance-recorded', [
