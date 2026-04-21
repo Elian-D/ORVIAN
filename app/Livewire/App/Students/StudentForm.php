@@ -5,7 +5,8 @@ namespace App\Livewire\App\Students;
 use App\Models\User;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Academic\SchoolSection;
-use App\Services\Students\StudentService; // Importamos el servicio
+use App\Services\Students\StudentService;
+use App\Services\FacialRecognition\FaceEncodingManager;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -67,7 +68,7 @@ class StudentForm extends Component
         }
     }
 
-    public function save(StudentService $studentService) // Inyección del servicio
+    public function save(StudentService $studentService, FaceEncodingManager $faceManager)
     {
         try {
             $this->validate();
@@ -140,15 +141,17 @@ class StudentForm extends Component
                 ]);
             }
 
-            // 3. Procesar Foto a través del Servicio
+            // 3. Guardar foto
             if ($this->photo) {
                 $studentService->updatePhoto($this->student, $this->photo);
-                
-                // NOTA: Cuando implementes la Fase 13, dentro de updatePhoto() 
-                // llamarás al microservicio de Python para generar el encoding.
             }
 
             DB::commit();
+
+            // 4. Generar face encoding (fuera de la transacción para no bloquear el guardado)
+            if ($this->photo) {
+                $faceManager->enrollStudent($this->student, $this->photo);
+            }
 
             $message = $this->isEdit ? "Perfil actualizado." : "Estudiante registrado correctamente.";
             return redirect()->route('app.academic.students.index')->with('success', $message);
