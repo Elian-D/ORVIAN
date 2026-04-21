@@ -27,37 +27,6 @@
                         <span>Abrir Sesión</span>
                     </a>
                 @endif
-
-                {{-- Reloj en tiempo real --}}
-                <div x-data="{
-                        time: '',
-                        date: '',
-                        updateClock() {
-                            const now = new Date();
-                            this.time = now.toLocaleTimeString('en-US', {
-                                hour12: true,
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                            });
-                            this.date = now.toLocaleDateString('es-ES', {
-                                weekday: 'long',
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric'
-                            });
-                        }
-                    }"
-                    x-init="updateClock(); setInterval(() => updateClock(), 1000)"
-                    class="flex flex-col items-center sm:items-end gap-1">
-
-                    <span class="text-3xl font-black tracking-tighter text-orvian-orange tabular-nums"
-                          style="color: #f78904;" x-text="time"></span>
-
-                    <div class="px-3 py-1 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg">
-                        <span class="text-[11px] font-medium text-gray-600 dark:text-gray-400 capitalize" x-text="date"></span>
-                    </div>
-                </div>
             </div>
         </x-slot>
     </x-ui.page-header>

@@ -20,19 +20,24 @@
             </div>
         </div>
 
-        {{-- Switch Toggle --}}
+        {{-- Botones de Modo --}}
         <div class="flex items-center gap-2">
-            <span class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase">QR</span>
-            <button
-                wire:click="$set('mode', $mode === 'qr' ? 'facial' : 'qr')"
-                type="button"
-                class="relative inline-flex h-7 w-14 items-center rounded-full transition-colors
-                       {{ $mode === 'facial' ? 'bg-purple-500' : 'bg-blue-500' }}">
-                <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform
-                             {{ $mode === 'facial' ? 'translate-x-8' : 'translate-x-1' }}">
-                </span>
-            </button>
-            <span class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase">Facial</span>
+            <x-ui.button
+                wire:click="setModeQr"
+                :type="$mode === 'qr' ? 'solid' : 'outline'"
+                hex="#3b82f6"
+                iconLeft="heroicon-s-qr-code"
+                size="sm">
+                QR
+            </x-ui.button>
+            <x-ui.button
+                wire:click="setModeFacial"
+                :type="$mode === 'facial' ? 'solid' : 'outline'"
+                hex="#a855f7"
+                iconLeft="heroicon-s-camera"
+                size="sm">
+                Facial
+            </x-ui.button>
         </div>
     </div>
 
@@ -60,29 +65,28 @@
             <canvas id="facial-canvas" class="absolute inset-0 w-full h-full"></canvas>
         </div>
 
-        {{-- Flash Overlay — pill minimalista en la parte superior del visor --}}
+        {{-- Flash Overlay --}}
         <div
             x-show="showFlash"
             x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="opacity-0 -translate-y-2"
+            x-transition:enter-start="opacity-0 translate-y-1"
             x-transition:enter-end="opacity-100 translate-y-0"
             x-transition:leave="transition ease-in duration-150"
-            x-transition:leave-start="opacity-100"
-            x-transition:leave-end="opacity-0"
-            class="absolute top-3 inset-x-3 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-white text-sm font-bold"
-            :class="flashType === 'success' ? 'bg-green-500' : (flashType === 'error' ? 'bg-red-500' : 'bg-yellow-500')"
+            x-transition:leave-start="opacity-100 translate-y-0"
+            x-transition:leave-end="opacity-0 translate-y-1"
+            class="absolute bottom-4 inset-x-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-950/90 backdrop-blur-sm border border-white/10 shadow-lg"
             style="display: none;">
 
-            <div x-show="flashType === 'success'" class="flex-shrink-0">
-                <x-heroicon-s-check-circle class="w-5 h-5 text-white" />
+            <div x-show="flashType === 'success'" class="flex-shrink-0 text-emerald-400">
+                <x-heroicon-s-check-circle class="w-5 h-5" />
             </div>
-            <div x-show="flashType === 'error'" class="flex-shrink-0">
-                <x-heroicon-s-x-circle class="w-5 h-5 text-white" />
+            <div x-show="flashType === 'error'" class="flex-shrink-0 text-red-400">
+                <x-heroicon-s-x-circle class="w-5 h-5" />
             </div>
-            <div x-show="flashType === 'warning'" class="flex-shrink-0">
-                <x-heroicon-s-exclamation-triangle class="w-5 h-5 text-white" />
+            <div x-show="flashType === 'warning'" class="flex-shrink-0 text-amber-400">
+                <x-heroicon-s-exclamation-triangle class="w-5 h-5" />
             </div>
-            <p class="flex-1 truncate" x-text="flashMessage"></p>
+            <p class="flex-1 text-sm text-white truncate" x-text="flashMessage"></p>
         </div>
 
         {{-- Loading Overlay (isProcessing entangled, no wire:loading) --}}
@@ -102,153 +106,238 @@
 </div>
 
 @push('scripts')
+{{-- face-api.js: detección real de rostros en browser, ~2MB modelos --}}
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
 <script>
 document.addEventListener('alpine:init', () => {
     Alpine.data('attendanceScanner', (mode, isProcessing, sessionStatus) => ({
         mode: mode,
         isProcessing: isProcessing,
         sessionStatus: sessionStatus,
+
+        // ── QR ───────────────────────────────────────────────────
         qrScanner: null,
+
+        // ── Facial ───────────────────────────────────────────────
         videoStream: null,
-        detectionInterval: null,
-        lastDetectionTime: 0,
+        animationFrameId: null,   // requestAnimationFrame (no setInterval)
+        faceApiReady: false,
+
+        // ── Dwell Time ───────────────────────────────────────────
+        dwellStart: null,         // timestamp cuando se detectó la cara
+        dwellRequired: 1200,      // ms que debe permanecer (ajustable)
         cooldownActive: false,
+        faceBox: null,            // { x, y, w, h } del último frame
+
+        // ── Flash ────────────────────────────────────────────────
         showFlash: false,
         flashType: '',
         flashMessage: '',
         flashTimer: null,
 
+        // ────────────────────────────────────────────────────────
+
         init() {
-            this.$watch('mode', (newMode) => {
-                this.switchMode(newMode);
-            });
-
-            this.$wire.on('flash-shown', ({ type, message }) => {
-                this.triggerFlash(type, message);
-            });
-
-            this.switchMode(this.mode);
+            this.$wire.on('mode-changed', ({ mode }) => this.switchMode(mode));
+            this.$wire.on('flash-shown', ({ type, message }) => this.triggerFlash(type, message));
+            this.$nextTick(() => this.switchMode(this.mode));
         },
 
         triggerFlash(type, message) {
-            this.flashType = type;
+            this.flashType    = type;
             this.flashMessage = message;
-            this.showFlash = true;
-
+            this.showFlash    = true;
             if (this.flashTimer) clearTimeout(this.flashTimer);
-            this.flashTimer = setTimeout(() => { this.showFlash = false; }, 3000);
+            this.flashTimer = setTimeout(() => { this.showFlash = false; }, 3500);
         },
 
-        switchMode(newMode) {
-            this.cleanup();
-
-            if (this.sessionStatus === 'inactive') {
-                console.warn('No hay sesión activa, scanner deshabilitado.');
-                return;
-            }
-
-            if (newMode === 'qr') {
-                this.initQrScanner();
-            } else {
-                this.initFacialScanner();
-            }
+        async switchMode(newMode) {
+            await this.cleanup();
+            if (this.sessionStatus === 'inactive') return;
+            await this.$nextTick();
+            newMode === 'qr' ? this.initQrScanner() : await this.initFacialScanner();
         },
 
+        // ── QR (sin cambios) ─────────────────────────────────────
         initQrScanner() {
             this.qrScanner = new Html5Qrcode("qr-reader");
-
             this.qrScanner.start(
                 { facingMode: "environment" },
                 { fps: 10, qrbox: { width: 300, height: 300 }, aspectRatio: 4/3 },
                 (decodedText) => {
                     this.qrScanner.pause(true);
                     Livewire.dispatch('qrCodeScanned', { code: decodedText });
-                    // El DOM no fue tocado gracias a wire:ignore → resume() funciona
                     setTimeout(() => {
-                        if (this.qrScanner && this.mode === 'qr') {
-                            this.qrScanner.resume();
-                        }
+                        if (this.qrScanner && this.mode === 'qr') this.qrScanner.resume();
                     }, 2500);
                 },
                 () => {}
-            ).catch(err => {
-                console.error('Error iniciando QR scanner:', err);
-                this.triggerFlash('error', 'No se pudo iniciar la cámara.');
-            });
+            ).catch(() => this.triggerFlash('error', 'No se pudo iniciar la cámara.'));
         },
 
+        // ── Facial ───────────────────────────────────────────────
         async initFacialScanner() {
-            const video = document.getElementById('facial-video');
+            const video  = document.getElementById('facial-video');
             const canvas = document.getElementById('facial-canvas');
-            const ctx = canvas.getContext('2d');
 
             try {
                 this.videoStream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
                 });
-
                 video.srcObject = this.videoStream;
+
+                // Cargar modelos face-api.js (solo la primera vez)
+                if (!this.faceApiReady) {
+                    // Usamos CDN de los modelos — tiny_face_detector es el más ligero (~190KB)
+                    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+                    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                    this.faceApiReady = true;
+                }
+
                 video.addEventListener('loadedmetadata', () => {
-                    canvas.width = video.videoWidth;
+                    canvas.width  = video.videoWidth;
                     canvas.height = video.videoHeight;
-                    this.startFaceDetection(video, canvas, ctx);
-                });
+                    this.runDetectionLoop(video, canvas);
+                }, { once: true });
+
             } catch (err) {
-                console.error('Error accediendo a la cámara:', err);
+                console.error(err);
                 this.triggerFlash('error', 'No se pudo acceder a la cámara. Verifica los permisos.');
             }
         },
 
-        startFaceDetection(video, canvas, ctx) {
-            // TODO: Reemplazar simulación con face-api.js cuando el microservicio esté disponible
-            this.detectionInterval = setInterval(() => {
-                if (this.cooldownActive || this.isProcessing) return;
+        // Loop con requestAnimationFrame — mucho más eficiente que setInterval
+        runDetectionLoop(video, canvas) {
+            const ctx     = canvas.getContext('2d');
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
 
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const loop = async () => {
+                // Si nos limpiaron, salir
+                if (!this.videoStream) return;
 
-                const faceDetected = Math.random() > 0.3;
+                // No procesar si ya estamos enviando
+                if (!this.cooldownActive && !this.isProcessing && video.readyState === 4) {
+                    const detections = await faceapi.detectAllFaces(video, options);
 
-                if (faceDetected) {
-                    ctx.strokeStyle = '#10b981';
-                    ctx.lineWidth = 4;
-                    ctx.strokeRect(canvas.width * 0.3, canvas.height * 0.2, canvas.width * 0.4, canvas.height * 0.5);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                    if (Date.now() - this.lastDetectionTime > 500) {
-                        this.captureFace(canvas);
+                    if (detections.length === 1) {
+                        // ── Hay exactamente UNA cara ──────────────────────
+                        const box = detections[0].box;
+                        this.faceBox = { x: box.x, y: box.y, w: box.width, h: box.height };
+
+                        const now = Date.now();
+
+                        if (!this.dwellStart) {
+                            // Primera detección — empezar dwell
+                            this.dwellStart = now;
+                        }
+
+                        const elapsed  = now - this.dwellStart;
+                        const progress = Math.min(elapsed / this.dwellRequired, 1); // 0..1
+
+                        if (progress >= 1) {
+                            // ✅ Dwell completo — capturar y enviar
+                            this.drawFaceBox(ctx, this.faceBox, '#10b981', 1); // verde sólido
+                            this.dwellStart = null;
+                            this.captureFace(canvas);
+                        } else {
+                            // ⏳ Acumulando dwell — bounding box amarillo + barra de progreso
+                            this.drawFaceBox(ctx, this.faceBox, '#f59e0b', progress);
+                        }
+
+                    } else {
+                        // Sin cara o múltiples — resetear dwell silenciosamente
+                        this.dwellStart = null;
+                        this.faceBox    = null;
+
+                        if (detections.length > 1) {
+                            // Feedback sutil: texto en canvas
+                            ctx.fillStyle = 'rgba(239,68,68,0.7)';
+                            ctx.font      = 'bold 18px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.fillText('Un solo rostro a la vez', canvas.width / 2, 30);
+                        }
                     }
-                    this.lastDetectionTime = Date.now();
-                } else {
-                    this.lastDetectionTime = 0;
                 }
-            }, 100);
+
+                this.animationFrameId = requestAnimationFrame(loop);
+            };
+
+            this.animationFrameId = requestAnimationFrame(loop);
+        },
+
+        // Dibuja bounding box + barra de progreso en el canvas
+        drawFaceBox(ctx, box, color, progress) {
+            const { x, y, w, h } = box;
+            const pad = 12; // padding alrededor de la cara
+
+            // Box
+            ctx.strokeStyle = color;
+            ctx.lineWidth   = 3;
+            ctx.shadowColor = color;
+            ctx.shadowBlur  = 8;
+            ctx.strokeRect(x - pad, y - pad, w + pad * 2, h + pad * 2);
+            ctx.shadowBlur  = 0;
+
+            // Barra de progreso debajo del box
+            const barY = y + h + pad + 10;
+            const barW = w + pad * 2;
+            const barX = x - pad;
+
+            // Fondo
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.beginPath();
+            ctx.roundRect(barX, barY, barW, 6, 3);
+            ctx.fill();
+
+            // Progreso
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(barX, barY, barW * progress, 6, 3);
+            ctx.fill();
         },
 
         captureFace(canvas) {
             this.cooldownActive = true;
-            canvas.toBlob((blob) => {
+            this.dwellStart     = null;
+
+            // Capturar el frame real del video, no el canvas de overlays
+            const video = document.getElementById('facial-video');
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width  = canvas.width;
+            captureCanvas.height = canvas.height;
+            captureCanvas.getContext('2d').drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+
+            captureCanvas.toBlob((blob) => {
                 const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
                 @this.upload('capturedPhoto', file, () => {
                     Livewire.dispatch('facialCaptureReady');
-                    setTimeout(() => { this.cooldownActive = false; }, 3000);
+                    // Cooldown: no volver a detectar hasta que Livewire responda + margen
+                    setTimeout(() => { this.cooldownActive = false; }, 3500);
                 });
-            }, 'image/jpeg', 0.9);
+            }, 'image/jpeg', 0.92);
         },
 
-        cleanup() {
+        async cleanup() {
             if (this.qrScanner) {
-                this.qrScanner.stop().catch(() => {});
+                await this.qrScanner.stop().catch(() => {});
                 this.qrScanner.clear();
                 this.qrScanner = null;
+            }
+            if (this.animationFrameId) {
+                cancelAnimationFrame(this.animationFrameId);
+                this.animationFrameId = null;
             }
             if (this.videoStream) {
                 this.videoStream.getTracks().forEach(t => t.stop());
                 this.videoStream = null;
             }
-            if (this.detectionInterval) {
-                clearInterval(this.detectionInterval);
-                this.detectionInterval = null;
-            }
+            // Limpiar estado dwell
+            this.dwellStart     = null;
+            this.cooldownActive = false;
+            this.faceBox        = null;
         }
     }));
 });
