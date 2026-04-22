@@ -6538,7 +6538,7 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ### 14.1 — Componente Principal
 
-- [ ] **Crear `app/Livewire/App/Attendance/AttendanceDashboard.php`:**
+- [x] **Crear `app/Livewire/App/Attendance/AttendanceDashboard.php`:**
   - `wire:poll.10s` para actualización en tiempo real durante el día
   - Propiedades: `selectedDate` (default hoy), `selectedSection` (nullable), `selectedShift` (nullable)
   - Método `loadPlantelStats()`: cuenta por estado desde `PlantelAttendanceRecord` del día
@@ -6547,9 +6547,11 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
   - Método `loadRecentActivity()`: últimos 15 registros de plantel ordenados por `time` DESC
   - `->layout('layouts.app-module', config('modules.asistencia'))`
 
+- [x] Actualizar `routes/app/attendance.php` para incluir ruta al dashboard: `/dashboard` -> `AttendanceDashboard`
+
 ### 14.2 — Vista del Dashboard
 
-- [ ] **Vista `resources/views/livewire/app/attendance/attendance-dashboard.blade.php`:**
+- [x] **Vista `resources/views/livewire/app/attendance/attendance-dashboard.blade.php`:**
 
   **Sección 1 — Estado del Día:**
   - Banner si no hay sesión abierta: "No se ha abierto la asistencia de hoy. [Abrir Sesión]"
@@ -6576,8 +6578,8 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ### 14.3 — Instalación de ApexCharts
 
-- [ ] `npm install apexcharts` + importar en `resources/js/app.js`: `window.ApexCharts = ApexCharts`
-- [ ] Alpine component `attendanceDonutChart()` y `attendanceLineChart()` definidos en `resources/js/charts/attendance-charts.js`
+- [x] `npm install apexcharts` + importar en `resources/js/app.js`: `window.ApexCharts = ApexCharts`
+- [x] Alpine component `attendanceDonutChart()` y `attendanceLineChart()` definidos en `resources/js/charts/attendance-charts.js`
 
 ---
 

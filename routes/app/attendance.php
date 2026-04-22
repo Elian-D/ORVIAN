@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\App\Attendance\AttendanceAudit;
+use App\Livewire\App\Attendance\AttendanceDashboard;
 use App\Livewire\App\Attendance\AttendanceSessionHub;
 use App\Livewire\App\Attendance\AttendanceSessionManager;
 use App\Livewire\App\Attendance\ClassroomAttendanceLive;
@@ -17,7 +18,10 @@ use App\Livewire\App\Attendance\AttendanceScanner;
 */
 
 Route::prefix('attendance')->name('attendance.')->group(function () {
-    
+
+    Route::get('/dashboard', AttendanceDashboard::class)
+        ->middleware('can:attendance_plantel.reports')
+        ->name('dashboard');
 
 
     Route::middleware('can:attendance_plantel.record')->group(function () {
