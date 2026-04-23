@@ -10,7 +10,9 @@ use App\Services\Attendance\ClassroomAttendanceService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
+
 
 class AttendanceDashboard extends Component
 {
@@ -292,11 +294,14 @@ class AttendanceDashboard extends Component
 
     public function render()
     {
-        return view('livewire.app.attendance.attendance-dashboard', [
+        /** @var \Livewire\Features\SupportPageComponents\View $view */
+        $view = view('livewire.app.attendance.attendance-dashboard', [
             'shifts'        => Auth::user()->school->shifts,
             'sections'      => SchoolSection::withFullRelations()->get(),
             'calendarDays'  => $this->buildCalendarDays(),
             'calendarLabel' => Carbon::parse($this->calendarMonth)->isoFormat('MMMM YYYY'),
-        ])->layout('layouts.app-module', config('modules.configuracion'));
+        ]);
+
+        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

@@ -324,6 +324,6 @@ class ManualAttendance extends Component
             'stats' => $this->statistics,
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

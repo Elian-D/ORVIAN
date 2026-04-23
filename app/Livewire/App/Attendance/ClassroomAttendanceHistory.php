@@ -11,6 +11,7 @@ use App\Models\Tenant\ClassroomAttendanceRecord;
 use App\Models\Tenant\Teacher;
 use App\Tables\App\Attendance\ClassroomAttendanceTableConfig;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -38,8 +39,8 @@ class ClassroomAttendanceHistory extends DataTable
     {
         parent::mount();
 
-        $teacher = Teacher::where('user_id', auth()->id())
-            ->where('school_id', auth()->user()->school_id)
+        $teacher = Teacher::where('user_id', Auth::id())
+            ->where('school_id', Auth::user()->school_id)
             ->first();
 
         $this->teacherScope = $teacher?->id;
@@ -84,7 +85,7 @@ class ClassroomAttendanceHistory extends DataTable
 
         return Excel::download(
             new ClassroomAttendanceExport(
-                schoolId:     auth()->user()->school_id,
+                schoolId:     Auth::user()->school_id,
                 filters:      $this->filters,
                 teacherScope: $this->teacherScope,
             ),
@@ -109,7 +110,7 @@ class ClassroomAttendanceHistory extends DataTable
 
     public function render()
     {
-        $schoolId = auth()->user()->school_id;
+        $schoolId = Auth::user()->school_id;
 
         $baseQuery = ClassroomAttendanceRecord::where('school_id', $schoolId)
             ->with([
@@ -130,7 +131,8 @@ class ClassroomAttendanceHistory extends DataTable
             ->orderBy('class_time')
             ->paginate($this->perPage);
 
-        return view('livewire.app.attendance.classroom-attendance-history', [
+            /** @var \Livewire\Features\SupportPageComponents\View $view */
+        $view = view('livewire.app.attendance.classroom-attendance-history', [
             'records'        => $records,
             'isTeacher'      => (bool) $this->teacherScope,
             'sectionOptions' => SchoolSection::withFullRelations()->get()
@@ -146,6 +148,8 @@ class ClassroomAttendanceHistory extends DataTable
                 ->get()
                 ->pluck('full_name', 'id')
                 ->toArray(),
-        ])->layout('layouts.app-module', config('modules.asistencia'));
+        ]);
+
+        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

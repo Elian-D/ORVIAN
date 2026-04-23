@@ -13,6 +13,7 @@ use App\Models\Tenant\Teacher;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -76,7 +77,7 @@ class AttendanceReports extends Component
 
     private function generateSummary(): void
     {
-        $schoolId = auth()->user()->school_id;
+        $schoolId = Auth::user()->school_id;
 
         $query = PlantelAttendanceRecord::where('school_id', $schoolId)
             ->whereBetween('date', [$this->dateFrom, $this->dateTo])
@@ -124,7 +125,7 @@ class AttendanceReports extends Component
             return;
         }
 
-        $schoolId = auth()->user()->school_id;
+        $schoolId = Auth::user()->school_id;
 
         $records = PlantelAttendanceRecord::where('school_id', $schoolId)
             ->where('student_id', $this->studentId)
@@ -161,7 +162,7 @@ class AttendanceReports extends Component
 
     private function generateDiscrepanciesReport(): void
     {
-        $schoolId = auth()->user()->school_id;
+        $schoolId = Auth::user()->school_id;
 
         // Registros de plantel presentes/tardanza → indexados por student_id + date
         $plantelPresent = PlantelAttendanceRecord::where('school_id', $schoolId)
@@ -205,7 +206,7 @@ class AttendanceReports extends Component
 
     private function generateTeacherCoverageReport(): void
     {
-        $schoolId = auth()->user()->school_id;
+        $schoolId = Auth::user()->school_id;
 
         $query = TeacherSubjectSection::where('school_id', $schoolId)
             ->where('is_active', true)
@@ -285,7 +286,7 @@ class AttendanceReports extends Component
             return;
         }
 
-        $school     = auth()->user()->school;
+        $school     = Auth::user()->school;
         $logoPath   = $school->logo_path ? storage_path('app/public/' . $school->logo_path) : null;
         $logoBase64 = ($logoPath && file_exists($logoPath))
             ? 'data:image/' . pathinfo($logoPath, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($logoPath))
@@ -323,9 +324,10 @@ class AttendanceReports extends Component
 
     public function render()
     {
-        $schoolId = auth()->user()->school_id;
+        $schoolId = Auth::user()->school_id;
 
-        return view('livewire.app.attendance.attendance-reports', [
+        /** @var \Livewire\Features\SupportPageComponents\View $view */
+        $view = view('livewire.app.attendance.attendance-reports', [
             'sectionOptions' => SchoolSection::withFullRelations()->get()
                 ->pluck('full_label', 'id')
                 ->toArray(),
@@ -341,6 +343,8 @@ class AttendanceReports extends Component
                 ->get()
                 ->pluck('full_name', 'id')
                 ->toArray(),
-        ])->layout('layouts.app-module', config('modules.asistencia'));
+        ]);
+
+        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }
