@@ -10,16 +10,17 @@ class RoleAcademicSeeder extends Seeder
 {
     public function run(): void
     {
+        // Importante: Desactivamos el team_id para manejar roles globales
         setPermissionsTeamId(null);
 
-        // 1. Roles base de Escuela con sus colores
+        // 1. Definición de Roles Base y Colores
         $schoolRoles = [
-            ['name' => 'School Principal',     'color' => '#4F46E5'], // Indigo
-            ['name' => 'Academic Coordinator', 'color' => '#8B5CF6'], // Violet (Nuevo)
-            ['name' => 'Teacher',              'color' => '#0EA5E9'], // Sky
-            ['name' => 'Secretary',            'color' => '#F59E0B'], // Amber
-            ['name' => 'Student',              'color' => '#10B981'], // Emerald
-            ['name' => 'Staff',                'color' => '#64748B'], // Slate
+            ['name' => 'School Principal',     'color' => '#4F46E5'], 
+            ['name' => 'Academic Coordinator', 'color' => '#8B5CF6'], 
+            ['name' => 'Teacher',              'color' => '#0EA5E9'], 
+            ['name' => 'Secretary',            'color' => '#F59E0B'], 
+            ['name' => 'Student',              'color' => '#10B981'], 
+            ['name' => 'Staff',                'color' => '#64748B'], 
         ];
 
         foreach ($schoolRoles as $roleData) {
@@ -33,31 +34,30 @@ class RoleAcademicSeeder extends Seeder
             );
         }
 
-        // 2. Definición de permisos por Rol
+        // 2. Asignación de Permisos Reales
 
-        // --- SCHOOL PRINCIPAL (Director) ---
-        // Tiene acceso total a todo lo que pertenezca al contexto 'tenant'
+        // --- SCHOOL PRINCIPAL ---
+        // Acceso total al contexto 'tenant'
         $principal = Role::where('name', 'School Principal')->first();
         $tenantPermissions = Permission::whereHas('group', function($q) {
             $q->where('context', 'tenant');
         })->get();
         $principal->syncPermissions($tenantPermissions);
 
-
-        // --- ACADEMIC COORDINATOR ---
+        // --- ACADEMIC COORDINATOR (El Supervisor) ---
         $coordinator = Role::where('name', 'Academic Coordinator')->first();
         $coordinator->syncPermissions([
             'users.view',
             'roles.view',
             'students.view', 'students.edit',
             'teachers.view', 'teachers.assign_subjects',
-            'attendance_plantel.view', 'attendance_plantel.open_session', 'attendance_plantel.close_session',
+            'attendance_plantel.view', 'attendance_plantel.open_session', 'attendance_plantel.close_session', 'attendance_plantel.reports', 'attendance_plantel.verify',
             'attendance_classroom.view', 'attendance_classroom.reports',
             'excuses.view', 'excuses.submit', 'excuses.approve', 'excuses.reject',
+            'settings.view',
         ]);
 
-
-        // --- TEACHER (Docente) ---
+        // --- TEACHER (Operativa de Aula) ---
         $teacher = Role::where('name', 'Teacher')->first();
         $teacher->syncPermissions([
             'users.view',
@@ -66,27 +66,20 @@ class RoleAcademicSeeder extends Seeder
             'excuses.view', 'excuses.submit',
         ]);
 
-
-        // --- SECRETARY (Secretaria) ---
+        // --- SECRETARY (Operativa de Entrada/Salida) ---
         $secretary = Role::where('name', 'Secretary')->first();
         $secretary->syncPermissions([
-            'users.view',
-            'users.create',
-            'roles.view',
-            'settings.view',
-            'students.view', 'students.create', 'students.edit', 'students.delete', 'students.import',
-            'teachers.view',
-            'attendance_plantel.view', 'attendance_plantel.record', 'attendance_plantel.reports',
+            'users.view', 'users.create',
+            'students.view', 'students.create', 'students.edit', 'students.import',
+            'attendance_plantel.view', 'attendance_plantel.record', 'attendance_plantel.qr', 'attendance_plantel.reports',
             'excuses.view', 'excuses.submit',
         ]);
 
         // --- STUDENT ---
-        // Generalmente solo lectura de su propio perfil y ver sus asistencias/excusas
         $studentRole = Role::where('name', 'Student')->first();
         $studentRole->syncPermissions([
             'attendance_classroom.view',
-            'excuses.view',
-            'excuses.submit',
+            'excuses.view', 'excuses.submit',
         ]);
     }
 }

@@ -230,6 +230,6 @@ class AttendanceSessionHub extends Component
             'currentMonth' => Carbon::parse($this->date)->isoFormat('MMMM YYYY'),
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

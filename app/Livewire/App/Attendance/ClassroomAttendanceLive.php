@@ -10,6 +10,7 @@ use App\Models\Tenant\PlantelAttendanceRecord;
 use App\Models\Tenant\Teacher;
 use App\Services\Attendance\ClassroomAttendanceService;
 use App\Services\Attendance\ExcuseService;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class ClassroomAttendanceLive extends Component
@@ -34,7 +35,7 @@ class ClassroomAttendanceLive extends Component
 
     protected function resolveTeacher(): ?Teacher
     {
-        return $this->teacher ??= Teacher::where('user_id', auth()->id())->first();
+        return $this->teacher ??= Teacher::where('user_id', Auth::id())->first();
     }
 
     // ── Modo sustituto ────────────────────────────────────────────
@@ -295,7 +296,8 @@ class ClassroomAttendanceLive extends Component
             ])
         ));
 
-        return view('livewire.app.attendance.classroom-attendance-live', [
+        /** @var \Livewire\Features\SupportPageComponents\View $view */
+        $view = view('livewire.app.attendance.classroom-attendance-live', [
             'myAssignments'            => $myAssignments,
             'substituteSections'       => $substituteSections,
             'sectionAssignments'       => $sectionAssignments,
@@ -304,6 +306,8 @@ class ClassroomAttendanceLive extends Component
             'pasilleoCount'            => $pasilleoCount,
             'lockedStudentIds'         => $lockedStudentIds,
             'hasPlantelRecordsToday'   => $hasPlantelRecordsToday,
-        ])->layout('layouts.app-module', config('modules.configuracion'));
+        ]);
+
+        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Tenant\PlantelAttendanceRecord;
 use App\Tables\App\Attendance\PlantelAttendanceTableConfig;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Maatwebsite\Excel\Facades\Excel;
@@ -73,7 +74,7 @@ class PlantelAttendanceIndex extends DataTable
     {
         $this->authorize('attendance_plantel.verify');
 
-        $record = PlantelAttendanceRecord::where('school_id', auth()->user()->school_id)
+        $record = PlantelAttendanceRecord::where('school_id', Auth::user()->school_id)
             ->findOrFail($recordId);
 
         $this->selectedRecordId = $recordId;
@@ -91,7 +92,7 @@ class PlantelAttendanceIndex extends DataTable
             'editNotes'  => 'nullable|string|max:500',
         ]);
 
-        PlantelAttendanceRecord::where('school_id', auth()->user()->school_id)
+        PlantelAttendanceRecord::where('school_id', Auth::user()->school_id)
             ->findOrFail($this->selectedRecordId)
             ->update([
                 'status' => $this->editStatus,
@@ -106,11 +107,11 @@ class PlantelAttendanceIndex extends DataTable
     {
         $this->authorize('attendance_plantel.verify');
 
-        PlantelAttendanceRecord::where('school_id', auth()->user()->school_id)
+        PlantelAttendanceRecord::where('school_id', Auth::user()->school_id)
             ->findOrFail($recordId)
             ->update([
                 'verified_at' => now(),
-                'verified_by' => auth()->id(),
+                'verified_by' => Auth::id(),
             ]);
 
         $this->dispatch('toast', type: 'success', message: 'Registro verificado.');
@@ -128,14 +129,14 @@ class PlantelAttendanceIndex extends DataTable
         $fileName = 'historial-plantel-' . date('Y-m-d') . '.xlsx';
 
         return Excel::download(
-            new PlantelAttendanceExport(auth()->user()->school_id, $this->filters),
+            new PlantelAttendanceExport(Auth::user()->school_id, $this->filters),
             $fileName
         );
     }
 
     public function exportPdf()
     {
-        $school  = auth()->user()->school;
+        $school  = Auth::user()->school;
         $records = (new PlantelAttendanceFilters($this->filters))
             ->apply(
                 PlantelAttendanceRecord::where('school_id', $school->id)
@@ -209,7 +210,7 @@ class PlantelAttendanceIndex extends DataTable
     {
         $records = (new PlantelAttendanceFilters($this->filters))
             ->apply(
-                PlantelAttendanceRecord::where('school_id', auth()->user()->school_id)
+                PlantelAttendanceRecord::where('school_id', Auth::user()->school_id)
                     ->with([
                         'student:id,first_name,last_name,photo_path,school_section_id,rnc',
                         'student.section' => fn ($q) => $q->with('grade:id,name'),
@@ -222,11 +223,14 @@ class PlantelAttendanceIndex extends DataTable
             ->orderByDesc('time')
             ->paginate($this->perPage);
 
-        return view('livewire.app.attendance.plantel-attendance-index', [
+        /** @var \Livewire\Features\SupportPageComponents\View $view */
+        $view = view('livewire.app.attendance.plantel-attendance-index', [
             'records'        => $records,
             'sectionOptions' => SchoolSection::withFullRelations()->get()
                 ->pluck('full_label', 'id')
                 ->toArray(),
-        ])->layout('layouts.app-module', config('modules.asistencia'));
+        ]);
+
+        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

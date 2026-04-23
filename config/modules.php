@@ -34,25 +34,30 @@ return [
         ],
     ],
 
+    'asistencia' => [
+        'module'      => 'Asistencia',
+        'moduleIcon'  => 'asistencia',
+        'moduleLinks' => [
+            ['label' => 'Dashboard',          'route' => 'app.attendance.dashboard'],
+            ['label' => 'Sesión del Día',     'route' => 'app.attendance.session'],
+            ['label' => 'Scanner',            'route' => 'app.attendance.scanner'],
+            ['label' => 'Pase de Lista',      'route' => 'app.attendance.classroom.live'],
+            ['label' => 'Reportes',           'route' => 'app.attendance.reports'],
+            ['label' => 'Excusas',            'route' => 'app.attendance.excuses.index'],
+        ],
+    ],
+
+    'academico' => [
+        'module'      => 'Académico',
+        'moduleIcon'  => 'academico',
+        'moduleLinks' => [
+            ['label' => 'Estudiantes', 'route' => 'app.academic.students'],
+            ['label' => 'Maestros',  'route' => 'app.academic.teachers'], 
+        ],
+    ],
+
     // Descomenta cuando se construya el módulo:
 
-    // 'asistencia' => [
-    //     'module'      => 'Asistencia',
-    //     'moduleIcon'  => 'asistencia',
-    //     'moduleLinks' => [
-    //         ['label' => 'Registro',  'route' => 'app.attendance.index'],
-    //         ['label' => 'Reportes',  'route' => 'app.attendance.reports'],
-    //     ],
-    // ],
-
-    // 'academico' => [
-    //     'module'      => 'Académico',
-    //     'moduleIcon'  => 'academico',
-    //     'moduleLinks' => [
-    //         ['label' => 'Secciones', 'route' => 'app.academic.sections'],
-    //         ['label' => 'Materias',  'route' => 'app.academic.subjects'],
-    //     ],
-    // ],
 
     // 'notas' => [
     //     'module'      => 'Notas',

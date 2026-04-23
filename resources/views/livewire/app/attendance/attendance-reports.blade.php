@@ -48,6 +48,29 @@
                 </x-ui.button>
             @endif
         </x-slot:actions>
+
+        <x-slot:secondary>
+            <x-ui.button 
+                href="{{ route('app.attendance.plantel.index') }}"
+                variant="primary" 
+                type="outline" 
+                size="sm" 
+                icon="heroicon-o-building-office-2"
+                
+            > 
+                Historial del Plantel
+            </x-ui.button>
+
+            <x-ui.button 
+                href="{{ route('app.attendance.classroom.history') }}"
+                variant="primary" 
+                type="outline" 
+                size="sm" 
+                icon="heroicon-o-academic-cap"
+            > 
+                Historial por Sección
+            </x-ui.button>
+        </x-slot:secondary>
     </x-app.module-toolbar>
 
     <div class="p-4 md:p-6 flex flex-col gap-6">

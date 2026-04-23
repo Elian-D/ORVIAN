@@ -177,7 +177,7 @@ class ExcuseIndex extends DataTable
             'students' => Student::active()->select('id', 'first_name', 'last_name')->get(),
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 
     public function clearFilter(string $key): void
