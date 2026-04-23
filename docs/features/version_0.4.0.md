@@ -6637,23 +6637,20 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ### 16.1 — Actualizar `config/modules.php`
 
-- [ ] **Agregar entrada `asistencia`:**
+- [x] **Agregar entrada `asistencia`:**
   ```php
-  'asistencia' => [
-      'module'      => 'Asistencia',
-      'moduleIcon'  => 'asistencia',
-      'moduleLinks' => [
-          ['label' => 'Dashboard',          'route' => 'app.attendance.dashboard'],
-          ['label' => 'Sesión del Día',     'route' => 'app.attendance.session'],
-          ['label' => 'Registro Manual',    'route' => 'app.attendance.manual'],
-          ['label' => 'Escáner QR',         'route' => 'app.attendance.qr'],
-          ['label' => 'Reconoc. Facial',    'route' => 'app.attendance.facial'],
-          ['label' => 'Pase de Lista',      'route' => 'app.attendance.classroom.live'],
-          ['label' => 'Historial',          'route' => 'app.attendance.history'],
-          ['label' => 'Reportes',           'route' => 'app.attendance.reports'],
-          ['label' => 'Excusas',            'route' => 'app.excuses.index'],
-      ],
-  ],
+    'asistencia' => [
+        'module'      => 'Asistencia',
+        'moduleIcon'  => 'asistencia',
+        'moduleLinks' => [
+            ['label' => 'Dashboard',          'route' => 'app.attendance.dashboard'],
+            ['label' => 'Sesión del Día',     'route' => 'app.attendance.session'],
+            ['label' => 'Scanner',            'route' => 'app.attendance.scanner'],
+            ['label' => 'Pase de Lista',      'route' => 'app.attendance.classroom.live'],
+            ['label' => 'Reportes',           'route' => 'app.attendance.reports'],
+            ['label' => 'Excusas',            'route' => 'app.attendance.excuses.index'],
+        ],
+    ],
 
   'estudiantes' => [
       'module'      => 'Estudiantes',
@@ -6665,9 +6662,13 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
   ],
   ```
 
+- [x] Actualizar todos los render de los archivos de `app/Livewire/App/Attendance/*` para usar `config('modules.asistencia')` en lugar de `config('modules.configuracion')` 
+- [x] Eliminar ` app/Livewire/App/Attendance/DailySessionManager.php` archivo de ejemplo que se había creado para pruebas iniciales.
+- [x] Agregar botones para acceder al plantel y classrom history en `resources/views/livewire/app/attendance/attendance-reports.blade.php`
+
 ### 16.2 — Actualizar Dashboard (`app/dashboard.blade.php`)
 
-- [ ] **Activar tiles de Asistencia y Estudiantes** (quitar `comingSoon`):
+- [x] **Activar tiles de Asistencia y Estudiantes** (quitar `comingSoon`):
   ```blade
   <x-ui.app-tile module="asistencia" title="Asistencia" url="{{ route('app.attendance.dashboard') }}" />
   <x-ui.app-tile module="estudiantes" title="Estudiantes" url="{{ route('app.students.index') }}" />
@@ -6675,137 +6676,22 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ### 16.3 — Actualizar `config/modules.php` — links en módulo configuración
 
-- [ ] **Agregar link "Maestros"** en `configuracion.moduleLinks`:
+- [x] **Agregar link "Maestros"** en `configuracion.moduleLinks`:
   ```php
   ['label' => 'Maestros', 'route' => 'app.teachers.index'],
   ```
 
 ### 16.4 — Actualizar `RoleAcademicSeeder` para Nuevos Roles
 
-- [ ] **Agregar rol `Academic Coordinator`** con permisos intermedios entre `School Principal` y `Teacher` (ver Fase 6.3)
-- [ ] **Actualizar `SchoolRoleService::BASE_ROLES`** para incluir `Academic Coordinator`
+- [x] **Agregar rol `Academic Coordinator`** con permisos intermedios entre `School Principal` y `Teacher` (ver Fase 6.3)
+- [x] **Actualizar `SchoolRoleService::BASE_ROLES`** para incluir `Academic Coordinator`
 
 ---
 
-## Fase 17 — Planes y Features
-**Rama:** `feature/attendance-plans`
-
-### 17.1 — Actualizar `PlanFeatureSeeder`
-
-- [ ] **Agregar features del módulo de asistencia:**
-  ```php
-  ['name' => 'Estudiantes',               'slug' => 'attendance_students',   'module' => 'Asistencia'],
-  ['name' => 'Registro Manual',           'slug' => 'attendance_manual',     'module' => 'Asistencia'],
-  ['name' => 'Asistencia de Aula',        'slug' => 'attendance_classroom',  'module' => 'Asistencia'],
-  ['name' => 'Escáner QR',               'slug' => 'attendance_qr',         'module' => 'Asistencia'],
-  ['name' => 'Reconocimiento Facial',    'slug' => 'attendance_facial',     'module' => 'Asistencia'],
-  ['name' => 'Reportes de Asistencia',   'slug' => 'attendance_reports',    'module' => 'Asistencia'],
-  ['name' => 'Sincronización Offline',   'slug' => 'attendance_offline',    'module' => 'Asistencia'],
-  ['name' => 'Importación de Est.',      'slug' => 'students_import',       'module' => 'Estudiantes'],
-  ```
-
-### 17.2 — Asignación a Planes
-
-- [ ] **Actualizar asignaciones en `PlanFeatureSeeder`:**
-  - **Básico:** `attendance_students`, `attendance_manual`, `students_import`
-  - **Profesional:** Básico + `attendance_classroom`, `attendance_qr`, `attendance_reports`
-  - **Enterprise:** Profesional + `attendance_facial`, `attendance_offline`
-
-### 17.3 — Traducción de Features
-
-- [ ] **Crear/actualizar `lang/es/features.php`:**
-  ```php
-  'attendance_students'  => 'Gestión de Estudiantes',
-  'attendance_manual'    => 'Registro manual de asistencia',
-  'attendance_classroom' => 'Asistencia de Aula (pase de lista)',
-  'attendance_qr'        => 'Registro por código QR',
-  'attendance_facial'    => 'Reconocimiento facial',
-  'attendance_reports'   => 'Reportes avanzados de asistencia',
-  'attendance_offline'   => 'Modo sin conexión / sincronización',
-  'students_import'      => 'Importación masiva de estudiantes',
-  ```
-
----
-
-## Fase 18 — Testing y QA
-**Rama:** `feature/attendance-testing`
-
-### 18.1 — Tests de Unidad (PHP)
-
-- [ ] **`tests/Unit/Services/StudentServiceTest.php`:**
-  - `test_generate_qr_code_is_unique()`
-  - `test_create_student_with_qr_auto_generated()`
-  - `test_withdraw_sets_inactive_and_date()`
-  - `test_reactivate_clears_withdrawal_fields()`
-  - `test_transfer_section_updates_metadata_history()`
-
-- [ ] **`tests/Unit/Services/TeacherServiceTest.php`:**
-  - `test_generate_employee_code_format()`
-  - `test_terminate_removes_active_assignments()`
-
-- [ ] **`tests/Unit/Services/PlantelAttendanceServiceTest.php`:**
-  - `test_cannot_open_duplicate_session_same_date_shift()`
-  - `test_record_attendance_returns_correct_status_on_time()`
-  - `test_record_attendance_returns_late_status_past_threshold()`
-  - `test_record_attendance_throws_on_duplicate()`
-  - `test_record_attendance_throws_without_open_session()`
-  - `test_mark_absences_only_marks_students_without_record()`
-
-- [ ] **`tests/Unit/Services/ClassroomAttendanceServiceTest.php`:**
-  - `test_cannot_mark_present_if_absent_in_plantel()`
-  - `test_cannot_record_without_plantel_record()`
-  - `test_detect_discrepancies_finds_pasilleo()`
-
-- [ ] **`tests/Unit/Services/ExcuseServiceTest.php`:**
-  - `test_approve_excuse_updates_status()`
-  - `test_reject_excuse_requires_notes()`
-  - `test_covers_date_returns_correct_boolean()`
-
-### 18.2 — Tests de Integración (Feature)
-
-- [ ] **`tests/Feature/Students/StudentCrudTest.php`:**
-  - `test_can_create_student_with_qr_auto_generated()`
-  - `test_cannot_create_student_without_permission()`
-  - `test_can_view_student_list_scoped_to_school()`
-  - `test_can_transfer_student_to_new_section()`
-  - `test_cannot_delete_student_with_attendance_records()`
-
-- [ ] **`tests/Feature/Attendance/PlantelSessionTest.php`:**
-  - `test_admin_can_open_daily_session()`
-  - `test_cannot_open_duplicate_session()`
-  - `test_close_session_calculates_stats()`
-  - `test_mark_all_absences_skips_already_registered()`
-
-- [ ] **`tests/Feature/Attendance/QrScanTest.php`:**
-  - `test_valid_qr_records_attendance_in_open_session()`
-  - `test_invalid_qr_returns_error()`
-  - `test_duplicate_qr_scan_returns_warning_not_duplicate_record()`
-  - `test_qr_from_other_school_is_rejected()`
-
-- [ ] **`tests/Feature/Attendance/CrossValidationTest.php`:**
-  - `test_cannot_mark_classroom_present_if_plantel_absent()`
-  - `test_can_mark_classroom_absent_if_plantel_present()`
-  - `test_discrepancy_detected_when_present_plantel_absent_classroom()`
-
-- [ ] **`tests/Feature/Sync/SyncManagerTest.php`:**
-  - `test_sync_enqueues_record_on_local_mode()`
-  - `test_sync_skips_enqueue_on_cloud_mode()`
-  - `test_sync_pending_marks_synced_on_success()`
-  - `test_sync_pending_increments_attempts_on_failure()`
-
-### 18.3 — Tests del Microservicio Python
-
-- [ ] **`tests/test_face_detection.py`:** single face, multiple faces, no face
-- [ ] **`tests/test_face_matching.py`:** match found, no match, tolerance boundary
-- [ ] **Fixtures en `tests/fixtures/`:** `single_face.jpg`, `multiple_faces.jpg`, `no_face.jpg`
-- [ ] **Ejecutar:** `pytest tests/ -v --cov=app`
-
----
-
-## Fase 19 — Documentación
+## Fase 17 — Documentación
 **Rama:** `feature/attendance-docs`
 
-### 19.1 — Documentación de Arquitectura
+### 17.1 — Documentación de Arquitectura
 
 - [ ] **Crear `docs/architecture/attendance-domains.md`:**
   - Explicar la separación Plantel vs Aula y por qué son modelos separados
@@ -6825,22 +6711,22 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
   - Consideraciones de privacidad de datos biométricos (encodings almacenados solo en DB, nunca las fotos completas)
   - Guía de deployment del microservicio en Docker
 
-### 19.2 — Documentación de Usuario
+### 17.2 — Documentación de Usuario
 
 - [ ] **Crear `docs/modules/students.md`:** guía de gestión de estudiantes, proceso de importación, captura de rostro para reconocimiento facial
 - [ ] **Crear `docs/modules/teachers.md`:** gestión de maestros, asignación de materias, vinculación con cuenta de sistema
 - [ ] **Crear `docs/modules/attendance.md`:** apertura del día, registro QR, pase de lista, gestión de excusas, interpretación del dashboard
 
-### 19.3 — API del Microservicio
+### 17.3 — API del Microservicio
 
 - [ ] **Crear `docs/api/facial-recognition-api.md`:** documentación completa de endpoints, schemas, ejemplos curl, códigos de error
 
 ---
 
-## Fase 20 — Importación Masiva de Estudiantes
+## Fase 18 — Importación Masiva de Estudiantes
 **Rama:** `feature/students-import`
 
-### 20.1 — Componente de Importación
+### 18.1 — Componente de Importación
 
 - [ ] **Instalar:** `composer require maatwebsite/excel`
 
@@ -6915,34 +6801,34 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 - [x] Observer `StudentObserver` y `TeacherObserver` registrados
 
 ### Servicios de Negocio
-- [ ] `StudentService` y `StudentPhotoService`
-- [ ] `TeacherService` y `TeacherAssignmentService`
-- [ ] `PlantelAttendanceService` con validación de sesión abierta
-- [ ] `ClassroomAttendanceService` con validación cruzada
-- [ ] `ExcuseService`
-- [ ] `SyncManager` + comando `orvian:sync-attendance`
-- [ ] `FacialApiClient` y `FaceEncodingManager`
+- [x] `StudentService` y `StudentPhotoService`
+- [x] `TeacherService` y `TeacherAssignmentService`
+- [x] `PlantelAttendanceService` con validación de sesión abierta
+- [x] `ClassroomAttendanceService` con validación cruzada
+- [x] `ExcuseService`
+- [x] `SyncManager` + comando `orvian:sync-attendance`
+- [x] `FacialApiClient` y `FaceEncodingManager`
 
 ### Permisos y Roles
-- [ ] `PermissionGroup` con nuevos grupos de asistencia
-- [ ] Nuevos permisos en `PermissionSeeder`
-- [ ] Roles actualizados en `RoleAcademicSeeder`
+- [x] `PermissionGroup` con nuevos grupos de asistencia
+- [x] Nuevos permisos en `PermissionSeeder`
+- [x] Roles actualizados en `RoleAcademicSeeder`
 
 ### Interfaz Web
-- [ ] CRUD Estudiantes (index + show + slide-over)
-- [ ] CRUD Maestros (index + asignaciones)
-- [ ] Gestión de Sesión del Día
-- [ ] Registro Manual de Plantel
-- [ ] Escáner QR
-- [ ] Escáner Facial (dependiente de microservicio)
-- [ ] Pase de Lista del Maestro (aula)
-- [ ] Gestión de Excusas
-- [ ] Dashboard con doble visión + panel de discrepancias
-- [ ] Historial de plantel y aula
-- [ ] Reportes con exportación Excel/PDF
-- [ ] Importación masiva de estudiantes
+- [x] CRUD Estudiantes (index + show + slide-over)
+- [x] CRUD Maestros (index + asignaciones)
+- [x] Gestión de Sesión del Día
+- [x] Registro Manual de Plantel
+- [x] Escáner QR
+- [x] Escáner Facial (dependiente de microservicio)
+- [x] Pase de Lista del Maestro (aula)
+- [x] Gestión de Excusas
+- [x] Dashboard con doble visión + panel de discrepancias
+- [x] Historial de plantel y aula
+- [x] Reportes con exportación Excel/PDF
+- [x] Importación masiva de estudiantes
 
-### Sincronización Offline
+### Sincronización Offline FASE FUTURA
 - [ ] Columnas `synced_at`, `sync_status` en tablas de asistencia
 - [ ] Tabla `sync_queue`
 - [ ] `SyncObserver` registrado condicionalmente
@@ -6951,22 +6837,17 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 - [ ] Indicador visual de estado de sincronización en UI
 
 ### Microservicio Python
-- [ ] Repositorio `orvian-facial-recognition` creado
-- [ ] Endpoints `/health`, `/enroll`, `/verify` implementados
-- [ ] Tests pasando con fixtures
-- [ ] Dockerfile y docker-compose configurados
-- [ ] Cliente HTTP en Laravel conectado y probado
+- [x] Repositorio `orvian-facial-recognition` creado
+- [x] Endpoints `/health`, `/enroll`, `/verify` implementados
+- [x] Tests pasando con fixtures
+- [x] Dockerfile y docker-compose configurados
+- [x] Cliente HTTP en Laravel conectado y probado
 
 ### Módulo y Planes
-- [ ] `config/modules.php` actualizado con `asistencia` y `estudiantes`
-- [ ] Tiles activados en `app/dashboard.blade.php`
-- [ ] Features añadidas en `PlanFeatureSeeder`
-- [ ] Features asignadas a planes correctos
+- [x] `config/modules.php` actualizado con `asistencia` y `estudiantes`
+- [x] Tiles activados en `app/dashboard.blade.php`
 
-### Testing
-- [ ] Tests unitarios de servicios pasando
-- [ ] Tests de integración (CRUD, sesiones, validación cruzada, sync) pasando
-- [ ] Tests del microservicio Python pasando
+
 
 ### Documentación
 - [ ] `docs/architecture/attendance-domains.md`
