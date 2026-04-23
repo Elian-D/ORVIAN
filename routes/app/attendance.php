@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\App\Attendance\AttendanceAudit;
+use App\Livewire\App\Attendance\AttendanceReports;
 use App\Livewire\App\Attendance\AttendanceDashboard;
 use App\Livewire\App\Attendance\AttendanceSessionHub;
 use App\Livewire\App\Attendance\AttendanceSessionManager;
@@ -8,6 +9,7 @@ use App\Livewire\App\Attendance\ClassroomAttendanceLive;
 use App\Livewire\App\Attendance\ClassroomAttendanceHistory;
 use App\Livewire\App\Attendance\ExcuseIndex;
 use App\Livewire\App\Attendance\ManualAttendance;
+use App\Livewire\App\Attendance\PlantelAttendanceIndex;
 use Illuminate\Support\Facades\Route;
 use App\Livewire\App\Attendance\AttendanceScanner;
 
@@ -22,6 +24,15 @@ Route::prefix('attendance')->name('attendance.')->group(function () {
     Route::get('/dashboard', AttendanceDashboard::class)
         ->middleware('can:attendance_plantel.reports')
         ->name('dashboard');
+
+    // --- Fase 15: Historial y Reportes ---
+    Route::get('/plantel/history', PlantelAttendanceIndex::class)
+        ->middleware('can:attendance_plantel.view')
+        ->name('plantel.index');
+
+    Route::get('/reports', AttendanceReports::class)
+        ->middleware('can:attendance_plantel.reports')
+        ->name('reports');
 
 
     Route::middleware('can:attendance_plantel.record')->group(function () {
