@@ -6583,12 +6583,13 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ---
 
+
 ## Fase 15 — Historial y Reportes de Asistencia
 **Rama:** `feature/attendance-reports`
 
 ### 15.1 — Historial de Plantel
 
-- [ ] **Crear `app/Livewire/App/Attendance/PlantelAttendanceIndex.php`** extendiendo `DataTable`:
+- [x] **Crear `app/Livewire/App/Attendance/PlantelAttendanceIndex.php`** extendiendo `DataTable`:
   - Filtros: rango de fechas, sección, estado, método, verificado/pendiente
   - `->layout('layouts.app-module', config('modules.asistencia'))`
   - Acción `edit(int $recordId, string $newStatus, ?string $notes)`: guard `can:attendance_plantel.verify`
@@ -6597,14 +6598,14 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ### 15.2 — Historial de Aula
 
-- [ ] **Crear `app/Livewire/App/Attendance/ClassroomAttendanceHistory.php`** extendiendo `DataTable`:
+- [x] **Crear `app/Livewire/App/Attendance/ClassroomAttendanceHistory.php`** extendiendo `DataTable`:
   - Filtros: rango de fechas, maestro, materia, sección, estado
   - Solo puede ver registros propios si el usuario es maestro (`Teacher::where('user_id', auth()->id())`)
   - Director/Coordinador ve todo
 
 ### 15.3 — Componente de Reportes
 
-- [ ] **Crear `app/Livewire/App/Attendance/AttendanceReports.php`:**
+- [x] **Crear `app/Livewire/App/Attendance/AttendanceReports.php`:**
   - Tipos de reporte (selector):
     - **Resumen general del período:** tasa de asistencia por sección, comparativa mensual
     - **Por estudiante:** historial completo de un estudiante, ausencias justificadas vs no justificadas
@@ -6615,16 +6616,16 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ### 15.4 — Exportación
 
-- [ ] **Instalar:** `composer require maatwebsite/excel` + `composer require barryvdh/laravel-dompdf`
+- [x] **Instalar:** `composer require maatwebsite/excel` + `composer require barryvdh/laravel-dompdf`
 
-- [ ] **Crear `app/Exports/PlantelAttendanceExport.php`:**
+- [x] **Crear `app/Exports/PlantelAttendanceExport.php`:**
   - `WithHeadings`, `WithMapping`, `FromCollection`
   - Columnas: Fecha, Estudiante, Cédula, Sección, Tanda, Hora, Estado, Método, Registrado por
 
-- [ ] **Crear `app/Exports/ClassroomAttendanceExport.php`:**
+- [x] **Crear `app/Exports/ClassroomAttendanceExport.php`:**
   - Columnas: Fecha, Estudiante, Materia, Sección, Maestro, Estado, Notas
 
-- [ ] **Crear `resources/views/reports/attendance-plantel.blade.php`** para PDF:
+- [x] **Crear `resources/views/reports/attendance-plantel.blade.php`** para PDF:
   - Header con logo de escuela + nombre + período
   - Tabla de registros
   - Footer con totales y tasa
