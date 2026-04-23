@@ -6693,19 +6693,19 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ### 17.1 — Documentación de Arquitectura
 
-- [ ] **Crear `docs/architecture/attendance-domains.md`:**
+- [x] **Crear `docs/architecture/   `:**
   - Explicar la separación Plantel vs Aula y por qué son modelos separados
   - Diagrama de la validación cruzada (regla de pasilleo)
   - Diagrama de flujo del día: apertura → QR/Facial/Manual → cierre → marcado de ausentes
   - Documentar que sin `DailyAttendanceSession` abierta el sistema no acepta registros
 
-- [ ] **Crear `docs/architecture/offline-sync.md`:**
+<!-- - [ ] **Crear `docs/architecture/offline-sync.md`:**
   - Explicar `APP_MODE=cloud` vs `APP_MODE=local`
   - Flujo de la cola de sincronización: Observer → `sync_queue` → comando → API cloud
   - Manejo de conflictos (last-write-wins con timestamp)
-  - Cómo agregar nuevos modelos al sistema de sincronización
+  - Cómo agregar nuevos modelos al sistema de sincronización -->
 
-- [ ] **Crear `docs/architecture/facial-recognition.md`:**
+- [x] **Crear `docs/architecture/facial-recognition.md`:**
   - Arquitectura del microservicio Python
   - Flujo Laravel → FastAPI → `face_recognition` → respuesta
   - Consideraciones de privacidad de datos biométricos (encodings almacenados solo en DB, nunca las fotos completas)
@@ -6713,13 +6713,13 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ### 17.2 — Documentación de Usuario
 
-- [ ] **Crear `docs/modules/students.md`:** guía de gestión de estudiantes, proceso de importación, captura de rostro para reconocimiento facial
-- [ ] **Crear `docs/modules/teachers.md`:** gestión de maestros, asignación de materias, vinculación con cuenta de sistema
-- [ ] **Crear `docs/modules/attendance.md`:** apertura del día, registro QR, pase de lista, gestión de excusas, interpretación del dashboard
+- [x] **Crear `docs/modules/students.md`:** guía de gestión de estudiantes, proceso de importación, captura de rostro para reconocimiento facial
+- [x] **Crear `docs/modules/teachers.md`:** gestión de maestros, asignación de materias, vinculación con cuenta de sistema
+- [x] **Crear `docs/modules/attendance.md`:** apertura del día, registro QR, pase de lista, gestión de excusas, interpretación del dashboard
 
 ### 17.3 — API del Microservicio
 
-- [ ] **Crear `docs/api/facial-recognition-api.md`:** documentación completa de endpoints, schemas, ejemplos curl, códigos de error
+- [x] **Crear `docs/api/facial-recognition-api.md`:** documentación completa de endpoints, schemas, ejemplos curl, códigos de error
 
 ---
 
