@@ -19,7 +19,13 @@
                 </x-ui.button>
             @endcan
             @can('students.import')
-                <x-ui.button variant="secondary" type="ghost" size="sm" iconLeft="heroicon-s-arrow-up-tray">
+                <x-ui.button
+                    variant="secondary"
+                    type="ghost"
+                    size="sm"
+                    iconLeft="heroicon-s-arrow-up-tray"
+                    href="{{ route('app.academic.students.import') }}"
+                >
                     Importar
                 </x-ui.button>
             @endcan
