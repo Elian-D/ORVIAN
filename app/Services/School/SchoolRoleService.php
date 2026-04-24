@@ -22,6 +22,7 @@ class SchoolRoleService
      */
     private const BASE_ROLES = [
         'School Principal',
+        'Academic Coordinator',
         'Teacher',
         'Secretary',
         'Student',

@@ -1,19 +1,21 @@
 @if ($paginator->hasPages())
     <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}"
+         {{-- wire:key es CRUCIAL para que Alpine se reinicie cuando cambie la página --}}
+         wire:key="pagination-{{ $paginator->getPageName() }}-{{ $paginator->currentPage() }}"
          x-data="{
              goToPage: {{ $paginator->currentPage() }},
              lastPage: {{ $paginator->lastPage() }},
+             currentPage: {{ $paginator->currentPage() }},
              jump() {
                  const page = parseInt(this.goToPage);
-                 if (page >= 1 && page <= this.lastPage) {
+                 {{-- Solo disparamos si el número es válido y diferente a la página actual --}}
+                 if (page >= 1 && page <= this.lastPage && page !== this.currentPage) {
                      $wire.gotoPage(page, '{{ $paginator->getPageName() }}');
                  } else {
-                     this.goToPage = {{ $paginator->currentPage() }};
+                     this.goToPage = this.currentPage;
                  }
              }
          }"
-         {{-- Esta es la clave: cuando Livewire cambia la página, Alpine se entera --}}
-         x-effect="goToPage = {{ $paginator->currentPage() }}"
          class="flex justify-center">
 
         <div class="flex items-center gap-2
@@ -29,6 +31,7 @@
                 </span>
             @else
                 <button
+                    type="button"
                     wire:click="gotoPage(1, '{{ $paginator->getPageName() }}')"
                     wire:loading.attr="disabled"
                     class="w-9 h-9 flex items-center justify-center rounded-xl transition-colors
@@ -46,6 +49,7 @@
                 </span>
             @else
                 <button
+                    type="button"
                     wire:click="previousPage('{{ $paginator->getPageName() }}')"
                     wire:loading.attr="disabled"
                     class="w-9 h-9 flex items-center justify-center rounded-xl transition-colors
@@ -84,6 +88,7 @@
             {{-- Botón: Siguiente --}}
             @if ($paginator->hasMorePages())
                 <button
+                    type="button"
                     wire:click="nextPage('{{ $paginator->getPageName() }}')"
                     wire:loading.attr="disabled"
                     class="w-9 h-9 flex items-center justify-center rounded-xl transition-colors
@@ -101,6 +106,7 @@
             {{-- Botón: Última página --}}
             @if ($paginator->hasMorePages())
                 <button
+                    type="button"
                     wire:click="gotoPage({{ $paginator->lastPage() }}, '{{ $paginator->getPageName() }}')"
                     wire:loading.attr="disabled"
                     class="w-9 h-9 flex items-center justify-center rounded-xl transition-colors

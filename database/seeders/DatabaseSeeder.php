@@ -12,6 +12,7 @@ use Database\Seeders\AppInit\{
     RoleOwnerSeeder,
     PermissionGroupSeeder,
     PermissionSeeder,
+    SubjectSeeder,
     TechnicalCatalogSeeder
 };
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -41,6 +42,7 @@ class DatabaseSeeder extends Seeder
                 LevelSeeder::class,
                 GradeSeeder::class,
                 TechnicalCatalogSeeder::class,
+                SubjectSeeder::class,
                 PermissionGroupSeeder::class,
                 PermissionSeeder::class,
                 RoleAcademicSeeder::class,
@@ -48,6 +50,9 @@ class DatabaseSeeder extends Seeder
                 PlanFeatureSeeder::class, 
                 RoleOwnerSeeder::class,
             ]);
+          if (file_exists(database_path('data/modulos_formativos.csv'))) {
+            $this->command->call('orvian:import-technical-modules');
+  }
 
     }
 }

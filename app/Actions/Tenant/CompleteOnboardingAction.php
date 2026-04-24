@@ -41,8 +41,23 @@ class CompleteOnboardingAction
 
             // REEMPLAZO PARA SHIFTS (HasMany no soporta sync)
             $school->shifts()->delete(); // Limpia por si acaso (aunque sea creación inicial)
+
+            // Definimos los horarios estándar (MINERD)
+            $defaultShiftTimes = [
+                School::SHIFT_MORNING   => ['start_time' => '07:30:00', 'end_time' => '12:30:00'],
+                School::SHIFT_AFTERNOON => ['start_time' => '13:30:00', 'end_time' => '18:00:00'],
+                School::SHIFT_EXTENDED  => ['start_time' => '08:00:00', 'end_time' => '16:00:00'],
+                School::SHIFT_NIGHT     => ['start_time' => '18:00:00', 'end_time' => '22:00:00'],
+            ];
+
             foreach ($wizardData['academic']['shift_ids'] as $type) {
-                $school->shifts()->create(['type' => $type]);
+                $times = $defaultShiftTimes[$type] ?? ['start_time' => '08:00:00', 'end_time' => '12:00:00'];
+                
+                $school->shifts()->create([
+                    'type'       => $type,
+                    'start_time' => $times['start_time'],
+                    'end_time'   => $times['end_time'],
+                ]);
             }
 
             // 3. Títulos técnicos (Usamos la llave 'title_ids' que definiste en el componente)

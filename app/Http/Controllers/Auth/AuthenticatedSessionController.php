@@ -26,15 +26,29 @@ class AuthenticatedSessionController extends Controller
 
     public function store(LoginRequest $request): RedirectResponse
     {
+        if ($request->filled('qr_code')) {
+            $qrCode = $request->input('qr_code');
+
+            $user = \App\Models\User::whereHas('teacher', fn($q) => $q->where('qr_code', $qrCode))
+                ->orWhereHas('student', fn($q) => $q->where('qr_code', $qrCode))
+                ->first();
+
+            if ($user) {
+                Auth::login($user, $request->boolean('remember'));
+                $request->session()->regenerate();
+                
+                return redirect()->intended(route('app.dashboard'))
+                    ->with('success', '¡Sesión iniciada vía QR!');
+            }
+
+            return back()->withErrors(['email' => 'Código QR no reconocido.']);
+        }
+
+        // SOLO si no hay QR o el flujo falló arriba, ejecutamos esto:
         $request->authenticate();
         $request->session()->regenerate();
 
-        /** @var User $user */
-        $user = Auth::user();
-
-        // Ahora usamos el método centralizado en el modelo User
-        return redirect()->intended($user->redirectPath())
-                ->with('success', '¡Sesión iniciada correctamente!');
+        return redirect()->intended(route('app.dashboard'));
     }
 
     /**

@@ -39,4 +39,9 @@ return [
         'maps_key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
+    'facial_api' => [
+        'url' => env('FACIAL_API_URL', 'http://localhost:8001'),
+        'key' => env('FACIAL_API_KEY', 'dev-key'),
+    ],
+
 ];
