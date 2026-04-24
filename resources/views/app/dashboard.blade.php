@@ -61,7 +61,7 @@
                 module="asistencia"
                 title="Asistencia"
                 subtitle="Control"
-                url="#"
+                url="{{ route('app.attendance.dashboard') }}"
                 :active="in_array('attendance_qr', $activeModules)" />
         </div>
 

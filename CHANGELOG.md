@@ -7,11 +7,198 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
-## [Unreleased]
+## [0.4.0] - 2026-04-24
 
-> Cambios pendientes antes de cerrar v0.3.0.
+### Added
+
+#### Módulo de Asistencia — Arquitectura Dual (Plantel + Aula)
+
+**Entidades Base:**
+- Modelo `Student` con biometría completa: foto, QR único, encodings faciales (JSON), datos médicos (grupo sanguíneo, alergias, condiciones), RNC (cédula) único.
+- Modelo `Teacher` con especialización, datos de contacto y asignaciones dinámicas a materias y secciones.
+- Catálogo `Subject` (materias) con seeders MINERD.
+- Tabla pivote `teacher_subject_sections` para asignación múltiple de maestros a secciones por materia.
+- Observers `StudentObserver` y `TeacherObserver` para generación automática de QR codes y validaciones.
+
+**Dominios de Asistencia:**
+- `DailyAttendanceSession` — apertura/cierre manual del día por tanda (sin apertura = día feriado).
+- `PlantelAttendanceRecord` — registro de entrada al centro educativo con validación de tardanza vs horario.
+- `ClassroomAttendanceRecord` — registro por materia gestionado por maestro con validación cruzada.
+- `Excuse` — modelo de justificaciones con tipos de licencia, evidencias adjuntas y flujo de aprobación.
+- **Validación cruzada estricta:** Si estudiante está ausente en Plantel → no puede estar presente en Aula; si presente en Plantel pero ausente en Aula → alerta de "Pasilleo".
+
+**Servicios de Negocio:**
+- `StudentService` y `StudentPhotoService` para CRUD y captura de rostro.
+- `TeacherService` y `TeacherAssignmentService` para gestión de maestros e impartición de materias.
+- `PlantelAttendanceService` con validación de sesión abierta y cálculo de tardanzas.
+- `ClassroomAttendanceService` con lógica de bloqueo cruzado y detección de pasilleo.
+- `ExcuseService` con validación de licencias, cobertura y marque retroactivo.
+- `DailySessionManager` para apertura/cierre centralizado de sesiones.
+- `FaceEncodingManager` y `FacialApiClient` para enrolamiento y verificación de identidad.
+
+**Métodos de Registro:**
+- **Registro Manual:** interfaz de pase de lista clásica con búsqueda y marcado rápido.
+- **Escáner QR Híbrido:** captura de código institucional con fallback a manual.
+- **Reconocimiento Facial:** integración con microservicio Python `orvian-facial-recognition` con enrolamiento previo.
+- **Validación Cruzada:** reglas de negocio que previenen inconsistencias entre dominios.
+
+**Microservicio Python — Facial Recognition:**
+- Repositorio independiente `orvian-facial-recognition` con FastAPI + `face_recognition` library.
+- Endpoints `/health`, `/enroll` (captura + encoding), `/verify` (verificación 1:1).
+- Dockerfile + docker-compose para deployment en el mismo host o remoto.
+- Cliente HTTP `FacialApiClient` en Laravel para comunicación bidireccional con manejo de timeouts.
+- Privacy-first: encodings almacenados en BD (128 floats), fotos nunca persistidas.
+
+**Sincronización Offline (Fase Futura):**
+- Columnas `synced_at`, `sync_status` en tablas de asistencia (preparadas pero lógica pendiente).
+- `SyncManager` y comando `orvian:sync-attendance` para eventual consistency.
+- Modo `APP_MODE=local` para Edge Nodes con DB ligera; `APP_MODE=cloud` para VPS central.
+- Arquitectura lista para sincronización bidireccional cada 5 minutos.
+
+#### Interfaz Web — Asistencia
+
+**Gestión de Sesión:**
+- Vista de apertura/cierre del día por tanda con histórico de sesiones.
+- Indicador visual de estado (Abierta, Cerrada, En Revisión).
+- Logs de auditoría con quién abrió/cerró y horarios.
+
+**Registro de Asistencia — Plantel:**
+- Interfaz de registro manual con buscador instantáneo y validación de QR.
+- Soporte para modo "sustituto" (otro maestro registra en su ausencia).
+- Indicadores en tiempo real de tardanza vs horario institucional.
+
+**Pase de Lista — Aula:**
+- Interfaz de maestro por materia/sección con bloqueo inteligente de estudiantes excusados.
+- Detección automática de pasilleo con alerta visual.
+- Justificación rápida de ausencias con razones predefinidas.
+
+**Dashboard de Discrepancias:**
+- Doble visión (Plantel vs Aula) con gráficos ApexCharts.
+- Panel de anomalías: pasillos detectados, inconsistencias de horario, alumnos sin registrar en algún dominio.
+- Timeline operativo del día con cambios en tiempo real.
+- Metrics en vivo: presencia global, tardanzas, excusas sin revisar.
+
+**Gestión de Excusas:**
+- Portal de solicitud con adjunción de evidencias (foto/PDF).
+- Flujo de revisión para coordinadores académicos.
+- Notificaciones automáticas al aprobar/rechazar.
+- Marque retroactivo de inasistencias al aprobar.
+
+**Importación Masiva de Estudiantes:**
+- Interfaz de dropzone para upload de Excel/CSV.
+- Wizard de mapeo: usuario confirma equivalencia de columnas antes de procesar.
+- Procesamiento en background con Jobs para archivos grandes.
+- Barra de progreso en tiempo real y log de errores descargable.
+- Validación de duplicados por RNC y nombre+fecha_nacimiento.
+- Normalización automática de secciones: si Excel dice "4TO A" → búsqueda fuzzy en BD.
+
+**Reportes y Exportación:**
+- Reportes por rango de fechas, sección, maestro o alumno.
+- Exportación a Excel (con formato) y PDF (con logo institucional).
+- Filtros avanzados por Pipeline: estado de asistencia, tipo de registro, método (QR/Facial/Manual).
+- Scoped Access: maestros ven solo sus secciones, coordinadores ven su dominio asignado.
+- Plantillas de impresión personalizables.
+
+#### Roles y Permisos — Asistencia
+
+**Nuevos Roles:**
+- `Academic Coordinator` — permiso intermedio entre Director y Maestro. Gestiona excusas, ve dashboard de discrepancias, asigna maestros a materias.
+
+**Nuevos Permisos (PermissionGroup `attendance`):**
+- `attendance.view_dashboard` — acceso al dashboard operativo.
+- `attendance.manage_sessions` — abrir/cerrar sesiones diarias.
+- `attendance.record_plantel` — registrar asistencia de plantel.
+- `attendance.record_classroom` — registrar pase de lista de aula.
+- `attendance.manage_excuses` — revisar y aprobar justificaciones.
+- `attendance.export_reports` — exportar datos a Excel/PDF.
+- `attendance.import_students` — importar masivamente desde archivos.
+- `attendance.view_teacher_reports` — ver reportes por maestro (solo Coordinador+).
+
+#### Configuración del Sistema
+
+**Archivos de Configuración:**
+- `config/modules.php` actualizado con módulo `asistencia` y `estudiantes` (iconos SVG, rutas, sub-links).
+- `config/attendance.php` — configuración de límites de tardanza, rango de validación cruzada, timeouts del microservicio facial.
+
+**Seeders Nuevos:**
+- `SubjectSeeder` — importa catálogo MINERD de materias por modalidad.
+- `StudentSeeder` y `TeacherSeeder` — factories masivos para testing.
+- Actualización de `RoleAcademicSeeder` con nuevos permisos y rol `Academic Coordinator`.
+
+**Middleware Nuevo:**
+- Validación de sesión abierta antes de registrar asistencia.
+- Bypass automático de permisos de asistencia para rutas `admin/*`.
+
+#### Documentación
+
+**Arquitectura:**
+- `docs/architecture/attendance-domains.md` — explicación de doble dominio, validación cruzada y reglas de pasilleo.
+- `docs/architecture/facial-recognition.md` — arquitectura del microservicio, flujo Laravel↔FastAPI, privacidad biométrica.
+- `docs/architecture/offline-sync.md` — sincronización eventual, conflictos, modos local/cloud (documentado para v0.5+).
+
+**Usuario Final:**
+- `docs/modules/students.md` — gestión de estudiantes, captura de rostro, importación masiva.
+- `docs/modules/teachers.md` — gestión de maestros, asignación de materias, vinculación con usuario.
+- `docs/modules/attendance.md` — apertura del día, métodos de registro, pase de lista, gestión de excusas, interpretación del dashboard.
+
+**API:**
+- `docs/api/facial-recognition-api.md` — especificación completa de endpoints (`/enroll`, `/verify`, `/health`), schemas JSON, ejemplos curl, códigos de error.
+
+#### Redis — Caché y Sesiones
+
+- Integración de `predis/predis` para soporte de Redis.
+- Configuración de driver en `.env`: `CACHE_DRIVER=redis`, `SESSION_DRIVER=redis`.
+- Queues en Redis para procesamiento de importaciones masivas.
+- Caché de encodings faciales con TTL para acelerar verificaciones repetidas.
+
+#### Dashboard del Aplicativo
+
+- Tiles de **Asistencia** y **Estudiantes** activados en `/app/dashboard` (antes en `comingSoon`).
+- Enlaces a módulos de gestión agregados en sidebar/navbar.
+
+### Changed
+
+- **Estructura de rutas:** nuevo grupo `routes/app/attendance/*` para pase de lista, dashboard, reportes.
+- **Estructura de rutas:** nuevo grupo `routes/app/academic/*` para estudiantes y maestros (reorganización desde `configuracion`).
+- **Seeders:** orden de ejecución actualizado en `DatabaseSeeder` — entidades base (niveles, grados, materias) antes que roles y permisos.
+- **Modelos relacionados:** `SchoolShift` renombrado a `SchoolShift` con nueva lógica de validación de horarios en `PlantelAttendanceService`.
+- **Git:**  Rama parent `feature/attendance-module` merge desde `main` con conflictos resueltos en `bootstrap/app.php`.
+
+### Fixed
+
+- **SoftDeletes vs Foreign Keys:** Aclaración en documentación sobre comportamiento de cascada en arquitectura multitenant.
+- **Timezone:** Configuración explícita de `America/Santo_Domingo` en `config/app.php` para evitar falsas tardanzas.
+- **N+1 Queries:** Scopes `withIndexRelations()` agregados en controladores de asistencia para cargar relaciones críticas.
+- **Índices de Base de Datos:** Índices nuevos en columnas `time`, `date` de `plantel_attendance_records` y `classroom_attendance_records` para queries de dashboard.
+
+### Performance Considerations
+
+- **Caché en Dashboard:** Livewire component pollea cada 10 segundos — implementar caché de corta duración (5s) en Redis para aliviar DB bajo concurrencia.
+- **Biometría Separada:** Preparación para mover `face_encoding` a tabla `student_biometrics` en v0.5 para optimizar memoria en consultas masivas.
+- **Índices Estratégicos:** Añadidos en `(school_id, is_active)`, `(section_id, date)`, `(teacher_id, subject_id)` para queries de filtrado.
+
+### Known Limitations & Future Work
+
+- **Sincronización Offline:** Lógica de `SyncManager` y comando preparados; procesamiento real planeado para v0.5.
+- **Notificaciones Biométricas:** Sistema de WebSockets para feedback en tiempo real del microservicio facial pendiente.
+- **Auditoría Completa:** Logs de cambios en asistencia listos; visualización en UI planeada para v0.5.
+
+### Dependencies Added
+
+- `phpoffice/phpexcel` — exportación a Excel con formato.
+- `laravel-pdf/laravel-pdf` — generación de reportes PDF.
+- `maatwebsite/excel` — importación y procesamiento de archivos Excel.
+- `predis/predis` — cliente Redis para caché y sesiones.
+- `apexcharts` (CDN) — gráficos en dashboard.
+
+### Notes
+
+- **Microservicio Separado:** El repositorio `orvian-facial-recognition` vive en su propio Git y Dockerfile; deployment independiente recomendado.
+- **Privacy by Design:** Encodings faciales nunca viajan a logs o APIs externas; fotos procesadas en memoria del microservicio.
+- **Escalabilidad:** Arquitectura dual (local/cloud) preparada para distribución geográfica de escuelas en futuras iteraciones.
 
 ---
+
 
 ## [0.3.0] - 2026-03-31
 

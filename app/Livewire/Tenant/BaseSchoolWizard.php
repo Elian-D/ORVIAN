@@ -7,11 +7,13 @@ use App\Models\Geo\RegionalEducation;
 use App\Models\Geo\Municipality;
 use App\Models\Geo\Province;
 use App\Models\Tenant\Academic\Level;
+use App\Models\Tenant\Academic\SchoolShift;
 use App\Models\Tenant\Academic\TechnicalFamily;
 use App\Models\Tenant\Academic\TechnicalTitle;
 use App\Models\Tenant\Plan;
 use App\Models\Tenant\School;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -49,7 +51,8 @@ abstract class BaseSchoolWizard extends Component
 
     // ── Paso 3: Académico ──────────────────────────────────────────
     public array  $selectedLevels  = [];
-    public array  $selectedShifts  = [];
+    public array $selectedShifts = []; // IDs de tandas seleccionadas
+    public bool $shiftConflict = false; // Flag para mostrar advertencia
     public string $year_name       = '';
     public string $start_date      = '';
     public string $end_date        = '';
@@ -161,6 +164,47 @@ abstract class BaseSchoolWizard extends Component
         return $this->plan_id ? $this->plans->firstWhere('id', $this->plan_id) : null;
     }
 
+    #[Computed]
+    public function estimatedSections(): array
+    {
+        // Si falta algún dato base, retornamos ceros
+        if (empty($this->selectedLevels) || empty($this->selectedShifts) || empty($this->selectedSectionLabels)) {
+            return ['total' => 0, 'academic' => 0, 'technical' => 0];
+        }
+
+        $levels = \App\Models\Tenant\Academic\Level::whereIn('id', $this->selectedLevels)
+            ->with('grades')
+            ->get();
+
+        $numShifts = count($this->selectedShifts);
+        $numParallels = count($this->selectedSectionLabels);
+        $numTitles = count($this->selectedTitles);
+
+        $academicCount = 0;
+        $technicalCount = 0;
+
+        foreach ($levels as $level) {
+            $gradeCount = $level->grades->count();
+
+            // Lógica: Si el nivel es de 2do Ciclo de Secundaria Y la escuela requiere títulos
+            // Nota: Ajusta 'secundaria_2' según el identificador real en tu BD
+            $isTechnicalLevel = str_contains(strtolower($level->name), 'segundo ciclo') && $this->needsTitles;
+
+            if ($isTechnicalLevel && $numTitles > 0) {
+                // Formula: Grados * Tandas * Paralelos * Cantidad de Títulos
+                $technicalCount += ($gradeCount * $numShifts * $numParallels * $numTitles);
+            } else {
+                // Formula: Grados * Tandas * Paralelos (Normal)
+                $academicCount += ($gradeCount * $numShifts * $numParallels);
+            }
+        }
+
+        return [
+            'total' => $academicCount + $technicalCount,
+            'academic' => $academicCount,
+            'technical' => $technicalCount,
+        ];
+    }
     // ── Helpers ────────────────────────────────────────────────────
 
     public function regimenesLabels(): array
@@ -319,7 +363,7 @@ abstract class BaseSchoolWizard extends Component
                                 : null,
                         ]),
                         'selectedSectionLabels' => ['required', 'array', 'min:1'],
-                        'selectedShifts'        => ['required', 'array', 'min:1'],
+                        'selectedShifts' => ['required', 'array', 'min:1'], // ← NUEVA VALIDACIÓN
                         // Nuevas reglas para Fechas:
                         'start_date' => [
                             'required', 
@@ -353,7 +397,8 @@ abstract class BaseSchoolWizard extends Component
                     'selectedSectionLabels.required' => 'Debes elegir al menos una sección (ej. A).',
                     'selectedTitles.required'        => 'Esta modalidad requiere al menos un título técnico.',
                     'end_date.after'                 => 'La fecha de cierre debe ser posterior a la de inicio.',
-                ]
+                ],
+                $this->validateShiftExclusivity(),
             ),
             4 => $this->validate(['plan_id' => ['required', 'exists:plans,id']]),
             default => null,
@@ -401,6 +446,32 @@ abstract class BaseSchoolWizard extends Component
             'min'  => "{$startYear}-08-01",
             'max'  => "{$endYear}-07-31",
         ];
+    }
+
+    /**
+     * Validación personalizada: Exclusividad de tandas
+     */
+    protected function validateShiftExclusivity(): void
+    {
+        $hasExtended = in_array(School::SHIFT_EXTENDED, $this->selectedShifts);
+        $hasMorning = in_array(School::SHIFT_MORNING, $this->selectedShifts);
+        $hasAfternoon = in_array(School::SHIFT_AFTERNOON, $this->selectedShifts);
+
+        // Regla: Si se selecciona "Extendida", no puede haber "Matutina" ni "Vespertina"
+        if ($hasExtended && ($hasMorning || $hasAfternoon)) {
+            throw ValidationException::withMessages([
+                'selectedShifts' => 'La Jornada Extendida no puede combinarse con Matutina o Vespertina. Desmarca una opción.',
+            ]);
+        }
+
+        // Regla inversa: Si hay "Matutina" o "Vespertina", no puede haber "Extendida"
+        if (($hasMorning || $hasAfternoon) && $hasExtended) {
+            throw ValidationException::withMessages([
+                'selectedShifts' => 'Matutina/Vespertina no pueden combinarse con Jornada Extendida.',
+            ]);
+        }
+
+        // La tanda "Nocturna" es independiente y puede combinarse con cualquiera
     }
 
     /**

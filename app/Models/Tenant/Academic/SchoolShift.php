@@ -14,5 +14,31 @@ class SchoolShift extends Model
     const TYPE_EXTENDED  = 'Jornada Extendida';
     const TYPE_NIGHT     = 'Nocturna';
 
-    protected $fillable = ['school_id', 'type'];
+    protected $fillable = [
+        'school_id',
+        'type',
+        'start_time',
+        'end_time',
+    ];
+
+    /**
+     * Al castear a 'datetime:H:i', Laravel nos devuelve 
+     * un objeto Carbon cuando accedemos a start_time.
+     */
+    protected $casts = [
+        'start_time' => 'datetime:H:i',
+        'end_time'   => 'datetime:H:i',
+    ];
+
+    // Relación inversa
+    public function sections()
+    {
+        return $this->hasMany(SchoolSection::class);
+    }
+
+    // Scope útil
+    public function scopeWithSectionCount($query)
+    {
+        return $query->withCount('sections');
+    }
 }

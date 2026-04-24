@@ -173,37 +173,52 @@
             </div>
 
             {{-- Footer del panel --}}
-            <div class="px-8 sm:px-14 py-5 flex items-center justify-between"
-                 :class="darkMode ? 'border-t border-white/5' : 'border-t border-gray-100'">
+            <div class="px-8 sm:px-14 py-6 flex flex-col sm:flex-row items-center justify-between gap-4"
+                :class="darkMode ? 'border-t border-white/5' : 'border-t border-gray-100'">
 
-                <div class="flex items-center gap-4">
-                    <a href="#" class="text-xs transition-colors"
-                       :class="darkMode ? 'text-white/30 hover:text-white/60' : 'text-gray-400 hover:text-gray-600'">
+                {{-- Lado Izquierdo: Enlaces Legales --}}
+                <div class="flex items-center gap-6 order-2 sm:order-1">
+                    <a href="#" class="text-[11px] font-medium transition-colors"
+                    :class="darkMode ? 'text-white/30 hover:text-white/60' : 'text-gray-400 hover:text-gray-600'">
                         Términos y Condiciones
                     </a>
-                    <span :class="darkMode ? 'text-white/15' : 'text-gray-200'">|</span>
-                    <a href="#" class="text-xs transition-colors"
-                       :class="darkMode ? 'text-white/30 hover:text-white/60' : 'text-gray-400 hover:text-gray-600'">
-                        Política de Privacidad
+                    <a href="#" class="text-[11px] font-medium transition-colors"
+                    :class="darkMode ? 'text-white/30 hover:text-white/60' : 'text-gray-400 hover:text-gray-600'">
+                        Privacidad
                     </a>
                 </div>
 
-                {{-- Toggle iOS --}}
-                <button @click="darkMode = !darkMode" 
-                        class="ios-toggle flex items-center"
-                        :style="darkMode ? 'background:#1e3a5f;' : 'background:#e5e7eb;'">
-                    <div class="ios-toggle-thumb"
-                         :style="darkMode ? 'left:27px;' : 'left:3px;'">
-                        {{-- Ícono sol --}}
-                        <svg x-show="!darkMode" class="w-3 h-3" style="color:#f78904;" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z"/>
+                {{-- Lado Derecho: Acciones --}}
+                <div class="flex items-center gap-3 order-1 sm:order-2">
+                    
+                    {{-- Botón Escáner QR --}}
+                    <button @click="$dispatch('open-qr-scanner')" 
+                            type="button"
+                            title="Escanear Código QR"
+                            class="w-10 h-10 rounded-xl flex items-center justify-center transition-all border shadow-sm hover:scale-105 active:scale-95"
+                            :class="darkMode ? 'bg-[#1e3a5f] border-white/10 text-orange-400' : 'bg-white border-gray-200 text-[#f78904]'">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
                         </svg>
-                        {{-- Ícono luna --}}
-                        <svg x-show="darkMode" class="w-3 h-3" style="color:#3b6fd4;" fill="currentColor" viewBox="0 0 24 24">
-                            <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                </button>
+                    </button>
+
+                    {{-- Toggle Modo Oscuro --}}
+                    <button @click="darkMode = !darkMode" 
+                            type="button"
+                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                            :class="darkMode ? 'bg-orange-500' : 'bg-gray-200'">
+                        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform flex items-center justify-center shadow-sm"
+                            :class="darkMode ? 'translate-x-6' : 'translate-x-1'">
+                            <svg x-show="!darkMode" class="w-2.5 h-2.5 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18z"/>
+                            </svg>
+                            <svg x-show="darkMode" x-cloak class="w-2.5 h-2.5 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z"/>
+                            </svg>
+                        </span>
+                    </button>
+
+                </div>
             </div>
         </div>
 

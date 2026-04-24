@@ -4,6 +4,13 @@ import './bootstrap';
 import ApexCharts from 'apexcharts';
 window.ApexCharts = ApexCharts;
 import './charts-helper';
+import './charts/attendance-charts';
+
+// Importamos la librería de escaneo de códigos QR
+import { Html5Qrcode } from "html5-qrcode";
+
+// La exponemos al objeto window para que Alpine.js pueda acceder a ella
+window.Html5Qrcode = Html5Qrcode;
 
 /* 
 // Importamos Alpine desde el paquete de Livewire (para evitar doble instancia)
