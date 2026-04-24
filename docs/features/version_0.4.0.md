@@ -6723,71 +6723,27 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 ---
 
-## Fase 18 — Importación Masiva de Estudiantes
-**Rama:** `feature/students-import`
+## Fase 18 — Importación Inteligente y Normalización (SIGERD)
+**Rama:** `feature/student-import`
 
-### 18.1 — Componente de Importación
+### 18.1 — Infraestructura de Colas (Background Processing)
+Para procesar cientos de registros sin Timeouts:
+- [x] **Configurar Driver de Colas:** Configurar `.env` para usar `QUEUE_CONNECTION=database`.
+- [x] **Crear tabla de jobs:** Ejecutar `php artisan queue:table && php artisan migrate`.
+- [x] **Job de Importación:** Crear un Job que procese el archivo en bloques (Chunks) para no saturar la memoria RAM.
 
-- [ ] **Instalar:** `composer require maatwebsite/excel`
+### 18.2 — Motor de Importación (Laravel Excel)
+- [x] **Implementar `StudentImport` class:**
+  - **Mapping Flexible:** Crear un sistema de "mapeo de columnas" donde el usuario pueda decir: "La columna *Nombre* del Excel equivale a *first_name* en ORVIAN".
+  - **Normalización de Secciones:** Si el Excel dice "4TO A" y en ORVIAN se llama "4to Grado de Secundaria - Sección A", el sistema debe intentar buscar la coincidencia o permitir al usuario asignar una sección por defecto.
+  - **Generación Automática:** El Observer ya se encarga de los `qr_code`, por lo que la importación solo debe preocuparse por los datos crudos.
+  - **Validación de Duplicados:** Evitar duplicar estudiantes usando el `rnc` o una combinación de nombre y fecha de nacimiento.
 
-- [ ] **Crear `app/Imports/StudentsImport.php`:**
-  ```php
-  namespace App\Imports;
-
-  use Maatwebsite\Excel\Concerns\ToModel;
-  use Maatwebsite\Excel\Concerns\WithHeadingRow;
-  use Maatwebsite\Excel\Concerns\WithValidation;
-  use Maatwebsite\Excel\Concerns\SkipsOnError;
-  use Maatwebsite\Excel\Concerns\SkipsErrors;
-
-  class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsOnError
-  {
-      use SkipsErrors;
-
-      protected int $schoolId;
-      protected int $sectionId;
-
-      public function __construct(int $schoolId, int $sectionId)
-      {
-          $this->schoolId = $schoolId;
-          $this->sectionId = $sectionId;
-      }
-
-      public function model(array $row): ?Student
-      {
-          return Student::create([
-              'school_id'         => $this->schoolId,
-              'school_section_id' => $this->sectionId,
-              'first_name'        => $row['nombre'],
-              'last_name'         => $row['apellidos'],
-              'gender'            => $row['genero'],
-              'date_of_birth'     => Carbon::parse($row['fecha_nacimiento']),
-              'rnc'               => $row['cedula'] ?? null,
-              'enrollment_date'   => now(),
-          ]);
-      }
-
-      public function rules(): array
-      {
-          return [
-              'nombre'            => 'required|string|max:100',
-              'apellidos'         => 'required|string|max:100',
-              'genero'            => 'required|in:M,F',
-              'fecha_nacimiento'  => 'required|date',
-              'cedula'            => 'nullable|string|size:13',
-          ];
-      }
-  }
-  ```
-
-- [ ] **Crear `app/Livewire/App/Students/StudentImport.php`:**
-  - `use WithFileUploads`
-  - Paso 1: subir archivo Excel + seleccionar sección destino + previsualizar primeras 5 filas
-  - Paso 2: confirmar importación → `Excel::import(new StudentsImport($schoolId, $sectionId), $this->file)`
-  - Reportar filas importadas vs filas con error
-  - Guard: `can:students.import`
-
-- [ ] **Template Excel descargable:** `resources/templates/import-students.xlsx` con columnas y ejemplos
+### 18.3 — Interfaz de Usuario (UI/UX)
+- [x] **Vista de "Dropzone":** Un área para arrastrar el archivo Excel/CSV.
+- [x] **Paso de Mapeo (Wizard):** Antes de procesar, mostrar una tabla previa donde el usuario confirme que las columnas están bien emparejadas.
+- [x] **Progreso en tiempo real:** Usar Livewire con un componente de barra de progreso que consulte el estado del Job en la base de datos.
+- [x] **Gestión de Errores:** Si el estudiante #450 tiene un error, el sistema debe saltarlo, guardarlo en un log de errores y permitir al usuario descargar un Excel con solo los registros fallidos para corregirlos.
 
 ---
 
@@ -6850,10 +6806,10 @@ Este es el dashboard central del módulo. Requiere todas las fases anteriores co
 
 
 ### Documentación
-- [ ] `docs/architecture/attendance-domains.md`
-- [ ] `docs/architecture/offline-sync.md`
-- [ ] `docs/architecture/facial-recognition.md`
-- [ ] `docs/modules/students.md`, `teachers.md`, `attendance.md`
+- [x] `docs/architecture/attendance-domains.md`
+- [x] `docs/architecture/offline-sync.md`
+- [x] `docs/architecture/facial-recognition.md`
+- [x] `docs/modules/students.md`, `teachers.md`, `attendance.md`
 
 ---
 
