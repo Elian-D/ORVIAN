@@ -12,9 +12,11 @@ use App\Listeners\Tenant\AssignInitialRoles;
 use App\Models\Tenant\AttendanceExcuse;
 use App\Models\User;
 use App\Observers\UserObserver;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Laravel\Pulse\Facades\Pulse;
 use App\Models\Tenant\Plan;
 use App\Observers\Tenant\PlanObserver;
@@ -58,8 +60,14 @@ class AppServiceProvider extends ServiceProvider
 
         // Solo tú puedes ver Pulse
         Gate::define('viewPulse', function (User $user) {
-            return $user->hasRole('Owner'); 
+            return $user->hasRole('Owner');
         });
+
+        $version = Cache::rememberForever('orvian.app_version', function () {
+            $path = base_path('VERSION');
+            return file_exists($path) ? trim(file_get_contents($path)) : 'dev';
+        });
+        View::share('appVersion', $version);
 
 /*         // Registro de los listeners del Onboarding
         Event::listen(
