@@ -303,3 +303,164 @@ Una vez implementado, la variable `$appVersion` está disponible en cualquier Bl
 **Módulo de Comunicaciones — Pausa indefinida:** El módulo de Comunicaciones queda excluido de la hoja de ruta activa hasta nueva decisión del equipo. Su tile en el dashboard se oculta mediante el flag `visible: false` en `config/modules.php`. Las rutas definidas (si existen) deben retornar 404 en entorno de demostración. Esta decisión se revisará post-demo según prioridades del cliente.
 
 **Redirección post-login en el controlador vs. en el modelo:** Se optó por mantener la lógica de redirección en `AuthenticatedSessionController` y no en el modelo `User`. El modelo no debe conocer rutas de la aplicación. El controlador es el lugar semánticamente correcto para este tipo de decisión de flujo.
+
+**Versionado de login (v1/v2) — Separación física vs. condicionales:** Se optó por mantener `guest.blade.php` y `login.blade.php` como los nombres por defecto para la versión v2 (arquitectónica), y respaldar la versión clásica como `guest-v1.blade.php` y `login-v1.blade.php`. Esto mantiene la claridad: v2 es el presente, v1 es el legado. La lógica de enrutamiento es simple y testeable — no hay condicionales anidados en las vistas.
+
+---
+
+## Fase 4 — Coexistencia de Interfaces de Login (Versionado v1/v2)
+**Rama:** `feature/login-versioning`
+
+**Objetivo:** Permitir que los usuarios elijan qué interfaz de login desean usar. El sistema no conoce al usuario antes de hacer login, por lo que la preferencia se guardará en el navegador (Cookie) sincronizada con el JSON `preferences` del modelo `User`. Así, cada dispositivo recuerda qué versión prefiere, y los usuarios pueden cambiar de versión desde el modal de perfil.
+
+### 4.1 — Refactorización de Vistas (Separación Física)
+
+Para mantener el código limpio y escalable, se separan físicamente los layouts y vistas en lugar de usar condicionales complejos dentro de un mismo archivo.
+
+- [x] **Respaldar versión clásica (v1):**
+  ```plaintext
+  Renombrar:
+  resources/views/layouts/guest.blade.php
+  → resources/views/layouts/guest-v1.blade.php
+  
+  Renombrar:
+  resources/views/auth/login.blade.php
+  → resources/views/auth/login-v1.blade.php
+  ```
+  *Asegurar que `login-v1.blade.php` extienda el layout correcto:* `<x-guest-v1-layout>`.
+
+- [x] **Crear nueva versión arquitectónica (v2) — Nombres por defecto:**
+  ```plaintext
+  Crear:
+  resources/views/layouts/guest.blade.php (v2)
+  
+  Crear:
+  resources/views/auth/login.blade.php (v2)
+  ```
+  *Nota: El HTML de estas vistas v2 ya fue generado en pasos anteriores.*
+
+### 4.2 — Lógica de Enrutamiento por Cookie
+
+Modificar el controlador de autenticación para que decida qué vista renderizar basándose en la cookie del navegador.
+
+- [x] **Actualizar `app/Http/Controllers/Auth/AuthenticatedSessionController.php`:**
+  
+  Modificar el método `create()` para leer la cookie `orvian_login_version` (por defecto 'v2'):
+
+  ```php
+  public function create(Request $request): View
+  {
+      $version = $request->cookie('orvian_login_version', 'v2');
+
+      if ($version === 'v1') {
+          return view('auth.login-v1');
+      }
+
+      return view('auth.login');
+  }
+  ```
+
+### 4.3 — Sincronización de Preferencias (Livewire)
+
+Actualizar el componente del modal de perfil para gestionar esta nueva preferencia.
+
+- [x] **Actualizar `app/Livewire/Shared/ProfileModal.php`:**
+  
+  1. Agregar la propiedad pública:
+     ```php
+     public string $loginVersion = 'v2';
+     ```
+
+  2. En el método `loadUserData()`, cargar la preferencia después de `$this->theme`:
+     ```php
+     $this->loginVersion = $user->preference('login_version', 'v2');
+     ```
+
+  3. En el método `savePreferences()`, guardar en BD y encolar la Cookie por 1 año:
+     ```php
+     public function savePreferences(): void
+     {
+         /** @var User $user */
+         $user = Auth::user();
+         $preferences = $user->preferences ?? [];
+         
+         $preferences['theme'] = $this->theme;
+         $preferences['login_version'] = $this->loginVersion; // Nuevo
+
+         $user->update(['preferences' => $preferences]);
+
+         // Sincronizar Cookie para la pre-autenticación (1 año)
+         \Illuminate\Support\Facades\Cookie::queue(
+             'orvian_login_version', 
+             $this->loginVersion, 
+             60 * 24 * 365
+         );
+
+         $this->refreshWithModal('Preferencias aplicadas. El login cambiará en tu próxima sesión.');
+     }
+     ```
+
+### 4.4 — Interfaz de Preferencias (Blade)
+
+Agregar el selector visual en la pestaña de preferencias del usuario.
+
+- [x] **Actualizar `resources/views/livewire/shared/profile-modal.blade.php`:**
+  
+  Dentro de la sección `@if($activeTab === 'preferences')`, agregar un nuevo bloque debajo del selector de **Esquema de Color**:
+
+  ```blade
+  <div class="mt-8 pt-8 border-t border-slate-100 dark:border-white/5">
+      <label class="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-3">
+          Versión de Login
+      </label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          @foreach(['v2' => 'Arquitectónico (Nuevo)', 'v1' => 'Clásico (Legado)'] as $val => $label)
+              <button wire:click="$set('loginVersion', '{{ $val }}')"
+                  @class([
+                      "flex items-center justify-between px-4 py-3 rounded-xl border text-sm transition-all text-left font-medium",
+                      "border-orvian-orange bg-orvian-orange/5 text-orvian-orange" => $loginVersion === $val,
+                      "border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:border-slate-200 dark:hover:border-white/10" => $loginVersion !== $val
+                  ])>
+                  {{ $label }}
+                  @if($loginVersion === $val)
+                      <x-heroicon-s-check-circle class="w-5 h-5" />
+                  @endif
+              </button>
+          @endforeach
+      </div>
+      <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-2">
+          Define qué pantalla de acceso verás al cerrar sesión en este dispositivo.
+      </p>
+  </div>
+  ```
+
+### 4.5 — Flujo de Sincronización
+
+1. **Primera vez (sin cookie):** El sistema usa v2 por defecto.
+2. **Usuario autenticado:** Accede al modal de perfil y cambia la versión en la pestaña *Preferencias*.
+3. **Guardado:**
+   - Se actualiza el JSON `preferences['login_version']` en la BD.
+   - Se envía una Cookie al navegador que durará 1 año (`60 * 24 * 365` minutos).
+4. **Logout y relogin:** La cookie se envía al servidor, `AuthenticatedSessionController@create()` la lee y renderiza la vista correspondiente.
+5. **Otros dispositivos:** No ven el cambio — cada cookie es única al navegador.
+
+### 4.6 — Previsualizacion
+
+- [x] Agregar imaganes de referencia de ambas versiones en las preferencias. Archivos `public/img/auth-preview/v2.png` y `public/img/auth-preview/v1.png`. 
+
+### 4.7 — Repetir para vista modal estatica
+
+- [x] Actualizar `app/Livewire/Shared/Profile.php` y `resources/views/livewire/shared/profile.blade.php` para que la vista se maneje igual
+
+
+---
+
+## Checklist Fase 4
+
+- [x] `guest-v1.blade.php` y `login-v1.blade.php` creados/renombrados
+- [x] `guest.blade.php` (v2) y `login.blade.php` (v2) en sus ubicaciones por defecto
+- [x] `AuthenticatedSessionController@create()` actualizado con lógica de cookie
+- [x] `ProfileModal.php` con propiedad `$loginVersion` y métodos actualizados
+- [x] `profile-modal.blade.php` con selector visual de versión en preferencias
+- [x] Cookie sincronizada con duración de 1 año
+- [x] Prueba manual: cambiar versión, logout, login, verificar vista renderizada
