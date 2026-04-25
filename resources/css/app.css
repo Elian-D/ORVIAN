@@ -32,3 +32,11 @@
 .progress-smooth {
     transition: width 1s linear;
 }
+
+@font-face {
+    font-family: 'Etna';
+    src: url('/assets/fonts/etna-free-font.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap; /* Mejora la carga */
+}

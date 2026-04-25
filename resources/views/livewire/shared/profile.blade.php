@@ -403,6 +403,84 @@
                                 </div>
                             @endif
 
+                            <div class="mt-8 pt-8 border-t border-slate-100 dark:border-white/5">
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-5">
+                                    Selecciona tu Interfaz de Acceso
+                                </label>
+                                
+                                {{-- Contenedor en Columna con GAP mayor --}}
+                                <div class="flex flex-col gap-6">
+                                    @foreach(['v2' => 'Arquitectónico (Nuevo)', 'v1' => 'Clásico (Legado)'] as $val => $label)
+                                        <button wire:click="$set('loginVersion', '{{ $val }}')"
+                                            @class([
+                                                "group relative flex flex-col p-3 rounded-2xl border transition-all duration-300 text-left overflow-hidden",
+                                                "border-orvian-orange bg-orvian-orange/[0.02] ring-2 ring-orvian-orange shadow-lg shadow-orvian-orange/10" => $loginVersion === $val,
+                                                "border-slate-100 dark:border-white/10 bg-white dark:bg-dark-card hover:border-orvian-orange/30 hover:shadow-md" => $loginVersion !== $val
+                                            ])>
+                                            
+                                            {{-- Contenedor de Imagen GRANDE (Proporción Panorámica) --}}
+                                            {{-- Usamos aspect-video (16:9) para que las capturas de pantalla de la web encajen perfecto --}}
+                                            <div class="aspect-video w-full rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 relative bg-slate-50 dark:bg-black/20">
+                                                <img src="{{ asset('img/auth-preview/' . $val . '.png') }}" 
+                                                    alt="{{ $label }}"
+                                                    @class([
+                                                        "w-full h-full object-cover transition-transform duration-700 group-hover:scale-105",
+                                                        "grayscale-0" => $loginVersion === $val,
+                                                        "grayscale group-hover:grayscale-0" => $loginVersion !== $val
+                                                    ])>
+                                                
+                                                {{-- Overlay de selección sobre la imagen --}}
+                                                @if($loginVersion === $val)
+                                                    <div class="absolute inset-0 bg-orvian-orange/5 flex items-center justify-center">
+                                                        {{-- Check gigante en el centro de la imagen --}}
+                                                        <div class="bg-orvian-orange text-white rounded-full p-2 shadow-2xl scale-110">
+                                                            <x-heroicon-s-check class="w-6 h-6" />
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            </div>
+
+                                            {{-- Pie de Tarjeta (Label) --}}
+                                            <div class="mt-4 px-1 flex items-center justify-between">
+                                                <div>
+                                                    <span @class([
+                                                        "text-[11px] font-black uppercase tracking-wider",
+                                                        "text-orvian-orange" => $loginVersion === $val,
+                                                        "text-slate-500 dark:text-slate-400" => $loginVersion !== $val
+                                                    ])>
+                                                        {{ $val === 'v2' ? 'Versión 2.0' : 'Versión 1.0' }}
+                                                    </span>
+                                                    <p class="text-[13px] font-semibold text-slate-800 dark:text-white mt-0.5">
+                                                        {{ $label }}
+                                                    </p>
+                                                </div>
+
+                                                {{-- Radio button simulado lateral --}}
+                                                <div @class([
+                                                    "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0",
+                                                    "border-orvian-orange" => $loginVersion === $val,
+                                                    "border-slate-300 dark:border-white/20" => $loginVersion !== $val
+                                                ])>
+                                                    <div @class([
+                                                        "w-2.5 h-2.5 rounded-full transition-all",
+                                                        "bg-orvian-orange scale-100" => $loginVersion === $val,
+                                                        "bg-transparent scale-0" => $loginVersion !== $val
+                                                    ])></div>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    @endforeach
+                                </div>
+
+                                {{-- Nota Aclaratoria Profesional --}}
+                                <div class="mt-6 flex items-start gap-2.5 bg-slate-50 dark:bg-white/[0.03] p-4 rounded-xl border border-slate-100 dark:border-white/5">
+                                    <x-heroicon-s-information-circle class="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
+                                    <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                                        <span class="font-bold dark:text-white">Nota de sesión:</span> Esta preferencia se guarda en tu navegador y es específica para este dispositivo. Al cerrar sesión, el portal recordará automáticamente qué interfaz mostrarte la próxima vez que intentes acceder.
+                                    </p>
+                                </div>
+                            </div>
+
                         </div>
 
                         <div class="px-6 py-4 border-t border-slate-100 dark:border-dark-border flex justify-end">
