@@ -29,6 +29,44 @@ class ChatwootService
     }
 
     /**
+     * Sincroniza un usuario de ORVIAN como agente en Chatwoot.
+     * Centralizamos la lógica aquí para manejar modelos User consistentemente.
+     */
+    public function syncUserAsAgent(\App\Models\User $user): void
+    {
+        try {
+            $existing = $this->findAgentByEmail($user->email);
+
+            if ($existing) {
+                Log::info("ChatwootService: El agente ya existe [{$user->email}]");
+                return;
+            }
+
+            $response = $this->createAgent(
+                name:  $user->name,
+                email: $user->email,
+                role:  'agent' 
+            );
+
+            if ($response->successful()) {
+                Log::info("ChatwootService: Agente creado exitosamente [{$user->email}]");
+                
+                // Guardamos el ID de Chatwoot en el JSON de preferencias
+                $user->updateQuietly([
+                    'preferences' => array_merge($user->preferences ?? [], [
+                        'chatwoot_agent_id' => $response->json('id')
+                    ])
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error("ChatwootService: Error en sincronización", [
+                'user' => $user->email,
+                'msg'  => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Busca un agente por email. Evita duplicados en las Actions de onboarding.
      */
     public function findAgentByEmail(string $email): ?array
