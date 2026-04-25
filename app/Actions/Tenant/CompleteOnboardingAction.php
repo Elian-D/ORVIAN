@@ -4,13 +4,16 @@ namespace App\Actions\Tenant;
 
 use App\Models\Tenant\School;
 use App\Events\Tenant\SchoolConfigured;
+use App\Services\Communications\ChatwootService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CompleteOnboardingAction
 {
     public function __construct(
         protected CreateSchoolPrincipalAction $createPrincipal,
         protected \App\Services\School\SchoolRoleService $roleService, 
+        protected ChatwootService $chatwootService,
     ) {}
 
     /**
@@ -78,9 +81,48 @@ class CompleteOnboardingAction
             // 6. Resetear ID de equipo al final de todo para seguridad
             setPermissionsTeamId(null);
 
+            // 7. Registrar al Director como Agente en Chatwoot (fuera de la TX si falla)
+            //    Se ejecuta DESPUÉS de que el rol 'School Principal' está garantizado.
+            $this->syncPrincipalToChatwoot($wizardData['principal']);
+
             event(new SchoolConfigured($school, $wizardData['academic']));
 
             return $school;
         });
+    }
+
+    /**
+     * Sincroniza el Director recién creado con Chatwoot como Agente.
+     * Si Chatwoot no está disponible, registra el error sin interrumpir el flujo.
+     */
+    protected function syncPrincipalToChatwoot(array $principalData): void
+    {
+        $email = $principalData['email'];
+
+        try {
+            $existing = $this->chatwootService->findAgentByEmail($email);
+
+            if ($existing) {
+                Log::info("CompleteOnboardingAction: Agente ya existe en Chatwoot [{$email}]");
+                return;
+            }
+
+            $response = $this->chatwootService->createAgent(
+                name:  $principalData['name'],
+                email: $email,
+                role:  'agent',
+            );
+
+            if ($response->successful()) {
+                Log::info("CompleteOnboardingAction: Agente creado en Chatwoot [{$email}]");
+            }
+
+        } catch (\Throwable $e) {
+            // No rompe el flujo de ORVIAN si Chatwoot no está disponible
+            Log::error("CompleteOnboardingAction: Fallo al crear agente en Chatwoot", [
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

@@ -5,13 +5,16 @@ namespace App\Actions\Tenant;
 use App\Events\Tenant\SchoolConfigured;
 use App\Models\Tenant\School;
 use App\Models\User;
+use App\Services\Communications\ChatwootService;
 use App\Services\School\SchoolRoleService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CompleteTenantOnboardingAction
 {
     public function __construct(
         protected SchoolRoleService $roleService,
+        protected ChatwootService $chatwootService,
     ) {}
 
     /**
@@ -89,7 +92,49 @@ class CompleteTenantOnboardingAction
             // 7. Disparar Evento
             event(new SchoolConfigured($school, $wizardData['academic']));
 
+            // 8. Sincronizar Director con Chatwoot — justo después de que el rol fue asignado.
+            $this->syncPrincipalToChatwoot($principalUser);
+
             return $school;
         });
+    }
+
+    /**
+     * Sincroniza el Director (usuario existente) con Chatwoot como Agente.
+     * El rol 'School Principal' ya fue asignado en el paso 6 antes de esta llamada.
+     */
+    protected function syncPrincipalToChatwoot(User $user): void
+    {
+        try {
+            $existing = $this->chatwootService->findAgentByEmail($user->email);
+
+            if ($existing) {
+                Log::info("CompleteTenantOnboardingAction: Agente ya existe en Chatwoot [{$user->email}]");
+                return;
+            }
+
+            $response = $this->chatwootService->createAgent(
+                name:  $user->name,
+                email: $user->email,
+                role:  'agent',
+            );
+
+            if ($response->successful()) {
+                Log::info("CompleteTenantOnboardingAction: Agente creado en Chatwoot [{$user->email}]");
+
+                // Persistir el chatwoot_agent_id en preferences para uso futuro
+                $user->updateQuietly([
+                    'preferences' => array_merge($user->preferences ?? [], [
+                        'chatwoot_agent_id' => $response->json('id'),
+                    ]),
+                ]);
+            }
+
+        } catch (\Throwable $e) {
+            Log::error("CompleteTenantOnboardingAction: Fallo al crear agente en Chatwoot", [
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
