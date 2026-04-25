@@ -36,12 +36,10 @@ class WhatsAppService
                 'Content-Type' => 'application/json',
             ])->post("{$this->baseUrl}/message/sendText/{$this->instance}", [
                 'number'  => $normalizedPhone,
+                'text'    => $message, // Estructura plana, más compatible
                 'options' => [
-                    'delay'    => 1200,
+                    'delay'   => 1200,
                     'presence' => 'composing',
-                ],
-                'textMessage' => [
-                    'text' => $message,
                 ],
             ]);
 
