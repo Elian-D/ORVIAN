@@ -433,7 +433,7 @@ class ConversationsController extends Controller
 
 ### 2.1 — Migración: `tutor_phone` y `tutor_name` en Tabla `students`
 
-`tutor_phone` es la pieza central para el envío de alertas. `tutor_name` se añade si aún no existe en la tabla (verificar migración de v0.4.0 antes de ejecutar).
+`tutor_phone` es la pieza central para el envío de alertas. `tutor_name` se añade si aún no existe en la tabla.
 
 ```php
 <?php
@@ -467,17 +467,16 @@ return new class extends Migration
     {
         Schema::table('students', function (Blueprint $table) {
             $table->dropColumn('tutor_phone');
-            // No hacer dropColumn de tutor_name si existía antes de esta migración
+            $table->dropColumn('tutor_name');
         });
     }
 };
 ```
 
-- [ ] Ejecutar: `php artisan make:migration add_tutor_fields_to_students_table`
-- [ ] Actualizar `$fillable` del modelo `Student` con `'tutor_phone'` (y `'tutor_name'` si aplica).
-- [ ] Actualizar `StudentService` para guardar/actualizar `tutor_phone`.
-- [ ] Agregar campo en formulario de edición de estudiante con validación E.164 (`regex:/^\+[1-9]\d{7,14}$/`).
-- [ ] El campo `tutor_phone` solo debe ser visible para usuarios con permiso `manage conversations` o superior — aplicar Policy de autorización.
+- [x] Ejecutar: `php artisan make:migration add_tutor_fields_to_students_table`
+- [x] Actualizar `$fillable` del modelo `Student` con `'tutor_phone'` y `'tutor_name'`.
+- [ ] Actualizar `StudentService` para guardar/actualizar `tutor_name` `tutor_phone`.
+- [ ] Agregar campo en formualrio `app/Livewire/App/Students/StudentForm.php` y `resources/views/livewire/app/students/student-form.blade.php` de edición de estudiante con validación E.164 (`regex:/^\+[1-9]\d{7,14}$/`).
 
 ### 2.2 — `WhatsAppService` — Gateway de Envío
 
@@ -617,8 +616,206 @@ class WhatsAppTemplates
         _Este mensaje es generado automáticamente por el Sistema de Gestión ORVIAN._
         MSG;
     }
+}## Fase 2 — Migración de Tutores y Gateway WhatsApp
+**Rama:** `feature/whatsapp-service`
+
+### 2.1 — Migración: `tutor_phone` y `tutor_name` en Tabla `students`
+
+`tutor_phone` es la pieza central para el envío de alertas. `tutor_name` se añade si aún no existe en la tabla.
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('students', function (Blueprint $table) {
+            // Solo agregar tutor_name si no existe — validar contra migraciones de v0.4.0
+            if (! Schema::hasColumn('students', 'tutor_name')) {
+                $table->string('tutor_name', 120)
+                      ->nullable()
+                      ->after('last_name')
+                      ->comment('Nombre completo del tutor o responsable del estudiante');
+            }
+
+            // tutor_phone es nuevo en v0.5.0
+            $table->string('tutor_phone', 20)
+                  ->nullable()
+                  ->after('tutor_name')
+                  ->comment('Número WhatsApp del tutor en formato E.164. Ej: +18091234567');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('students', function (Blueprint $table) {
+            $table->dropColumn('tutor_phone');
+            $table->dropColumn('tutor_name');
+        });
+    }
+};
+```
+
+- [x] Ejecutar: `php artisan make:migration add_tutor_fields_to_students_table`
+- [x] Actualizar `$fillable` del modelo `Student` con `'tutor_phone'` y `'tutor_name'`.
+- [x] Agregar campo en formualrio `app/Livewire/App/Students/StudentForm.php` y `resources/views/livewire/app/students/student-form.blade.php` de edición de estudiante con validación E.164 (`regex:/^\+[1-9]\d{7,14}$/`).
+
+
+### 2.2 — `WhatsAppService` — Gateway de Envío
+
+ORVIAN actúa exclusivamente como **emisor**. Este servicio encapsula el envío de mensajes hacia Evolution API. No procesa respuestas ni gestiona conversaciones — eso es responsabilidad de Chatwoot en el VPS.
+
+```php
+<?php
+
+namespace App\Services\Communications;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class WhatsAppService
+{
+    protected string $baseUrl;
+    protected string $apiKey;
+    protected string $instance;
+
+    public function __construct()
+    {
+        $this->baseUrl  = config('communications.evolution.base_url');
+        $this->apiKey   = config('communications.evolution.api_key');
+        $this->instance = config('communications.evolution.instance_name');
+    }
+
+    /**
+     * Envía un mensaje de texto al tutor.
+     * ORVIAN solo envía — no espera ni procesa respuestas.
+     *
+     * @param  string  $phone    Número en formato E.164 (ej. +18091234567)
+     * @param  string  $message  Texto con soporte de formato WhatsApp (*negrita*, _cursiva_)
+     */
+    public function sendTextMessage(string $phone, string $message): bool
+    {
+        // Evolution API espera el número sin el símbolo '+'
+        $normalizedPhone = ltrim($phone, '+');
+
+        try {
+            $response = Http::withHeaders([
+                'apikey'       => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->baseUrl}/message/sendText/{$this->instance}", [
+                'number'  => $normalizedPhone,
+                'options' => [
+                    'delay'    => 1200,
+                    'presence' => 'composing',
+                ],
+                'textMessage' => [
+                    'text' => $message,
+                ],
+            ]);
+
+            if ($response->successful()) {
+                Log::info('WhatsAppService: Mensaje enviado', [
+                    'phone'  => $normalizedPhone,
+                    'msg_id' => $response->json('key.id'),
+                ]);
+                return true;
+            }
+
+            Log::warning('WhatsAppService: Respuesta no exitosa', [
+                'phone'  => $normalizedPhone,
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+
+        } catch (\Throwable $e) {
+            Log::error('WhatsAppService: Excepción al enviar mensaje', [
+                'phone' => $normalizedPhone,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return false;
+    }
+
+    /**
+     * Verifica si la instancia de WhatsApp está conectada en el VPS.
+     * Usado como fallback por WhatsappStatusIndicator cuando la caché no tiene dato.
+     */
+    public function getInstanceStatus(): array
+    {
+        try {
+            $response = Http::withHeaders(['apikey' => $this->apiKey])
+                ->get("{$this->baseUrl}/instance/connectionState/{$this->instance}");
+
+            return $response->json() ?? ['state' => 'unknown'];
+        } catch (\Throwable $e) {
+            return ['state' => 'error', 'message' => $e->getMessage()];
+        }
+    }
 }
 ```
+
+- [x] Registrar en `AppServiceProvider`: `$this->app->singleton(WhatsAppService::class);`
+
+### 2.3 — `WhatsAppTemplates` — Plantillas de Mensajes
+
+Centraliza todos los textos de notificación. Ningún mensaje debe estar hardcodeado fuera de esta clase.
+
+```php
+<?php
+
+namespace App\Services\Communications;
+
+use App\Models\Tenant\Student;
+
+class WhatsAppTemplates
+{
+    public static function absenceAlert(Student $student, int $count, string $month): string
+    {
+        return <<<MSG
+        📋 *ORVIAN — Notificación de Asistencia*
+
+        Estimado/a tutor(a) de *{$student->full_name}*,
+
+        Le informamos que su representado/a ha acumulado *{$count} ausencia(s) injustificada(s)* durante el mes de {$month}.
+
+        Le solicitamos comunicarse con la dirección del centro para coordinar el seguimiento correspondiente.
+
+        _Este mensaje es generado automáticamente por el Sistema de Gestión ORVIAN._
+        MSG;
+    }
+
+    public static function tardinessAlert(Student $student, int $count, string $month): string
+    {
+        return <<<MSG
+        ⏰ *ORVIAN — Aviso de Puntualidad*
+
+        Estimado/a tutor(a) de *{$student->full_name}*,
+
+        Le notificamos que su representado/a ha registrado *{$count} llegada(s) tarde* durante el mes de {$month}.
+
+        La puntualidad es fundamental para el aprovechamiento académico. Le agradecemos su atención.
+
+        _Este mensaje es generado automáticamente por el Sistema de Gestión ORVIAN._
+        MSG;
+    }
+}
+```
+
+### 2.4 — Correciones de fase anterior
+
+Corregir ciertas cosas que faltaron de ajustarn en la fase anterior `feature/comms-chatwoot-iframe` para que los procesos funcionen bien siempre.
+
+- En `CompleteOnboardingAction` y `CompleteTenantOnboardingAction`, el llamado a sincronización con Chatwoot debe hacerse dentro de un `DB::afterCommit()` para asegurar que la transacción de creación de escuela y roles se haya completado antes de intentar sincronizar el usuario como agente en Chatwoot. Esto evita problemas de sincronización debido a que Spatie Roles aún no ha registrado el rol 'School Principal' en la base de datos al momento de la sincronización.
+
+- En `CreateSchoolPrincipalAction`, quitar que se cree dentro de una transacción aparte. 
+
+- En `ChatwootService`, asegurarse de que el método `syncUserAsAgent` maneje correctamente el caso en que el usuario aún no tenga un rol asignado, para evitar errores si se llama antes de que Spatie Roles haya registrado el rol 'School Principal'.
 
 ---
 
