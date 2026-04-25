@@ -17,7 +17,7 @@ class Student extends Model
 
     protected $fillable = [
         'school_id', 'school_section_id', 'user_id',
-        'first_name', 'last_name', 'gender', 'date_of_birth',
+        'first_name', 'last_name', 'tutor_name', 'tutor_phone', 'gender', 'date_of_birth',
         'place_of_birth', 'rnc', 'blood_type', 'allergies',
         'medical_conditions', 'photo_path', 'face_encoding',
         'is_active', 'enrollment_date', 'withdrawal_date',
