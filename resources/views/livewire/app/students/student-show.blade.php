@@ -138,13 +138,14 @@
                             <form wire:submit.prevent="updateCredentials" class="p-8">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                                     {{-- Input Email --}}
-                                    <x-ui.forms.input 
+                                    <x-ui.forms.input
                                         label="Correo Electrónico de Acceso"
                                         name="email"
                                         type="email"
                                         wire:model="email"
                                         icon-left="heroicon-o-envelope"
-                                        :error="$errors->first('email')"
+                                        hint="Generado automáticamente. No es editable."
+                                        readonly
                                     />
 
                                     {{-- Input Password con Toggle de Visibilidad manual --}}
