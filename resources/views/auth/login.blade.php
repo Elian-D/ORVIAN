@@ -3,262 +3,161 @@
 
     <div x-data="qrLogin()">
 
-        {{-- ─── Estado de sesión (Breeze) ─── --}}
-        <x-auth-session-status class="mb-6" :status="session('status')" />
-
-        {{-- ─── Cabecera ─── --}}
-        <div class="mb-10">
-            <h2 class="font-black text-[1.85rem] tracking-tight leading-tight text-[#001b3d] dark:text-white">
-                Acceso al Sistema
-            </h2>
-            <p class="text-[11px] uppercase tracking-widest mt-1.5 text-[#79747e] dark:text-white/30">
-                Autentícate para establecer una sesión segura.
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
+                Bienvenido
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-white/50 mt-2 font-medium">
+                Ingresa a tu cuenta institucional
             </p>
         </div>
 
-        {{-- ─── Formulario ─── --}}
-        <form id="login-form"
-              method="POST"
-              action="{{ route('login') }}"
-              x-data="{ showPassword: false }">
+        {{-- Añadimos ID al form e incluimos el input oculto --}}
+        <form id="login-form" method="POST" action="{{ route('login') }}" x-data="{ showPassword: false }">
             @csrf
+            
+            {{-- CRUCIAL: Input oculto para enviar el código QR leido --}}
             <input type="hidden" name="qr_code" x-model="qrCode">
 
-            {{-- ── Correo Electrónico ── --}}
-            <div class="group flex flex-col gap-1 mb-8
-                        border-b border-[#cac4cf] dark:border-white/10
-                        focus-within:border-[#f78904] dark:focus-within:border-[#f78904]
-                        transition-colors duration-200">
+            {{-- Email Input --}}
+            <div class="mb-5 group relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30 group-focus-within:text-[#f78904] dark:group-focus-within:text-[#f78904] transition-colors pointer-events-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                </span>
+                <input id="email" type="email" name="email" value="{{ old('email') }}"
+                    placeholder="Correo electrónico" autofocus
+                    class="w-full rounded-2xl pl-12 pr-4 py-4 text-sm font-medium bg-gray-50 dark:bg-[#0a101d] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:border-[#f78904] focus:ring-1 focus:ring-[#f78904] dark:focus:border-[#f78904] outline-none transition-all shadow-sm"
+                />
+            </div>
 
-                <label for="email"
-                       class="text-[10px] uppercase tracking-widest
-                              text-[#79747e] dark:text-white/30
-                              group-focus-within:text-[#f78904]
-                              transition-colors duration-200">
-                    Correo_Electrónico
+            {{-- Password Input --}}
+            <div class="mb-6 group relative">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30 group-focus-within:text-[#f78904] dark:group-focus-within:text-[#f78904] transition-colors pointer-events-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                </span>
+                <input id="password" :type="showPassword ? 'text' : 'password'" name="password"
+                    placeholder="Contraseña" 
+                    class="w-full rounded-2xl pl-12 pr-12 py-4 text-sm font-medium bg-gray-50 dark:bg-[#0a101d] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30 focus:border-[#f78904] focus:ring-1 focus:ring-[#f78904] dark:focus:border-[#f78904] outline-none transition-all shadow-sm"
+                />
+                <button type="button" @click="showPassword = !showPassword"
+                    class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30 hover:text-[#f78904] dark:hover:text-[#f78904] transition-colors focus:outline-none">
+                    <svg x-show="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <svg x-cloak x-show="showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                </button>
+            </div>
+
+            <div class="flex items-center justify-between mb-8 px-2">
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" name="remember" class="w-4 h-4 rounded border-gray-300 dark:border-white/20 text-[#f78904] focus:ring-[#f78904]/50 dark:bg-[#0a101d] transition-all">
+                    <span class="text-[13px] text-gray-500 dark:text-white/50 group-hover:text-[#f78904] transition-colors font-medium">Recordarme</span>
                 </label>
-
-                <div class="flex items-center gap-3 py-0.5">
-                    <span class="flex-shrink-0 pointer-events-none
-                                 text-[#79747e] dark:text-white/25
-                                 group-focus-within:text-[#f78904]
-                                 transition-colors duration-200">
-                        <x-heroicon-o-envelope class="w-[18px] h-[18px]" />
-                    </span>
-                    <input id="email"
-                           type="email"
-                           name="email"
-                           value="{{ old('email') }}"
-                           placeholder="usuario@institucional.org"
-                           autofocus
-                           autocomplete="email"
-                           class="w-full bg-transparent border-none outline-none ring-0 focus:ring-0
-                                  py-3 px-0 text-sm
-                                  text-[#001b3d] dark:text-white
-                                  placeholder:text-[#cac4cf] dark:placeholder:text-white/20
-                                  transition-colors duration-200" />
-                </div>
-
-                @error('email')
-                    <p class="flex items-center gap-1 mt-1 text-[10px] text-red-500">
-                        <x-heroicon-s-exclamation-circle class="w-3 h-3 flex-shrink-0" />
-                        {{ $message }}
-                    </p>
-                @enderror
+                @if (Route::has('password.request'))
+                    <a href="{{ route('password.request') }}" class="text-[13px] text-[#f78904] hover:underline hover:text-orange-500 font-semibold transition-colors">
+                        ¿Olvidaste la clave?
+                    </a>
+                @endif
             </div>
 
-            {{-- ── Contraseña ── --}}
-            <div class="group flex flex-col gap-1 mb-10
-                        border-b border-[#cac4cf] dark:border-white/10
-                        focus-within:border-[#f78904] dark:focus-within:border-[#f78904]
-                        transition-colors duration-200">
-
-                <div class="flex items-end justify-between">
-                    <label for="password"
-                           class="text-[10px] uppercase tracking-widest
-                                  text-[#79747e] dark:text-white/30
-                                  group-focus-within:text-[#f78904]
-                                  transition-colors duration-200">
-                        Contraseña
-                    </label>
-                    @if (Route::has('password.request'))
-                        <a href="{{ route('password.request') }}"
-                           class="text-[10px] uppercase tracking-tight
-                                  text-[#79747e] dark:text-white/30
-                                  hover:text-[#f78904] dark:hover:text-[#f78904]
-                                  transition-colors duration-200">
-                            ¿Olvidaste tu acceso?
-                        </a>
-                    @endif
-                </div>
-
-                <div class="flex items-center gap-3 py-0.5">
-                    <span class="flex-shrink-0 pointer-events-none
-                                 text-[#79747e] dark:text-white/25
-                                 group-focus-within:text-[#f78904]
-                                 transition-colors duration-200">
-                        <x-heroicon-o-lock-closed class="w-[18px] h-[18px]" />
-                    </span>
-                    <input id="password"
-                           :type="showPassword ? 'text' : 'password'"
-                           name="password"
-                           placeholder="••••••••••••"
-                           autocomplete="current-password"
-                           class="w-full bg-transparent border-none outline-none ring-0 focus:ring-0
-                                  py-3 px-0 text-sm
-                                  text-[#001b3d] dark:text-white
-                                  placeholder:text-[#cac4cf] dark:placeholder:text-white/20
-                                  transition-colors duration-200" />
-                    <button type="button"
-                            @click="showPassword = !showPassword"
-                            class="flex-shrink-0
-                                   text-[#79747e] dark:text-white/25
-                                   hover:text-[#f78904] dark:hover:text-[#f78904]
-                                   transition-colors duration-200">
-                        <x-heroicon-o-eye       x-show="!showPassword" class="w-[18px] h-[18px]" />
-                        <x-heroicon-o-eye-slash x-show="showPassword" x-cloak class="w-[18px] h-[18px]" />
-                    </button>
-                </div>
-
-                @error('password')
-                    <p class="flex items-center gap-1 mt-1 text-[10px] text-red-500">
-                        <x-heroicon-s-exclamation-circle class="w-3 h-3 flex-shrink-0" />
-                        {{ $message }}
-                    </p>
-                @enderror
-            </div>
-
-            {{-- ── Botón Iniciar Sesión ── --}}
-            <div class="mb-8">
-                <button type="submit"
-                        class="group relative w-full h-14 flex items-center justify-center gap-2
-                               bg-orvian-orange text-white
-                               font-black text-sm uppercase tracking-[0.15em]
-                               rounded-orvian overflow-hidden
-                               hover:bg-orvian-orange-hover
-                               hover:scale-[1.015] hover:shadow-[0_10px_30px_rgba(247,137,4,0.35)]
-                               active:scale-[0.98]
-                               transition-all duration-300">
-                    {{-- Shine en hover --}}
-                    <span aria-hidden="true"
-                          class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent
-                                 -translate-x-full group-hover:translate-x-full
-                                 transition-transform duration-700 pointer-events-none"></span>
-
-                    <span class="relative z-10 flex items-center gap-2">
-                        Iniciar Sesión
-                        <x-heroicon-s-arrow-right-on-rectangle class="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-200" />
-                    </span>
-                </button>
-            </div>
-
-            {{-- ── Métodos Auxiliares ── --}}
-            <div class="flex flex-col gap-4">
-                <div class="flex items-center gap-4">
-                    <div class="h-px flex-grow bg-[#cac4cf]/30 dark:bg-white/[0.08]"></div>
-                    <span class="text-[9px] uppercase tracking-widest text-[#79747e] dark:text-white/20">
-                        Métodos_Auxiliares
-                    </span>
-                    <div class="h-px flex-grow bg-[#cac4cf]/30 dark:bg-white/[0.08]"></div>
-                </div>
-
-                <button type="button"
-                        @click="startScanner()"
-                        class="flex items-center justify-center gap-3 w-full py-3.5
-                               border border-[#cac4cf]/40 dark:border-white/10 rounded-lg
-                               text-[10px] uppercase tracking-widest
-                               text-[#001b3d] dark:text-white/50
-                               hover:border-orvian-orange/60 dark:hover:border-orvian-orange/40
-                               hover:text-orvian-orange dark:hover:text-orvian-orange
-                               transition-all duration-200">
-                    <x-heroicon-o-qr-code class="w-4 h-4" />
-                    Código_QR
-                </button>
-            </div>
+            <button type="submit"
+                class="w-full py-4 rounded-2xl bg-gradient-to-r from-[#f78904] to-orange-500 text-white font-bold text-sm shadow-xl shadow-orange-500/20 hover:shadow-orange-500/40 hover:-translate-y-0.5 active:scale-95 transition-all">
+                Iniciar Sesión
+            </button>
         </form>
 
-        {{-- ─── Modal escáner QR ─── --}}
-        <div x-show="showScanner"
-             x-cloak
-             class="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-
-            <div class="w-full max-w-md rounded-[1.5rem] p-6 shadow-2xl
-                        bg-white dark:bg-dark-card
-                        border border-gray-200 dark:border-white/10">
-
-                <div class="flex items-start justify-between mb-5">
-                    <div>
-                        <h3 class="font-bold text-[#001b3d] dark:text-white text-base">
-                            Escanear código institucional
-                        </h3>
-                        <p class="text-[10px] uppercase tracking-widest mt-0.5 text-[#79747e] dark:text-white/30">
-                            Apunta la cámara al QR de tu carnet
-                        </p>
-                    </div>
-                    <button @click="stopScanner()"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center
-                                   text-gray-400 hover:text-gray-700 hover:bg-gray-100
-                                   dark:text-white/30 dark:hover:text-white dark:hover:bg-white/5
-                                   transition-colors duration-200">
-                        <x-heroicon-o-x-mark class="w-5 h-5" />
+        {{-- Modal para el Escáner --}}
+        <div x-show="showScanner" x-cloak 
+             class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div class="bg-white dark:bg-[#0d1424] rounded-[2rem] p-6 w-full max-w-md border border-white/10 shadow-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-gray-900 dark:text-white font-bold">Escanea tu código institucional</h3>
+                    <button @click="stopScanner()" class="text-gray-400 hover:text-gray-600 dark:hover:text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-
-                <div id="reader"
-                     class="overflow-hidden rounded-xl aspect-square bg-gray-300 dark:bg-dark-bg"></div>
-
-                <div class="flex items-center justify-center gap-2 mt-4">
-                    <span class="w-1.5 h-1.5 rounded-full bg-orvian-orange animate-pulse"></span>
-                    <span class="text-[9px] uppercase tracking-widest text-[#79747e] dark:text-white/25">
-                        Cámara activa — esperando lectura
-                    </span>
-                </div>
+                <div id="reader" class="overflow-hidden rounded-xl bg-black aspect-square"></div>
+                <p class="text-center text-xs text-gray-500 mt-4">Apunta con tu cámara al código QR de tu carnet</p>
             </div>
         </div>
-
     </div>
 
-    <script>
-    function qrLogin() {
-        return {
-            showScanner: false,
-            qrCode: '',
-            scanner: null,
+<script>
+function qrLogin() {
+    return {
+        showScanner: false,
+        qrCode: '',
+        html5QrcodeScanner: null,
 
-            init() {
-                window.addEventListener('open-qr-scanner', () => this.startScanner());
-            },
+        /**
+         * Inicializa el componente y escucha el evento global 
+         * disparado desde el botón del layout.
+         */
+        init() {
+            window.addEventListener('open-qr-scanner', () => {
+                this.startScanner();
+            });
+        },
 
-            async startScanner() {
-                this.showScanner = true;
-                await this.$nextTick();
-                try {
-                    this.scanner = new Html5Qrcode('reader');
-                    await this.scanner.start(
-                        { facingMode: 'environment' },
-                        { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
-                        (decoded) => {
-                            this.qrCode = decoded;
-                            document.querySelector('[name="qr_code"]').value = decoded;
-                            this.stopScanner();
-                            setTimeout(() => document.getElementById('login-form').submit(), 120);
-                        }
-                    );
-                } catch (err) {
-                    console.error('Error al iniciar el escáner:', err);
-                    alert('No se pudo acceder a la cámara. Verifica los permisos del navegador.');
-                    this.showScanner = false;
-                }
-            },
+        /**
+         * Activa la cámara y configura el escáner QR.
+         */
+        async startScanner() {
+            this.showScanner = true;
+            
+            // Esperamos a que Alpine renderice el div #reader en el DOM
+            await this.$nextTick();
+            
+            try {
+                this.html5QrcodeScanner = new Html5Qrcode("reader");
+                const config = { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0 
+                };
 
-            async stopScanner() {
-                if (this.scanner && this.scanner.getState() === 2) {
-                    try { await this.scanner.stop(); } catch {}
-                    this.scanner = null;
-                }
+                await this.html5QrcodeScanner.start(
+                    { facingMode: "user" }, // Usa "environment" para cámara trasera en móviles
+                    config,
+                    (decodedText) => {
+                        // 1. Asignar el valor directamente al input oculto por ID para mayor seguridad
+                        const qrInput = document.getElementsByName('qr_code')[0];
+                        qrInput.value = decodedText;
+                        this.qrCode = decodedText;
+
+                        // 2. Detener el escáner inmediatamente
+                        this.stopScanner();
+
+                        // 3. Pequeña pausa para que el DOM procese el valor y enviar
+                        setTimeout(() => {
+                            document.getElementById('login-form').submit();
+                        }, 100);
+                    }
+                );
+            } catch (err) {
+                console.error("Error al iniciar el escáner:", err);
+                alert("No se pudo acceder a la cámara. Verifica los permisos.");
                 this.showScanner = false;
             }
-        };
+        },
+
+        /**
+         * Detiene la cámara y limpia la instancia del escáner.
+         */
+        async stopScanner() {
+            if (this.html5QrcodeScanner && this.html5QrcodeScanner.getState() === 2) {
+                try {
+                    await this.html5QrcodeScanner.stop();
+                    this.html5QrcodeScanner = null;
+                } catch (err) {
+                    console.error("Error al detener el escáner:", err);
+                }
+            }
+            this.showScanner = false;
+        }
     }
-    </script>
+}
+</script>
 </x-guest-layout>

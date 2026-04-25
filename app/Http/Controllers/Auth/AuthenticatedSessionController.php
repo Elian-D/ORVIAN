@@ -15,8 +15,14 @@ class AuthenticatedSessionController extends Controller
     /**
      * Display the login view.
      */
-    public function create(): View
+    public function create(Request $request): View
     {
+        $version = $request->cookie('orvian_login_version', 'v2');
+
+        if ($version === 'v1') {
+            return view('auth.login-v1');
+        }
+
         return view('auth.login');
     }
 
