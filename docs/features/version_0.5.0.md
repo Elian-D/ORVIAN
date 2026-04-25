@@ -1,272 +1,115 @@
-# ORVIAN v0.5.0 — Módulo de Conversaciones e Integración WhatsApp
+# ORVIAN v0.5.0 — Módulo de Comunicaciones
 
-**RAMA PADRE:**
-`feature/communications-module`
+**RAMA PADRE:** `feature/communications-module`
 
-**Objetivo:** Implementar el **Módulo de Conversaciones** integrando Chatwoot como plataforma de soporte y comunicación institucional, Evolution API como gateway de WhatsApp, y automatizar notificaciones a tutores basadas en los datos de asistencia generados por el módulo v0.4.0.
+**Objetivo:** Activar el **Módulo de Comunicaciones** integrando Chatwoot como plataforma de mensajería institucional (embebido vía Iframe con SSO) y Evolution API como gateway de WhatsApp para alertas automáticas de asistencia. ORVIAN actúa exclusivamente como **emisor** de notificaciones y como **cliente** de Chatwoot — no gestiona respuestas entrantes ni levanta estos servicios localmente. La infraestructura ya está operativa en el VPS de producción.
+
+---
+
+## Estado de la Base — v0.4.1 como Fundación
+
+Esta versión se construye directamente sobre los entregables consolidados de v0.4.1. Los siguientes elementos se consideran **base sólida disponible**, no tareas pendientes:
+
+| Componente | Origen | Estado |
+| :--- | :--- | :--- |
+| `StudentObserver@created` genera `User` automático desde RNC | v0.4.1 / Fase 1.1 | ✅ Completado |
+| Redirección post-login por `school_id` | v0.4.1 / Fase 1.2 | ✅ Completado |
+| Nueva interfaz de login v2 + coexistencia v1/v2 por Cookie | v0.4.1 / Fase 1.3 & 4 | ✅ Completado |
+| `View::share('appVersion')` con `Cache::rememberForever` | v0.4.1 / Fase 2 | ✅ Completado |
+| Toast simplificado sin progress bar | v0.4.1 / Fase 3.1 | ✅ Completado |
+| Dashboard filtra módulos por flag `visible` en `config/modules.php` | v0.4.1 / Fase 3.2 | ✅ Completado |
+| Módulo de asistencia con `PlantelAttendanceRecord`, `ClassroomAttendanceRecord`, `Student` con `tutor_name` | v0.4.0 | ✅ Completado |
+| Multi-tenancy con `school_id` y `GlobalScope` en modelos de tenant | v0.2.0 | ✅ Completado |
+| `CompleteOnboardingAction` y `CompleteTenantOnboardingAction` con clonación de roles | v0.3.0 | ✅ Completado |
+
+---
+
+## Tabla de Requerimientos
+
+| ID | Fase | Área | Descripción | Prioridad | Estado |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| REQ-01 | 1 | UI / Auth | Integración del Iframe de Chatwoot con SSO (HMAC-SHA256) en `ConversationsController` | Alta | Pendiente |
+| REQ-02 | 1 | Servicio | Implementar `ChatwootService` — cliente HTTP hacia VPS (crear agente, generar hash SSO, conteo de conversaciones) | Alta | Pendiente |
+| REQ-03 | 1 | Action | Invocar `ChatwootService::createAgent()` al final de `CompleteOnboardingAction` y `CompleteTenantOnboardingAction` | Alta | Pendiente |
+| REQ-04 | 2 | BD / Modelo | Agregar `tutor_phone` (string, nullable) y `tutor_name` (si aún no existe) a tabla `students` con migración incremental | Alta | Pendiente |
+| REQ-05 | 2 | Servicio | Implementar `WhatsAppService` — cliente HTTP hacia Evolution API en VPS. ORVIAN solo **envía**, no procesa respuestas | Alta | Pendiente |
+| REQ-06 | 2 | Servicio | Implementar `WhatsAppTemplates` con plantillas de ausencia y tardanza | Media | Pendiente |
+| REQ-07 | 3 | Job | Implementar `SendAttendanceAlertJob` con 3 reintentos y anti-duplicado mediante caché | Alta | Pendiente |
+| REQ-08 | 3 | Evaluador | Implementar `AttendanceAlertEvaluator` con umbrales configurables y caché anti-spam semanal | Alta | Pendiente |
+| REQ-09 | 3 | Comando | Registrar y programar `orvian:evaluate-attendance-alerts` (diario, 16:00) | Media | Pendiente |
+| REQ-10 | 3 | Webhook | `EvolutionWebhookController` para recibir evento `connection.update` y actualizar estado en caché | Media | Pendiente |
+| REQ-11 | 4 | UI | Vista `app/conversations` con Iframe de Chatwoot + SSO para Directores | Media | Pendiente |
+| REQ-12 | 4 | UI | Vista `admin/conversations` con Iframe directo a panel admin de Chatwoot (Owner / TechnicalSupport) | Baja | Pendiente |
+| REQ-13 | 4 | UI | Componente `WhatsappStatusIndicator` en `module-toolbar` — lee estado desde caché | Media | Pendiente |
+| REQ-14 | 5 | Config | Rutas, permisos, seeders y `config/modules.php` actualizados para el módulo de conversaciones | Media | Pendiente |
 
 ---
 
 ## Arquitectura del Módulo
 
-### Conceptos Clave
+### Separación de Responsabilidades
 
-**Tres Capas de Comunicación:**
-1. **Centro de Mensajes (Chatwoot):** Plataforma centralizada para la gestión de conversaciones con tutores, padres y personal. Embebida como Iframe en el panel de ORVIAN con SSO automático para agentes (Directores y coordinadores).
-2. **Gateway WhatsApp (Evolution API):** Servicio intermediario que conecta un número de WhatsApp institucional con Chatwoot y con el sistema de notificaciones automatizadas de ORVIAN.
-3. **Motor de Notificaciones Automatizadas:** Capa de lógica de negocio dentro de ORVIAN que consume los datos de asistencia (v0.4.0) y dispara alertas proactivas al tutor vía WhatsApp cuando un estudiante acumula ausencias o tardanzas.
+**Lo que hace ORVIAN:**
+- Embebe Chatwoot como Iframe con SSO (HMAC) para que los Directores gestionen conversaciones dentro del panel.
+- Registra al Director como agente en Chatwoot al completar el onboarding (desde las Actions).
+- Envía alertas automáticas de WhatsApp a tutores cuando un estudiante supera los umbrales de ausencia o tardanza.
+- Recibe el webhook `connection.update` de Evolution para mantener el estado de la instancia en caché.
 
-**Separación de Responsabilidades (Infraestructura):**
-- Chatwoot y Evolution API corren en un `docker-compose.yml` **independiente** del de ORVIAN.
-- Se comunican entre sí por nombre de servicio dentro de la red Docker compartida `app_network`.
-- ORVIAN se comunica con ambos servicios exclusivamente mediante HTTP (API REST).
-- El panel de ORVIAN nunca redirige al usuario fuera del sistema; todo ocurre mediante Iframe.
+**Lo que NO hace ORVIAN:**
+- No recibe ni procesa mensajes de WhatsApp. Chatwoot maneja las conversaciones de forma nativa en el VPS.
+- No gestiona Chatwoot ni Evolution API — ambos corren como servicios independientes en `chat.orvian.com.do` y `evolution.orvian.com.do`.
+- No levanta estos servicios en Docker local.
 
-**Dos Vistas del Iframe (Segmentadas por Rol):**
-- **SuperAdmin (Owner / TechnicalSupport):** Acceso al panel de administración global de Chatwoot con login manual. Sin SSO, ya que el Owner gestiona la infraestructura completa.
-- **Director / Agente:** Login automático (SSO) mediante HMAC `identifier_hash` de la API de Chatwoot. El usuario nunca ve una pantalla de login.
-
----
-
-## Notas de Implementación — Por Qué Fallaba el Docker en Local
-
-### El Problema
-
-Al correr el `docker-compose.yml` original, Evolution API y Chatwoot podían exponer sus servicios al host pero **no podían comunicarse entre sí de forma confiable**. Los síntomas típicos:
-- Evolution enviaba webhooks a `http://localhost:3001` (la URL pública de Chatwoot) y fallaba.
-- Chatwoot intentaba contactar a Evolution en `http://localhost:8080` y también fallaba.
-- Los logs mostraban `Connection refused` o `Name or service not known`.
-
-### La Causa Raíz
-
-Docker usa una red virtual interna. Cuando un contenedor intenta conectarse a `localhost`, se conecta **a sí mismo**, no al host ni a otro contenedor. Los puertos publicados (`ports: - "3001:3000"`) solo sirven para el tráfico que viene **desde fuera de Docker** (tu navegador, Postman).
-
-Además existía un **conflicto de puertos**: ORVIAN corría en el puerto `8080` del host y Evolution API también mapeaba su puerto interno `8080` al `8080` del host, causando un `address already in use`.
-
-### La Solución
-
-**1. Comunicación interna por nombre de servicio:**
-Dentro de la misma red `app_network`, cada servicio es alcanzable por su nombre de contenedor. `evolution` puede contactar `chatwoot` en `http://chatwoot:3000` (el puerto **interno**, no el mapeado). Esta es la URL que se debe configurar en las variables de entorno de Evolution API.
-
-**2. Remap del puerto de Evolution al 8085:**
-Cambiando el mapeo de `"8080:8080"` a `"8085:8080"`, Evolution sigue escuchando en el puerto `8080` internamente (la imagen no cambia), pero desde el host —y desde ORVIAN— se accede en `http://localhost:8085`. El conflicto con ORVIAN queda eliminado.
+### Modelo de Conectividad
 
 ```
-# ANTES (con conflicto):
-ports:
-  - "8080:8080"   # ← Choca con ORVIAN en el host
+┌──────────────────────────────────────────────────────────────────┐
+│  ENTORNO LOCAL (ORVIAN en Docker / Sail)                         │
+│                                                                  │
+│  Laravel App ──► HTTP POST ──► https://evolution.orvian.com.do   │
+│                                (solo envío de mensajes)          │
+│                                                                  │
+│  Laravel App ──► HTTP GET/POST ─► https://chat.orvian.com.do     │
+│                                (crear agente, SSO hash)          │
+│                                                                  │
+│  Webhooks entrantes de Evolution (solo connection.update):       │
+│    evolution.orvian.com.do ──► ngrok / Expose ──► localhost      │
+└──────────────────────────────────────────────────────────────────┘
 
-# DESPUÉS (corregido):
-ports:
-  - "8085:8080"   # ← Host:8085 → Contenedor:8080. Sin conflicto.
-```
-
-**3. Variable `CHATWOOT_URL` apuntando al nombre de servicio:**
-Evolution necesita saber dónde enviar los webhooks a Chatwoot. Esta URL debe usar el nombre del servicio Docker, no `localhost`:
-
-```dotenv
-# INCORRECTO (no funciona dentro de Docker):
-CHATWOOT_URL=http://localhost:3001
-
-# CORRECTO (nombre de servicio + puerto interno):
-CHATWOOT_URL=http://chatwoot:3000
+┌──────────────────────────────────────────────────────────────────┐
+│  VPS (chat.orvian.com.do / evolution.orvian.com.do)             │
+│                                                                  │
+│  ┌──────────────┐   Integración nativa    ┌────────────────────┐ │
+│  │ Evolution API│ ──────────────────────► │ Chatwoot           │ │
+│  │ (WhatsApp GW)│                         │ (Conversaciones)   │ │
+│  └──────────────┘                         └────────────────────┘ │
+│         │                                                         │
+│         └── Webhook connection.update ──► ORVIAN (solo estado)   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Fase 1 — Infraestructura y Docker
-**Rama:** `feature/comms-infra`
-
-### 1.1 — `docker-compose.yml` Corregido (Chatwoot + Evolution)
-
-El archivo a continuación incorpora todas las correcciones descritas en las Notas de Implementación. Este es el estado final que debe estar en el repositorio de infraestructura de comunicaciones (separado del de ORVIAN).
-
-```yaml
-version: '3.8'
-
-services:
-  # --- INFRAESTRUCTURA EVOLUTION ---
-  evolution-db:
-    image: postgres:16.4-alpine
-    container_name: evolution-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
-      POSTGRES_DB: ${POSTGRES_DB:-evolution_db}
-    volumes:
-      - evolution_postgres_data:/var/lib/postgresql/data
-    networks:
-      - app_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  evolution-redis:
-    image: redis:7.2-alpine
-    container_name: evolution-redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-redis123}"]
-    volumes:
-      - evolution_redis_data:/data
-    networks:
-      - app_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # --- EVOLUTION API ---
-  # CORRECCIÓN: Puerto mapeado al 8085 en el host para no colisionar con ORVIAN (8080).
-  # El contenedor sigue escuchando en 8080 internamente; solo cambia el acceso desde el host.
-  evolution:
-    image: evoapicloud/evolution-api:v2.3.6
-    container_name: evolution_api
-    restart: unless-stopped
-    environment:
-      - SERVER_TYPE=http
-      - SERVER_PORT=8080
-      - LOG_LEVEL=ERROR,WARN,DEBUG,INFO
-      - DATABASE_PROVIDER=postgresql
-      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres123}@evolution-db:5432/${EVOLUTION_DB_NAME:-evolution_db}?schema=public
-      - CACHE_REDIS_ENABLED=true
-      - CACHE_REDIS_URI=redis://:${REDIS_PASSWORD:-redis123}@evolution-redis:6379
-      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
-      - CHATWOOT_ENABLED=true
-      # CORRECCIÓN: URL interna por nombre de servicio Docker, no localhost.
-      - CHATWOOT_URL=http://chatwoot:3000
-    ports:
-      - "8085:8080"   # <-- CAMBIO CLAVE: 8085 en host, 8080 en contenedor
-    volumes:
-      - evolution_instances:/evolution/instances
-      - evolution_store:/evolution/store
-    networks:
-      - app_network
-    depends_on:
-      evolution-db:
-        condition: service_healthy
-      evolution-redis:
-        condition: service_healthy
-
-  # --- INFRAESTRUCTURA CHATWOOT ---
-  postgres:
-    image: pgvector/pgvector:pg14
-    container_name: chatwoot-postgres
-    restart: always
-    environment:
-      POSTGRES_DB: chatwoot
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - chatwoot_postgres_data:/var/lib/postgresql/data
-    networks:
-      - app_network
-
-  redis:
-    image: redis:7
-    container_name: chatwoot-redis
-    restart: always
-    networks:
-      - app_network
-
-  # --- CHATWOOT APP ---
-  chatwoot:
-    image: chatwoot/chatwoot:latest
-    container_name: chatwoot
-    depends_on:
-      - postgres
-      - redis
-    ports:
-      - "3001:3000"
-    command: bundle exec rails s -p 3000 -b 0.0.0.0
-    environment:
-      RAILS_ENV: production
-      SECRET_KEY_BASE: ${CHATWOOT_SECRET_KEY_BASE}
-      FRONTEND_URL: ${CHATWOOT_FRONTEND_URL:-http://localhost:3001}
-      REDIS_URL: redis://redis:6379
-      POSTGRES_HOST: postgres
-      POSTGRES_USERNAME: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DATABASE: chatwoot
-      SMTP_ADDRESS: host.docker.internal
-      SMTP_PORT: 1025
-    networks:
-      - app_network
-
-  chatwoot-worker:
-    image: chatwoot/chatwoot:latest
-    container_name: chatwoot-worker
-    depends_on:
-      - postgres
-      - redis
-    command: bundle exec sidekiq
-    environment:
-      RAILS_ENV: production
-      SECRET_KEY_BASE: ${CHATWOOT_SECRET_KEY_BASE}
-      REDIS_URL: redis://redis:6379
-      POSTGRES_HOST: postgres
-      POSTGRES_USERNAME: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DATABASE: chatwoot
-    networks:
-      - app_network
-
-networks:
-  app_network:
-    driver: bridge
-
-volumes:
-  evolution_postgres_data:
-  evolution_redis_data:
-  evolution_instances:
-  evolution_store:
-  chatwoot_postgres_data:
-```
-
-### 1.2 — `.env` del Módulo de Comunicaciones (Corregido)
+## Configuración Cloud — Variables de Entorno
 
 ```dotenv
-# --- GENERAL DB CONFIG ---
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres123
-POSTGRES_DB=evolution_db
-REDIS_PASSWORD=redis123
+# --- INTEGRACIÓN CHATWOOT (VPS) ---
+CHATWOOT_BASE_URL=https://chat.orvian.com.do
+CHATWOOT_API_ACCESS_TOKEN=           # Token de Superadmin en Chatwoot
+CHATWOOT_ACCOUNT_ID=1                # ID de la cuenta (normalmente 1)
+CHATWOOT_HMAC_TOKEN=                 # Token HMAC para SSO/Identity Verification
 
-# --- EVOLUTION CONFIG ---
-EVOLUTION_DB_NAME=evolution_db
-EVOLUTION_API_KEY=evolution_api_key_12345
-# URL pública que ORVIAN usará para llamar a Evolution desde el host:
-EVOLUTION_API_URL=http://localhost:8085
+# --- INTEGRACIÓN EVOLUTION API (VPS) ---
+EVOLUTION_API_URL=https://evolution.orvian.com.do
+EVOLUTION_API_KEY=                   # API Key configurada en el VPS
+EVOLUTION_INSTANCE_NAME=orvian_school
 
-# --- CHATWOOT CONFIG ---
-CHATWOOT_SECRET_KEY_BASE=tu_clave_secreta_de_32_caracteres_minimo
-CHATWOOT_FRONTEND_URL=http://localhost:3001
-CHATWOOT_ENABLED=true
-CHATWOOT_MESSAGE_READ=true
-CHATWOOT_MESSAGE_DELETE=true
+# --- UMBRALES DE NOTIFICACIÓN ---
+ALERT_ABSENCE_THRESHOLD=3
+ALERT_TARDINESS_THRESHOLD=3
 ```
 
-### 1.3 — Variables de Entorno en `.env` de ORVIAN
-
-Agregar al `.env` principal del proyecto ORVIAN para que los servicios PHP puedan consumir las APIs:
-
-```dotenv
-# --- INTEGRACIÓN CHATWOOT ---
-CHATWOOT_BASE_URL=http://localhost:3001
-CHATWOOT_API_ACCESS_TOKEN=          # Token de la cuenta de Superadmin en Chatwoot
-CHATWOOT_ACCOUNT_ID=1               # ID de la cuenta en Chatwoot (normalmente 1)
-CHATWOOT_HMAC_TOKEN=                # Token HMAC para SSO (Identity Verification)
-
-# --- INTEGRACIÓN EVOLUTION API (WhatsApp) ---
-EVOLUTION_API_URL=http://localhost:8085
-EVOLUTION_API_KEY=evolution_api_key_12345
-EVOLUTION_INSTANCE_NAME=orvian_school  # Nombre de la instancia de WhatsApp
-```
-
-### 1.4 — Configuración `config/communications.php`
+### `config/communications.php`
 
 ```php
 <?php
@@ -274,75 +117,41 @@ EVOLUTION_INSTANCE_NAME=orvian_school  # Nombre de la instancia de WhatsApp
 return [
 
     'chatwoot' => [
-        'base_url'     => env('CHATWOOT_BASE_URL', 'http://localhost:3001'),
-        'api_token'    => env('CHATWOOT_API_ACCESS_TOKEN'),
-        'account_id'   => env('CHATWOOT_ACCOUNT_ID', 1),
-        'hmac_token'   => env('CHATWOOT_HMAC_TOKEN'),
-        'iframe_url'   => env('CHATWOOT_BASE_URL', 'http://localhost:3001'),
+        'base_url'   => env('CHATWOOT_BASE_URL', 'https://chat.orvian.com.do'),
+        'api_token'  => env('CHATWOOT_API_ACCESS_TOKEN'),
+        'account_id' => env('CHATWOOT_ACCOUNT_ID', 1),
+        'hmac_token' => env('CHATWOOT_HMAC_TOKEN'),
     ],
 
     'evolution' => [
-        'base_url'      => env('EVOLUTION_API_URL', 'http://localhost:8085'),
-        'api_key'       => env('EVOLUTION_API_KEY'),
-        'instance_name' => env('EVOLUTION_INSTANCE_NAME', 'orvian_school'),
+        'base_url'       => env('EVOLUTION_API_URL', 'https://evolution.orvian.com.do'),
+        'api_key'        => env('EVOLUTION_API_KEY'),
+        'instance_name'  => env('EVOLUTION_INSTANCE_NAME', 'orvian_school'),
     ],
 
     'notifications' => [
-        // Umbral de ausencias en el mes para disparar alerta al tutor
-        'absence_threshold'   => 3,
-        // Umbral de tardanzas en el mes para disparar alerta al tutor
-        'tardiness_threshold' => 3,
+        'absence_threshold'   => env('ALERT_ABSENCE_THRESHOLD', 3),
+        'tardiness_threshold' => env('ALERT_TARDINESS_THRESHOLD', 3),
     ],
 
 ];
 ```
 
+
 ---
 
-## Fase 2 — Identidad, Migración y SSO
-**Rama:** `feature/comms-identity`
+## Fase 1 — Centro de Mensajes con Iframe y SSO
+**Rama:** `feature/comms-chatwoot-iframe`
 
-### 2.1 — Migración: `tutor_phone` en Tabla `students`
+### Alcance de la Fase
 
-El campo `tutor_phone` es la pieza central de la integración con WhatsApp. Se añade a la tabla `students` existente (creada en v0.4.0) mediante una migración incremental, siguiendo el principio de no tocar migraciones anteriores.
+Chatwoot se integra **exclusivamente como un servicio externo embebido mediante Iframe**. Los Directores acceden al chat profesional sin salir del panel de ORVIAN. El SSO elimina la necesidad de un login separado en Chatwoot.
 
-```php
-<?php
+**Límite de integración:** ORVIAN no sincroniza conversaciones, no almacena mensajes ni procesa la lógica de chat. Todo eso ocurre en el VPS de Chatwoot.
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+### 1.1 — `ChatwootService` — Cliente HTTP
 
-return new class extends Migration
-{
-    public function up(): void
-    {
-        Schema::table('students', function (Blueprint $table) {
-            // Número en formato E.164 (ej. +18091234567).
-            // Se añade después de los datos del tutor existentes para mantener coherencia semántica.
-            $table->string('tutor_phone', 20)
-                  ->nullable()
-                  ->after('tutor_name')
-                  ->comment('Número de WhatsApp del tutor en formato E.164. Ej: +18091234567');
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::table('students', function (Blueprint $table) {
-            $table->dropColumn('tutor_phone');
-        });
-    }
-};
-```
-
-- [ ] **Actualizar `$fillable` del modelo `Student`** para incluir `'tutor_phone'`.
-- [ ] **Actualizar `StudentService`** para permitir guardar/actualizar este campo.
-- [ ] **Actualizar formulario de edición de estudiante** con campo de teléfono del tutor, con validación de formato E.164 en el request.
-
-### 2.2 — `ChatwootService` — Cliente HTTP
-
-Servicio que encapsula toda comunicación con la API REST de Chatwoot. Es la única clase autorizada a hacer llamadas HTTP hacia Chatwoot.
+Servicio único autorizado para comunicarse con la API REST de Chatwoot. Se registra como singleton en `AppServiceProvider`.
 
 ```php
 <?php
@@ -351,12 +160,13 @@ namespace App\Services\Communications;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Log;
 
 class ChatwootService
 {
     protected string $baseUrl;
     protected string $apiToken;
-    protected int $accountId;
+    protected int    $accountId;
 
     public function __construct()
     {
@@ -367,8 +177,7 @@ class ChatwootService
 
     /**
      * Genera el identifier_hash para SSO/Identity Verification de Chatwoot.
-     * El hash se construye con HMAC-SHA256 usando el email del usuario como mensaje
-     * y el HMAC Token de Chatwoot como clave secreta.
+     * Siempre se computa server-side. Nunca debe exponerse al cliente.
      */
     public function generateIdentifierHash(string $email): string
     {
@@ -376,26 +185,7 @@ class ChatwootService
     }
 
     /**
-     * Crea un agente en Chatwoot. Llamado por el UserObserver al registrar un Director.
-     */
-    public function createAgent(string $name, string $email, string $role = 'agent'): Response
-    {
-        return Http::withHeaders(['api_access_token' => $this->apiToken])
-            ->post("{$this->baseUrl}/auth/sign_in", []) // Primero verificar conectividad
-            ->throw();
-
-        // Endpoint real de creación de agente:
-        return Http::withHeaders(['api_access_token' => $this->apiToken])
-            ->post("{$this->baseUrl}/api/v1/accounts/{$this->accountId}/agents", [
-                'name'              => $name,
-                'email'             => $email,
-                'role'              => $role,
-                'availability_status' => 'online',
-            ]);
-    }
-
-    /**
-     * Busca un agente por email. Útil para evitar duplicados en el Observer.
+     * Busca un agente por email. Evita duplicados en las Actions de onboarding.
      */
     public function findAgentByEmail(string $email): ?array
     {
@@ -409,77 +199,116 @@ class ChatwootService
         return collect($response->json())
             ->firstWhere('email', $email);
     }
-}
-```
-
-### 2.3 — `UserObserver` — Creación Automática de Agente en Chatwoot
-
-Cuando un Director se registra en ORVIAN (o se le asigna el rol `School Principal`), debe existir automáticamente como Agente en Chatwoot para poder recibir conversaciones. El Observer garantiza esta sincronización.
-
-```php
-<?php
-
-namespace App\Observers;
-
-use App\Models\User;
-use App\Services\Communications\ChatwootService;
-use Illuminate\Support\Facades\Log;
-use Spatie\Permission\Models\Role;
-
-class UserObserver
-{
-    public function __construct(protected ChatwootService $chatwootService) {}
 
     /**
-     * Se dispara cuando se asigna un rol al usuario (via Spatie).
-     * Interceptamos el evento `saved` del modelo User tras la asignación de rol.
-     * Para mayor precisión, escucha el evento en SchoolConfigured Listener.
+     * Crea un agente en Chatwoot.
+     * Invocado al final de CompleteOnboardingAction y CompleteTenantOnboardingAction.
      */
-    public function created(User $user): void
+    public function createAgent(string $name, string $email, string $role = 'agent'): Response
     {
-        // La sincronización a Chatwoot se hace en el Listener SchoolConfigured
-        // para garantizar que el rol ya fue asignado. Ver Fase 2.4.
+        return Http::withHeaders(['api_access_token' => $this->apiToken])
+            ->post("{$this->baseUrl}/api/v1/accounts/{$this->accountId}/agents", [
+                'name'                => $name,
+                'email'               => $email,
+                'role'                => $role,
+                'availability_status' => 'online',
+            ]);
     }
 
     /**
-     * Hook principal: detecta si el usuario tiene rol de Director/Principal
-     * y lo registra como agente en Chatwoot si aún no existe.
+     * Obtiene el conteo de conversaciones abiertas.
+     * Usado por el Dashboard para el badge del tile de Conversaciones.
      */
-    public function syncToChatwoot(User $user): void
+    public function getPendingConversationsCount(): int
     {
-        // Solo sincronizar si el usuario tiene rol de School Principal
-        if (! $user->hasRole('School Principal')) {
-            return;
-        }
+        try {
+            $response = Http::withHeaders(['api_access_token' => $this->apiToken])
+                ->get("{$this->baseUrl}/api/v1/accounts/{$this->accountId}/conversations", [
+                    'status'        => 'open',
+                    'assignee_type' => 'assigned',
+                ]);
 
-        // Evitar duplicados: verificar si ya existe en Chatwoot
-        $existingAgent = $this->chatwootService->findAgentByEmail($user->email);
+            return $response->successful()
+                ? ($response->json('data.meta.all_count') ?? 0)
+                : 0;
 
-        if ($existingAgent) {
-            Log::info("UserObserver: Agente ya existe en Chatwoot para {$user->email}");
-            return;
+        } catch (\Throwable) {
+            return 0;
         }
+    }
+}
+```
+
+- [ ] Registrar en `AppServiceProvider`: `$this->app->singleton(ChatwootService::class);`
+
+### 1.2 — Sincronización del Director en las Actions de Onboarding
+
+La sincronización del Director con Chatwoot **se ejecuta directamente al final de las Actions**, no mediante Observers ni Listeners. Esto garantiza que el rol `School Principal` ya está asignado y que la operación ocurre dentro de la misma transacción de onboarding.
+
+#### Integración en `CompleteOnboardingAction`
+
+```php
+// app/Actions/Tenant/CompleteOnboardingAction.php
+// (Solo se muestran las adiciones — el resto de la Action permanece igual)
+
+use App\Services\Communications\ChatwootService;
+
+class CompleteOnboardingAction
+{
+    public function __construct(
+        protected CreateSchoolPrincipalAction $createPrincipal,
+        protected \App\Services\School\SchoolRoleService $roleService,
+        protected ChatwootService $chatwootService,   // ← Inyectar servicio
+    ) {}
+
+    public function execute(array $wizardData): School
+    {
+        return DB::transaction(function () use ($wizardData) {
+
+            // ... [pasos 1–5 sin cambios: crear escuela, sincronizar relaciones,
+            //      seedDefaultRoles, createPrincipal, resetear setPermissionsTeamId] ...
+
+            // 6. Disparar evento de configuración
+            event(new SchoolConfigured($school, $wizardData['academic']));
+
+            // 7. Registrar al Director como Agente en Chatwoot (fuera de la TX si falla)
+            //    Se ejecuta DESPUÉS de que el rol 'School Principal' está garantizado.
+            $this->syncPrincipalToChatwoot($wizardData['principal']);
+
+            return $school;
+        });
+    }
+
+    /**
+     * Sincroniza el Director recién creado con Chatwoot como Agente.
+     * Si Chatwoot no está disponible, registra el error sin interrumpir el flujo.
+     */
+    protected function syncPrincipalToChatwoot(array $principalData): void
+    {
+        $email = $principalData['email'];
 
         try {
+            $existing = $this->chatwootService->findAgentByEmail($email);
+
+            if ($existing) {
+                \Log::info("CompleteOnboardingAction: Agente ya existe en Chatwoot [{$email}]");
+                return;
+            }
+
             $response = $this->chatwootService->createAgent(
-                name:  $user->name,
-                email: $user->email,
+                name:  $principalData['name'],
+                email: $email,
                 role:  'agent',
             );
 
             if ($response->successful()) {
-                Log::info("UserObserver: Agente creado en Chatwoot para {$user->email}");
-                // Guardar el ID de Chatwoot en el usuario para referencias futuras
-                $user->updateQuietly([
-                    'preferences' => array_merge($user->preferences ?? [], [
-                        'chatwoot_agent_id' => $response->json('id'),
-                    ]),
-                ]);
+                \Log::info("CompleteOnboardingAction: Agente creado en Chatwoot [{$email}]");
             }
+
         } catch (\Throwable $e) {
-            // No romper el flujo de ORVIAN si Chatwoot no está disponible
-            Log::error("UserObserver: Fallo al crear agente en Chatwoot", [
-                'user'  => $user->email,
+            // No rompe el flujo de ORVIAN si Chatwoot no está disponible
+            \Log::error("CompleteOnboardingAction: Fallo al crear agente en Chatwoot", [
+                'email' => $email,
                 'error' => $e->getMessage(),
             ]);
         }
@@ -487,49 +316,172 @@ class UserObserver
 }
 ```
 
-> **Nota de integración:** El método `syncToChatwoot` debe ser invocado explícitamente desde el Listener `AssignInitialRoles` (creado en v0.2.0), después de confirmar el rol de Director. Esto garantiza que el rol ya esté asignado antes de llamar a `hasRole()`, evitando condiciones de carrera.
-
-### 2.4 — Actualización del Listener `AssignInitialRoles`
+#### Integración en `CompleteTenantOnboardingAction`
 
 ```php
-<?php
+// app/Actions/Tenant/CompleteTenantOnboardingAction.php
+// (Solo se muestran las adiciones)
 
-namespace App\Listeners\Tenant;
+use App\Services\Communications\ChatwootService;
 
-use App\Events\Tenant\SchoolConfigured;
-use App\Observers\UserObserver;
-
-class AssignInitialRoles
+class CompleteTenantOnboardingAction
 {
-    public function __construct(protected UserObserver $userObserver) {}
+    public function __construct(
+        protected SchoolRoleService $roleService,
+        protected ChatwootService $chatwootService,   // ← Inyectar servicio
+    ) {}
 
-    public function handle(SchoolConfigured $event): void
+    public function execute(int $schoolId, array $wizardData, User $principalUser): School
     {
-        $school    = $event->school;
-        $principal = $event->principal;
+        return DB::transaction(function () use ($schoolId, $wizardData, $principalUser) {
 
-        // Asegurar que el rol School Principal está asignado en el scope del tenant
-        $principal->assignRole('School Principal');
+            // ... [pasos 1–6 sin cambios: actualizar escuela, sincronizar relaciones,
+            //      seedDefaultRoles, asignar rol School Principal, resetear scope] ...
 
-        // Sincronizar el Director recién configurado a Chatwoot como Agente
-        $this->userObserver->syncToChatwoot($principal);
+            // 7. Disparar evento de configuración
+            event(new SchoolConfigured($school, $wizardData['academic']));
+
+            // 8. Sincronizar Director con Chatwoot — justo después de que el rol fue asignado.
+            $this->syncPrincipalToChatwoot($principalUser);
+
+            return $school;
+        });
+    }
+
+    /**
+     * Sincroniza el Director (usuario existente) con Chatwoot como Agente.
+     * El rol 'School Principal' ya fue asignado en el paso 6 antes de esta llamada.
+     */
+    protected function syncPrincipalToChatwoot(User $user): void
+    {
+        try {
+            $existing = $this->chatwootService->findAgentByEmail($user->email);
+
+            if ($existing) {
+                \Log::info("CompleteTenantOnboardingAction: Agente ya existe en Chatwoot [{$user->email}]");
+                return;
+            }
+
+            $response = $this->chatwootService->createAgent(
+                name:  $user->name,
+                email: $user->email,
+                role:  'agent',
+            );
+
+            if ($response->successful()) {
+                \Log::info("CompleteTenantOnboardingAction: Agente creado en Chatwoot [{$user->email}]");
+
+                // Persistir el chatwoot_agent_id en preferences para uso futuro
+                $user->updateQuietly([
+                    'preferences' => array_merge($user->preferences ?? [], [
+                        'chatwoot_agent_id' => $response->json('id'),
+                    ]),
+                ]);
+            }
+
+        } catch (\Throwable $e) {
+            \Log::error("CompleteTenantOnboardingAction: Fallo al crear agente en Chatwoot", [
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
 ```
 
-- [ ] **Registrar `UserObserver`** en `App\Providers\AppServiceProvider`:
-  ```php
-  User::observe(UserObserver::class);
-  ```
+> **Decisión de arquitectura:** La sincronización con Chatwoot se invoca directamente en las Actions (no en Observers ni Listeners) porque ambas Actions ya controlan el orden exacto de ejecución y garantizan que `hasRole('School Principal')` es verdadero en el momento de la llamada. Eliminar la indirección del Observer/Listener simplifica la trazabilidad del flujo de onboarding y evita condiciones de carrera.
+
+### 1.3 — `ConversationsController` — SSO con Iframe
+
+```php
+<?php
+
+namespace App\Http\Controllers\App;
+
+use App\Http\Controllers\Controller;
+use App\Services\Communications\ChatwootService;
+use Illuminate\View\View;
+
+class ConversationsController extends Controller
+{
+    public function index(ChatwootService $chatwoot): View
+    {
+        $user         = auth()->user();
+        $chatwootBase = config('communications.chatwoot.base_url');
+
+        // Director / Agente — SSO automático vía Identity Verification (HMAC-SHA256)
+        $identifierHash = $chatwoot->generateIdentifierHash($user->email);
+
+        $chatwootUrl = "{$chatwootBase}?email=" . urlencode($user->email)
+            . "&identifier_hash={$identifierHash}"
+            . "&name=" . urlencode($user->name);
+
+        return view('app.conversations.index', compact('chatwootUrl'));
+    }
+}
+```
+
+> `CHATWOOT_HMAC_TOKEN` debe tratarse con el mismo nivel de confidencialidad que `APP_KEY`. El `identifier_hash` se computa siempre en el servidor y nunca se expone en el cliente.
+
+- [ ] Crear `app/Http/Controllers/App/ConversationsController.php`
+- [ ] Crear `app/Http/Controllers/Admin/ConversationsController.php` (acceso directo sin SSO para Owner/TechnicalSupport)
 
 ---
 
-## Fase 3 — WhatsApp Service (Evolution API)
+## Fase 2 — Migración de Tutores y Gateway WhatsApp
 **Rama:** `feature/whatsapp-service`
 
-### 3.1 — `WhatsAppService`
+### 2.1 — Migración: `tutor_phone` y `tutor_name` en Tabla `students`
 
-Encapsula toda comunicación con Evolution API. Diseñado para ser stateless y fácilmente testeable mediante mocks.
+`tutor_phone` es la pieza central para el envío de alertas. `tutor_name` se añade si aún no existe en la tabla (verificar migración de v0.4.0 antes de ejecutar).
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('students', function (Blueprint $table) {
+            // Solo agregar tutor_name si no existe — validar contra migraciones de v0.4.0
+            if (! Schema::hasColumn('students', 'tutor_name')) {
+                $table->string('tutor_name', 120)
+                      ->nullable()
+                      ->after('last_name')
+                      ->comment('Nombre completo del tutor o responsable del estudiante');
+            }
+
+            // tutor_phone es nuevo en v0.5.0
+            $table->string('tutor_phone', 20)
+                  ->nullable()
+                  ->after('tutor_name')
+                  ->comment('Número WhatsApp del tutor en formato E.164. Ej: +18091234567');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('students', function (Blueprint $table) {
+            $table->dropColumn('tutor_phone');
+            // No hacer dropColumn de tutor_name si existía antes de esta migración
+        });
+    }
+};
+```
+
+- [ ] Ejecutar: `php artisan make:migration add_tutor_fields_to_students_table`
+- [ ] Actualizar `$fillable` del modelo `Student` con `'tutor_phone'` (y `'tutor_name'` si aplica).
+- [ ] Actualizar `StudentService` para guardar/actualizar `tutor_phone`.
+- [ ] Agregar campo en formulario de edición de estudiante con validación E.164 (`regex:/^\+[1-9]\d{7,14}$/`).
+- [ ] El campo `tutor_phone` solo debe ser visible para usuarios con permiso `manage conversations` o superior — aplicar Policy de autorización.
+
+### 2.2 — `WhatsAppService` — Gateway de Envío
+
+ORVIAN actúa exclusivamente como **emisor**. Este servicio encapsula el envío de mensajes hacia Evolution API. No procesa respuestas ni gestiona conversaciones — eso es responsabilidad de Chatwoot en el VPS.
 
 ```php
 <?php
@@ -553,14 +505,15 @@ class WhatsAppService
     }
 
     /**
-     * Envía un mensaje de texto a un número en formato E.164.
+     * Envía un mensaje de texto al tutor.
+     * ORVIAN solo envía — no espera ni procesa respuestas.
      *
-     * @param  string  $phone  Número destino. Ej: +18091234567
-     * @param  string  $message  Texto del mensaje.
+     * @param  string  $phone    Número en formato E.164 (ej. +18091234567)
+     * @param  string  $message  Texto con soporte de formato WhatsApp (*negrita*, _cursiva_)
      */
     public function sendTextMessage(string $phone, string $message): bool
     {
-        // Evolution API espera el número sin el símbolo +
+        // Evolution API espera el número sin el símbolo '+'
         $normalizedPhone = ltrim($phone, '+');
 
         try {
@@ -581,7 +534,7 @@ class WhatsAppService
             if ($response->successful()) {
                 Log::info('WhatsAppService: Mensaje enviado', [
                     'phone'  => $normalizedPhone,
-                    'status' => $response->json('key.id'),
+                    'msg_id' => $response->json('key.id'),
                 ]);
                 return true;
             }
@@ -603,7 +556,8 @@ class WhatsAppService
     }
 
     /**
-     * Verifica si la instancia de WhatsApp está conectada (útil para UI de estado).
+     * Verifica si la instancia de WhatsApp está conectada en el VPS.
+     * Usado como fallback por WhatsappStatusIndicator cuando la caché no tiene dato.
      */
     public function getInstanceStatus(): array
     {
@@ -619,9 +573,11 @@ class WhatsAppService
 }
 ```
 
-### 3.2 — Plantillas de Mensajes — `app/Services/Communications/WhatsAppTemplates.php`
+- [ ] Registrar en `AppServiceProvider`: `$this->app->singleton(WhatsAppService::class);`
 
-Centraliza los mensajes para facilitar traducción y mantenimiento. Ningún texto de notificación debe estar hardcodeado fuera de esta clase.
+### 2.3 — `WhatsAppTemplates` — Plantillas de Mensajes
+
+Centraliza todos los textos de notificación. Ningún mensaje debe estar hardcodeado fuera de esta clase.
 
 ```php
 <?php
@@ -632,9 +588,6 @@ use App\Models\Tenant\Student;
 
 class WhatsAppTemplates
 {
-    /**
-     * Alerta por ausencias acumuladas en el mes.
-     */
     public static function absenceAlert(Student $student, int $count, string $month): string
     {
         return <<<MSG
@@ -650,9 +603,6 @@ class WhatsAppTemplates
         MSG;
     }
 
-    /**
-     * Alerta por tardanzas acumuladas en el mes.
-     */
     public static function tardinessAlert(Student $student, int $count, string $month): string
     {
         return <<<MSG
@@ -662,7 +612,7 @@ class WhatsAppTemplates
 
         Le notificamos que su representado/a ha registrado *{$count} llegada(s) tarde* durante el mes de {$month}.
 
-        La puntualidad es fundamental para el aprovechamiento académico. Le agradecemos su atención a este comunicado.
+        La puntualidad es fundamental para el aprovechamiento académico. Le agradecemos su atención.
 
         _Este mensaje es generado automáticamente por el Sistema de Gestión ORVIAN._
         MSG;
@@ -672,12 +622,120 @@ class WhatsAppTemplates
 
 ---
 
-## Fase 4 — Integración con el Módulo de Asistencia
-**Rama:** `feature/attendance-notifications`
+## Fase 3 — Motor de Notificaciones Automáticas (`AttendanceAlertJob`)
+**Rama:** `feature/attendance-alerts`
 
-Esta fase conecta la lógica de asistencia de v0.4.0 con el nuevo motor de notificaciones. No modifica el core del módulo de asistencia; lo extiende mediante un Job desacoplado.
+### Flujo Completo de una Alerta
 
-### 4.1 — Job `SendAttendanceAlertJob`
+```
+PlantelAttendanceService::closeDay()
+    │
+    ▼
+orvian:evaluate-attendance-alerts (diario 16:00)
+    │
+    ▼
+AttendanceAlertEvaluator::evaluate(Student $student)
+    │  Consulta PlantelAttendanceRecord del mes actual
+    │  Compara contra umbrales (config/communications.php)
+    │  Verifica caché anti-spam (TTL 7 días por semana)
+    │
+    ▼ (solo si umbral superado y sin alerta enviada esta semana)
+SendAttendanceAlertJob::dispatch($student, $type, $count, $month)
+    │  Queue: 3 reintentos, backoff 60s
+    │
+    ▼
+WhatsAppService::sendTextMessage($student->tutor_phone, $message)
+    │  POST https://evolution.orvian.com.do/message/sendText/{instancia}
+    │  ORVIAN no espera respuesta — el envío es fire-and-forget asíncrono
+    ▼
+Evolution API (VPS) entrega el mensaje al tutor vía WhatsApp
+```
+
+### 3.1 — `AttendanceAlertEvaluator`
+
+Lógica de negocio pura. Consulta los datos de asistencia (v0.4.0), evalúa umbrales y despacha Jobs. No envía mensajes directamente.
+
+```php
+<?php
+
+namespace App\Services\Communications;
+
+use App\Jobs\Communications\SendAttendanceAlertJob;
+use App\Models\Tenant\Student;
+use App\Models\Tenant\PlantelAttendanceRecord;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+
+class AttendanceAlertEvaluator
+{
+    protected int $absenceThreshold;
+    protected int $tardinessThreshold;
+
+    public function __construct()
+    {
+        $this->absenceThreshold   = config('communications.notifications.absence_threshold', 3);
+        $this->tardinessThreshold = config('communications.notifications.tardiness_threshold', 3);
+    }
+
+    /**
+     * Evalúa un estudiante y despacha alertas si supera los umbrales.
+     * Protegido por caché anti-spam: máximo una alerta del mismo tipo por semana.
+     */
+    public function evaluate(Student $student): void
+    {
+        if (empty($student->tutor_phone)) {
+            Log::debug('AttendanceAlertEvaluator: Sin tutor_phone, omitiendo', [
+                'student_id' => $student->id,
+            ]);
+            return;
+        }
+
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $endOfMonth   = Carbon::now()->endOfMonth();
+        $monthName    = Carbon::now()->translatedFormat('F Y');
+        $weekKey      = Carbon::now()->weekOfYear;
+
+        $records = PlantelAttendanceRecord::query()
+            ->where('student_id', $student->id)
+            ->whereBetween('date', [$startOfMonth, $endOfMonth])
+            ->get();
+
+        $absences  = $records->where('status', 'absent')->count();
+        $tardiness = $records->where('status', 'late')->count();
+
+        // ── Alerta de ausencias ──
+        if ($absences >= $this->absenceThreshold) {
+            $cacheKey = "alert_absence_{$student->id}_{$weekKey}";
+            if (! Cache::has($cacheKey)) {
+                SendAttendanceAlertJob::dispatch($student, 'absence', $absences, $monthName);
+                Cache::put($cacheKey, true, now()->addDays(7));
+                Log::info('AttendanceAlertEvaluator: Job de ausencia despachado', [
+                    'student_id' => $student->id,
+                    'count'      => $absences,
+                ]);
+            }
+        }
+
+        // ── Alerta de tardanzas ──
+        if ($tardiness >= $this->tardinessThreshold) {
+            $cacheKey = "alert_tardiness_{$student->id}_{$weekKey}";
+            if (! Cache::has($cacheKey)) {
+                SendAttendanceAlertJob::dispatch($student, 'tardiness', $tardiness, $monthName);
+                Cache::put($cacheKey, true, now()->addDays(7));
+                Log::info('AttendanceAlertEvaluator: Job de tardanza despachado', [
+                    'student_id' => $student->id,
+                    'count'      => $tardiness,
+                ]);
+            }
+        }
+    }
+}
+```
+
+**Anti-spam:** La clave de caché `alert_{tipo}_{student_id}_{weekOfYear}` garantiza que un tutor no reciba más de una alerta del mismo tipo por semana, aunque el comando se ejecute múltiples veces al día. TTL: 7 días. Configurar `CACHE_DRIVER=redis` en producción.
+
+### 3.2 — Job `SendAttendanceAlertJob`
 
 ```php
 <?php
@@ -698,7 +756,7 @@ class SendAttendanceAlertJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
+    public int $tries  = 3;
     public int $backoff = 60; // Segundos entre reintentos
 
     public function __construct(
@@ -711,7 +769,7 @@ class SendAttendanceAlertJob implements ShouldQueue
     public function handle(WhatsAppService $whatsApp): void
     {
         if (empty($this->student->tutor_phone)) {
-            Log::warning('SendAttendanceAlertJob: Estudiante sin tutor_phone', [
+            Log::warning('SendAttendanceAlertJob: Estudiante sin tutor_phone, descartando', [
                 'student_id' => $this->student->id,
             ]);
             return;
@@ -728,7 +786,7 @@ class SendAttendanceAlertJob implements ShouldQueue
 
     public function failed(\Throwable $exception): void
     {
-        Log::error('SendAttendanceAlertJob: Falló definitivamente', [
+        Log::error('SendAttendanceAlertJob: Falló definitivamente tras todos los reintentos', [
             'student_id' => $this->student->id,
             'type'       => $this->type,
             'error'      => $exception->getMessage(),
@@ -737,74 +795,7 @@ class SendAttendanceAlertJob implements ShouldQueue
 }
 ```
 
-### 4.2 — Servicio de Evaluación de Umbrales `AttendanceAlertEvaluator`
-
-Contiene la lógica de negocio pura: evalúa si un estudiante ha superado el umbral y, si es así, despacha el Job. **No envía mensajes directamente**; delega al Job para mantener la asincronía.
-
-```php
-<?php
-
-namespace App\Services\Communications;
-
-use App\Jobs\Communications\SendAttendanceAlertJob;
-use App\Models\Tenant\Student;
-use App\Models\Tenant\PlantelAttendanceRecord;
-use Illuminate\Support\Carbon;
-
-class AttendanceAlertEvaluator
-{
-    protected int $absenceThreshold;
-    protected int $tardinessThreshold;
-
-    public function __construct()
-    {
-        $this->absenceThreshold   = config('communications.notifications.absence_threshold', 3);
-        $this->tardinessThreshold = config('communications.notifications.tardiness_threshold', 3);
-    }
-
-    /**
-     * Evalúa a un estudiante al finalizar el registro de asistencia del día.
-     * Llamado desde PlantelAttendanceService::closeDay() o desde un comando programado.
-     */
-    public function evaluate(Student $student): void
-    {
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth   = Carbon::now()->endOfMonth();
-        $monthName    = Carbon::now()->translatedFormat('F Y');
-
-        $records = PlantelAttendanceRecord::query()
-            ->where('student_id', $student->id)
-            ->whereBetween('date', [$startOfMonth, $endOfMonth])
-            ->get();
-
-        $absences   = $records->where('status', 'absent')->count();
-        $tardiness  = $records->where('status', 'late')->count();
-
-        // Despachar alerta de ausencias si supera el umbral
-        if ($absences >= $this->absenceThreshold) {
-            // Verificar que no se haya enviado ya esta semana para no saturar al tutor
-            $cacheKey = "alert_absence_{$student->id}_" . Carbon::now()->weekOfYear;
-            if (! cache()->has($cacheKey)) {
-                SendAttendanceAlertJob::dispatch($student, 'absence', $absences, $monthName);
-                cache()->put($cacheKey, true, now()->addDays(7));
-            }
-        }
-
-        // Despachar alerta de tardanzas si supera el umbral
-        if ($tardiness >= $this->tardinessThreshold) {
-            $cacheKey = "alert_tardiness_{$student->id}_" . Carbon::now()->weekOfYear;
-            if (! cache()->has($cacheKey)) {
-                SendAttendanceAlertJob::dispatch($student, 'tardiness', $tardiness, $monthName);
-                cache()->put($cacheKey, true, now()->addDays(7));
-            }
-        }
-    }
-}
-```
-
-### 4.3 — Comando Programado `orvian:evaluate-attendance-alerts`
-
-Permite ejecutar la evaluación de forma masiva, desacoplada del flujo de registro del día. Registrar en `routes/console.php`.
+### 3.3 — Comando `orvian:evaluate-attendance-alerts`
 
 ```php
 <?php
@@ -817,7 +808,7 @@ use Illuminate\Console\Command;
 
 class EvaluateAttendanceAlertsCommand extends Command
 {
-    protected $signature   = 'orvian:evaluate-attendance-alerts {--school=}';
+    protected $signature   = 'orvian:evaluate-attendance-alerts {--school= : ID del centro. Si se omite, evalúa todos.}';
     protected $description = 'Evalúa umbrales de asistencia y despacha notificaciones WhatsApp a tutores.';
 
     public function handle(AttendanceAlertEvaluator $evaluator): int
@@ -830,10 +821,10 @@ class EvaluateAttendanceAlertsCommand extends Command
 
         $students = $query->get();
 
+        $this->info("Evaluando {$students->count()} estudiante(s)...");
         $this->withProgressBar($students, fn (Student $student) => $evaluator->evaluate($student));
-
         $this->newLine();
-        $this->info("Evaluación completada para {$students->count()} estudiante(s).");
+        $this->info('Evaluación completada.');
 
         return Command::SUCCESS;
     }
@@ -841,67 +832,19 @@ class EvaluateAttendanceAlertsCommand extends Command
 ```
 
 ```php
-// routes/console.php — Programar ejecución diaria a las 4:00 PM
+// routes/console.php — Ejecución diaria a las 4:00 PM (posterior al cierre de sesión escolar)
 Schedule::command('orvian:evaluate-attendance-alerts')
     ->dailyAt('16:00')
+    ->withoutOverlapping()
     ->description('Evalúa alertas de asistencia y notifica tutores por WhatsApp');
 ```
 
 ---
 
-## Fase 5 — UI: Centro de Mensajes e Iframe
+## Fase 4 — UI: Iframe de Chatwoot e Indicador de Estado
 **Rama:** `feature/comms-ui`
 
-### 5.1 — Actualización de `x-ui.app-tile` — Badge Dinámico de Mensajes
-
-El componente ya soporta un prop `badge` estático. La actualización consiste en alimentar ese badge desde el controlador con el conteo de conversaciones pendientes de Chatwoot. No se modifica la lógica interna del componente; solo cambia cómo se le pasa el dato.
-
-```php
-// En el controlador del Dashboard (app/Livewire/App/Dashboard.php)
-// Añadir computed property para contar conversaciones pendientes en Chatwoot
-
-use App\Services\Communications\ChatwootService;
-
-public function getPendingConversationsCountProperty(): int
-{
-    try {
-        $chatwoot  = app(ChatwootService::class);
-        $agentId   = auth()->user()->preferences['chatwoot_agent_id'] ?? null;
-
-        if (! $agentId) return 0;
-
-        $response = Http::withHeaders(['api_access_token' => config('communications.chatwoot.api_token')])
-            ->get(config('communications.chatwoot.base_url') . "/api/v1/accounts/" 
-                . config('communications.chatwoot.account_id') 
-                . "/conversations", [
-                    'status'    => 'open',
-                    'assignee_type' => 'assigned',
-                ]);
-
-        return $response->successful() 
-            ? ($response->json('data.meta.all_count') ?? 0) 
-            : 0;
-
-    } catch (\Throwable) {
-        return 0;
-    }
-}
-```
-
-```blade
-{{-- En resources/views/app/dashboard.blade.php --}}
-{{-- Tile de Conversaciones con badge dinámico --}}
-<x-ui.app-tile
-    module="conversaciones"
-    title="Conversaciones"
-    url="{{ route('app.conversations.index') }}"
-    :badge="$this->pendingConversationsCount > 0 ? $this->pendingConversationsCount : null"
-/>
-```
-
-### 5.2 — Vista de Centro de Mensajes con Iframe y SSO
-
-El Iframe de Chatwoot requiere una URL especial con parámetros de autenticación embebidos para el SSO. La vista blade construye esa URL server-side para que el token HMAC nunca quede expuesto en el frontend.
+### 4.1 — Vista del Centro de Mensajes (Directores)
 
 ```blade
 {{-- resources/views/app/conversations/index.blade.php --}}
@@ -910,7 +853,6 @@ El Iframe de Chatwoot requiere una URL especial con parámetros de autenticació
 @section('content')
 <div class="flex flex-col h-[calc(100vh-3.5rem-3rem)] -mx-4 -mb-4">
 
-    {{-- Barra superior del módulo --}}
     <x-app.module-toolbar>
         <x-slot:actions>
             <span class="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -918,12 +860,10 @@ El Iframe de Chatwoot requiere una URL especial con parámetros de autenticació
             </span>
         </x-slot:actions>
         <x-slot:secondary>
-            {{-- Indicador de estado de WhatsApp --}}
             <livewire:app.conversations.whatsapp-status-indicator />
         </x-slot:secondary>
     </x-app.module-toolbar>
 
-    {{-- Iframe de Chatwoot (SSO ya resuelto server-side) --}}
     <div class="flex-1 overflow-hidden">
         <iframe
             src="{{ $chatwootUrl }}"
@@ -936,42 +876,7 @@ El Iframe de Chatwoot requiere una URL especial con parámetros de autenticació
 @endsection
 ```
 
-```php
-<?php
-
-namespace App\Http\Controllers\App;
-
-use App\Http\Controllers\Controller;
-use App\Services\Communications\ChatwootService;
-
-class ConversationsController extends Controller
-{
-    public function index(ChatwootService $chatwoot)
-    {
-        $user = auth()->user();
-
-        // Construir la URL de Chatwoot con SSO para usuarios normales (Directores/Agentes)
-        // El identifier_hash es el HMAC del email del usuario, firmado con el token secreto de Chatwoot
-        $identifierHash = $chatwoot->generateIdentifierHash($user->email);
-
-        $chatwootBase = config('communications.chatwoot.iframe_url');
-
-        // URL de Chatwoot con parámetros de Identity Verification (SSO automático)
-        $chatwootUrl = "{$chatwootBase}?email=" . urlencode($user->email)
-            . "&identifier_hash={$identifierHash}"
-            . "&name=" . urlencode($user->name);
-
-        // Superadmin: accede sin SSO al panel de administración global
-        if ($user->hasRole('Owner') || $user->hasRole('TechnicalSupport')) {
-            $chatwootUrl = $chatwootBase; // Login manual; sin parámetros de SSO
-        }
-
-        return view('app.conversations.index', compact('chatwootUrl'));
-    }
-}
-```
-
-### 5.3 — Vista de Administración de Chatwoot para SuperAdmin (Admin Hub)
+### 4.2 — Vista de Administración (Owner / TechnicalSupport)
 
 ```blade
 {{-- resources/views/admin/conversations/index.blade.php --}}
@@ -985,7 +890,7 @@ class ConversationsController extends Controller
         </x-slot:actions>
     </x-ui.page-header>
 
-    <div class="flex-1 mt-4 rounded-xl overflow-hidden border border-slate-200 dark:border-white/[0.07] shadow-sm">
+    <div class="flex-1 mt-4 rounded-xl overflow-hidden border border-slate-200 dark:border-white/[0.07]">
         <iframe
             src="{{ $chatwootAdminUrl }}"
             class="w-full h-full border-0"
@@ -997,9 +902,9 @@ class ConversationsController extends Controller
 @endsection
 ```
 
-### 5.4 — Componente Livewire `WhatsappStatusIndicator`
+### 4.3 — Componente `WhatsappStatusIndicator`
 
-Muestra el estado de conexión del número de WhatsApp institucional en la barra superior del módulo.
+Lee el estado desde caché (actualizado por el webhook `connection.update`). Si la caché no tiene dato, hace una llamada a Evolution como fallback.
 
 ```php
 <?php
@@ -1007,17 +912,24 @@ Muestra el estado de conexión del número de WhatsApp institucional en la barra
 namespace App\Livewire\App\Conversations;
 
 use App\Services\Communications\WhatsAppService;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 use Livewire\Attributes\Lazy;
 
 #[Lazy]
 class WhatsappStatusIndicator extends Component
 {
-    public array $status = [];
+    public string $state = 'unknown';
 
-    public function mount(WhatsAppService $whatsApp): void
+    public function mount(): void
     {
-        $this->status = $whatsApp->getInstanceStatus();
+        $instance = config('communications.evolution.instance_name');
+
+        $this->state = Cache::remember(
+            "evolution_connection_state_{$instance}",
+            now()->addMinutes(5),
+            fn () => app(WhatsAppService::class)->getInstanceStatus()['state'] ?? 'unknown'
+        );
     }
 
     public function render()
@@ -1030,7 +942,7 @@ class WhatsappStatusIndicator extends Component
 ```blade
 {{-- resources/views/livewire/app/conversations/whatsapp-status-indicator.blade.php --}}
 @php
-    $connected = ($status['state'] ?? '') === 'open';
+    $connected = $state === 'open';
     $label     = $connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado';
     $variant   = $connected ? 'success' : 'error';
 @endphp
@@ -1042,14 +954,13 @@ class WhatsappStatusIndicator extends Component
 
 ---
 
-## Fase 6 — Rutas, Permisos y Configuración de Módulo
+## Fase 5 — Rutas, Permisos y Configuración de Módulo
 **Rama:** `feature/comms-config`
 
-### 6.1 — Rutas en `routes/app/conversations.php`
+### 5.1 — Rutas
 
 ```php
-<?php
-
+// routes/app/conversations.php
 use App\Http\Controllers\App\ConversationsController;
 use Illuminate\Support\Facades\Route;
 
@@ -1073,105 +984,131 @@ Route::middleware(['auth', 'global-admin', 'can:admin conversations'])
     });
 ```
 
-### 6.2 — Actualización de `config/modules.php`
+### 5.2 — `config/modules.php`
 
 ```php
 'conversaciones' => [
-    'name'   => 'Conversaciones',
-    'icon'   => 'conversaciones',   // SVG en public/assets/icons/modules/conversaciones.svg
+    'name'        => 'Conversaciones',
+    'icon'        => 'conversaciones',
+    'visible'     => true,    // Activado en v0.5.0
     'moduleLinks' => [
         ['label' => 'Centro de Mensajes', 'route' => 'app.conversations.index'],
     ],
 ],
 ```
 
-### 6.3 — Nuevos Permisos y Seeders
+### 5.3 — Nuevos Permisos y Seeders
 
-- [ ] **Agregar grupo `communications` en `PermissionGroupSeeder`** con `context = 'tenant'`.
-- [ ] **Agregar permisos en `PermissionSeeder`:**
-  - `view conversations`
-  - `manage conversations`
-  - `send whatsapp notifications`
-- [ ] **Actualizar `RoleAcademicSeeder`:**
-  - `School Principal` → todos los permisos del grupo `communications`.
-  - `Academic Coordinator` → solo `view conversations`.
-  - `Teacher` → sin permisos de communications.
-- [ ] **Agregar permisos de admin en `PermissionSeeder` (context = 'global'):**
-  - `admin conversations`
+- [ ] Agregar grupo `communications` en `PermissionGroupSeeder` con `context = 'tenant'`.
+- [ ] Agregar en `PermissionSeeder`: `view conversations`, `manage conversations`, `send whatsapp notifications`.
+- [ ] Agregar `admin conversations` en `PermissionSeeder` con `context = 'global'`.
+- [ ] Actualizar `RoleAcademicSeeder`: `School Principal` → todos los permisos de `communications`; `Academic Coordinator` → `view conversations`; `Teacher` → sin permisos.
 
 ---
 
-## Checklist de Completitud v0.5.0
+## Checklist de Archivos — v0.5.0
 
-### Infraestructura
-- [ ] `docker-compose.yml` corregido con puerto `8085` para Evolution
-- [ ] Variables `CHATWOOT_URL=http://chatwoot:3000` configuradas en Evolution
-- [ ] `.env` de ORVIAN actualizado con tokens de Chatwoot y Evolution
-- [ ] `config/communications.php` creado
+### Configuración e Infraestructura
 
-### Base de Datos
-- [ ] Migración `add_tutor_phone_to_students_table` ejecutada
-- [ ] Modelo `Student` con `tutor_phone` en `$fillable`
+- [ ] `config/communications.php` creado con todos los keys
+- [ ] `.env` actualizado con tokens de Chatwoot y Evolution (VPS)
+- [ ] Ngrok/Expose configurado para desarrollo local (webhooks entrantes)
 
-### Integración Chatwoot
-- [ ] `ChatwootService` implementado y bindeado en `AppServiceProvider`
-- [ ] `UserObserver::syncToChatwoot()` implementado
-- [ ] Listener `AssignInitialRoles` actualizado para llamar a `syncToChatwoot()`
-- [ ] SSO con `identifier_hash` generando correctamente en `ConversationsController`
+### Fase 1 — Chatwoot SSO
 
-### WhatsApp (Evolution API)
-- [ ] `WhatsAppService` implementado
-- [ ] `WhatsAppTemplates` con plantillas de ausencia y tardanza
-- [ ] `AttendanceAlertEvaluator` con lógica de umbrales y caché anti-spam
-- [ ] `SendAttendanceAlertJob` con reintentos configurados
-- [ ] Comando `orvian:evaluate-attendance-alerts` registrado y programado
+- [ ] `app/Services/Communications/ChatwootService.php` creado y registrado como singleton
+- [ ] `app/Http/Controllers/App/ConversationsController.php` creado con generación de HMAC server-side
+- [ ] `app/Http/Controllers/Admin/ConversationsController.php` creado (acceso directo sin SSO)
+- [ ] `app/Actions/Tenant/CompleteOnboardingAction.php` modificado — inyectar `ChatwootService`, llamar `syncPrincipalToChatwoot()` al final
+- [ ] `app/Actions/Tenant/CompleteTenantOnboardingAction.php` modificado — inyectar `ChatwootService`, llamar `syncPrincipalToChatwoot()` después de asignar rol
 
-### Frontend
-- [ ] Dashboard alimenta badge de `conversaciones` con conversaciones pendientes
-- [ ] Vista `app/conversations/index.blade.php` con Iframe SSO
-- [ ] Vista `admin/conversations/index.blade.php` con Iframe admin
-- [ ] Componente `WhatsappStatusIndicator` implementado
-- [ ] Tile `conversaciones` activado en `app/dashboard.blade.php`
-- [ ] SVG del módulo `conversaciones.svg` añadido a `public/assets/icons/modules/`
+### Fase 2 — Migración y WhatsApp Service
 
-### Rutas y Permisos
-- [ ] Rutas en `routes/app/conversations.php` y `routes/admin/conversations.php`
-- [ ] `config/modules.php` actualizado con módulo `conversaciones`
-- [ ] Permisos y grupos añadidos en Seeders
-- [ ] Roles actualizados para incluir permisos de `communications`
+- [ ] `database/migrations/xxxx_add_tutor_fields_to_students_table.php` creado y ejecutado
+- [ ] `app/Models/Tenant/Student.php` — `$fillable` actualizado con `tutor_phone` (y `tutor_name` si aplica)
+- [ ] `StudentService` actualizado para persistir `tutor_phone`
+- [ ] Formulario de edición de estudiante con campo `tutor_phone` validado (E.164)
+- [ ] `app/Services/Communications/WhatsAppService.php` creado y registrado como singleton
+- [ ] `app/Services/Communications/WhatsAppTemplates.php` creado
 
-### Documentación
-- [ ] `docs/architecture/communications.md`
-- [ ] `docs/modules/conversations.md`
+### Fase 3 — Motor de Notificaciones
+
+- [ ] `app/Services/Communications/AttendanceAlertEvaluator.php` creado
+- [ ] `app/Jobs/Communications/SendAttendanceAlertJob.php` creado con 3 reintentos
+- [ ] `app/Console/Commands/EvaluateAttendanceAlertsCommand.php` creado
+- [ ] `routes/console.php` — comando programado a las 16:00 con `withoutOverlapping()`
+
+### Fase 4 — UI
+
+- [ ] `resources/views/app/conversations/index.blade.php` creado con Iframe SSO
+- [ ] `resources/views/admin/conversations/index.blade.php` creado con Iframe admin
+- [ ] `app/Livewire/App/Conversations/WhatsappStatusIndicator.php` creado
+- [ ] `resources/views/livewire/app/conversations/whatsapp-status-indicator.blade.php` creado
+- [ ] SVG `conversaciones.svg` añadido a `public/assets/icons/modules/`
+- [ ] Tile `conversaciones` con `visible: true` en `config/modules.php`
+
+### Fase 5 — Rutas y Permisos
+
+- [ ] `routes/app/conversations.php` creado
+- [ ] `routes/admin/conversations.php` creado
+- [ ] Grupo `communications` en `PermissionGroupSeeder`
+- [ ] Permisos de conversaciones en `PermissionSeeder`
+- [ ] `RoleAcademicSeeder` actualizado con permisos de `communications`
+- [ ] `AppServiceProvider` — singletons de `ChatwootService` y `WhatsAppService` registrados
 
 ---
 
-## Notas de Implementación
+## Tabla de Archivos Modificados
 
-**Orden de dependencias obligatorio:**
-1. Fase 1 (Docker + .env) antes que cualquier otra. Sin la infraestructura corriendo, ninguna prueba de integración es posible.
-2. Fase 2 (Migración de BD y `ChatwootService`) antes de tocar el Observer o el SSO.
-3. Fase 3 (`WhatsAppService`) puede desarrollarse en paralelo con la Fase 2; son independientes.
-4. Fase 4 (Job y Evaluador) requiere que la Fase 3 esté completa y que la instancia de WhatsApp esté conectada.
-5. Fase 5 (UI/Iframe) puede comenzarse en paralelo con las Fases 2 y 3, pero el SSO no se puede validar sin Chatwoot corriendo.
-
-**Anti-spam en notificaciones:**
-El `AttendanceAlertEvaluator` usa una clave de caché con granularidad semanal (`weekOfYear`) para garantizar que un tutor no reciba más de una alerta del mismo tipo por semana, incluso si el comando se ejecuta varias veces al día. El TTL de la caché es de 7 días.
-
-**Seguridad del SSO:**
-El `identifier_hash` (HMAC-SHA256) nunca debe generarse en el cliente. Siempre se computa en el servidor en `ConversationsController` y se inyecta directamente en el atributo `src` del Iframe. El `CHATWOOT_HMAC_TOKEN` debe tratarse con el mismo nivel de confidencialidad que `APP_KEY`.
-
-**Consideraciones de privacidad:**
-El número `tutor_phone` de un estudiante solo debe ser visible para usuarios con el permiso `manage conversations` o superior. No debe aparecer en listados de estudiantes accesibles a roles de `Teacher`. Aplicar scope o política de autorización en el modelo.
-
-**Tiempo estimado:** 3–4 semanas de desarrollo (con equipo de 2–3 desarrolladores)
-
-### Análisis Técnico y Oportunidades de Mejora
-
-| Componente / Fase | Observación Técnica | Recomendación |
+| Archivo | Tipo de cambio | Fase |
 | :--- | :--- | :--- |
-| **AttendanceAlertEvaluator (Caché)** | La clave de caché usa `weekOfYear` para anti-spam. Si el driver de caché es `file` en desarrollo, los reinicios del servidor limpian la caché y pueden re-enviar alertas. | Configurar `CACHE_DRIVER=redis` en producción. El mismo Redis de ORVIAN puede usarse; no requiere infraestructura adicional. |
-| **ChatwootService (createAgent)** | El snippet de `createAgent` tiene un bloque `throw()` de depuración antes del endpoint real. | Eliminar el bloque de sign_in antes de hacer PR. Es un artefacto de desarrollo. |
-| **UserObserver (Acoplamiento)** | Si Chatwoot no está disponible en el momento del onboarding, el Director no se crea como agente y el SSO fallará silenciosamente. | Considerar un Job de reintento `SyncUserToChatwootJob` como fallback, con lógica de backoff exponencial. |
-| **Iframe (Content-Security-Policy)** | Si ORVIAN tiene un CSP estricto en sus headers, el Iframe de Chatwoot puede ser bloqueado por el navegador. | Añadir `frame-src http://localhost:3001` (o la URL de producción de Chatwoot) a la directiva CSP en el middleware de ORVIAN. |
-| **WhatsAppService (E.164)** | La normalización `ltrim($phone, '+')` es simple pero no valida que el número sea realmente E.164 antes de enviar. | Agregar validación con `libphonenumber` (vía `giggsey/libphonenumber-for-php`) al guardar `tutor_phone` en la migración o en un Request de validación. |
+| `app/Actions/Tenant/CompleteOnboardingAction.php` | Modificación — inyectar `ChatwootService` + `syncPrincipalToChatwoot()` | 1.2 |
+| `app/Actions/Tenant/CompleteTenantOnboardingAction.php` | Modificación — inyectar `ChatwootService` + `syncPrincipalToChatwoot()` | 1.2 |
+| `app/Services/Communications/ChatwootService.php` | Creación | 1.1 |
+| `app/Http/Controllers/App/ConversationsController.php` | Creación — SSO + Iframe | 1.3 |
+| `app/Http/Controllers/Admin/ConversationsController.php` | Creación — Iframe admin directo | 1.3 |
+| `database/migrations/xxxx_add_tutor_fields_to_students_table.php` | Creación — migración incremental | 2.1 |
+| `app/Models/Tenant/Student.php` | Modificación — `$fillable` + `tutor_phone` | 2.1 |
+| `app/Services/Communications/WhatsAppService.php` | Creación | 2.2 |
+| `app/Services/Communications/WhatsAppTemplates.php` | Creación | 2.3 |
+| `app/Services/Communications/AttendanceAlertEvaluator.php` | Creación | 3.1 |
+| `app/Jobs/Communications/SendAttendanceAlertJob.php` | Creación | 3.2 |
+| `app/Console/Commands/EvaluateAttendanceAlertsCommand.php` | Creación | 3.3 |
+| `routes/console.php` | Modificación — programar comando diario | 3.3 |
+| `resources/views/app/conversations/index.blade.php` | Creación — Iframe con SSO | 4.1 |
+| `resources/views/admin/conversations/index.blade.php` | Creación — Iframe admin | 4.2 |
+| `app/Livewire/App/Conversations/WhatsappStatusIndicator.php` | Creación | 4.3 |
+| `resources/views/livewire/app/conversations/whatsapp-status-indicator.blade.php` | Creación | 4.3 |
+| `config/communications.php` | Creación | Conectividad |
+| `config/modules.php` | Modificación — `conversaciones` con `visible: true` | 5.2 |
+| `database/seeders/PermissionGroupSeeder.php` | Modificación — grupo `communications` | 5.3 |
+| `database/seeders/PermissionSeeder.php` | Modificación — permisos de conversaciones | 5.3 |
+| `database/seeders/RoleAcademicSeeder.php` | Modificación — asignar permisos de communications | 5.3 |
+| `routes/app/conversations.php` | Creación | 5.1 |
+| `routes/admin/conversations.php` | Creación | 5.1 |
+| `app/Providers/AppServiceProvider.php` | Modificación — singletons de servicios | 1.1, 2.2 |
+| `.env` | Modificación — tokens de Chatwoot y Evolution | Conectividad |
+
+---
+
+## Decisiones de Arquitectura Registradas
+
+**ORVIAN como emisor unidireccional de WhatsApp:** La funcionalidad de WhatsApp se limita a enviar alertas automáticas de asistencia. ORVIAN no recibe ni procesa mensajes de tutores — esa responsabilidad recae sobre Chatwoot en el VPS, que integra nativamente con Evolution API. Esta decisión reduce la complejidad de ORVIAN y mantiene el foco académico del sistema.
+
+**Chatwoot como servicio externo vía Iframe:** Chatwoot se integra como una pestaña dentro del panel de ORVIAN mediante un Iframe con SSO. No se sincronizan conversaciones, contactos ni datos de Chatwoot hacia la BD de ORVIAN. El Director trabaja directamente en la interfaz de Chatwoot sin salir del sistema.
+
+**Sincronización con Chatwoot en las Actions, no en Observers/Listeners:** El registro del Director como agente en Chatwoot se ejecuta directamente en `CompleteOnboardingAction` y `CompleteTenantOnboardingAction`, al final del flujo de onboarding (después de que el rol `School Principal` está garantizado). Esto elimina la indirección del Observer/Listener, simplifica la trazabilidad y evita condiciones de carrera. Si Chatwoot no está disponible, el error se registra en log sin interrumpir el onboarding.
+
+**`WhatsAppService` no envía directamente desde el Evaluador:** El `AttendanceAlertEvaluator` despacha un `SendAttendanceAlertJob` en lugar de llamar al servicio directamente. Los envíos son asíncronos (no bloquean el cierre del día), reintentables (3 intentos con backoff) y observables en el panel de colas de Laravel.
+
+**Caché de estado de conexión vía webhook:** El `WhatsappStatusIndicator` lee el estado desde caché en lugar de llamar a la API en cada render. El webhook `connection.update` de Evolution actualiza esa caché en tiempo real. Esto evita una llamada HTTP por cada carga de la barra de módulo.
+
+**Infraestructura en VPS:** Chatwoot (`chat.orvian.com.do`) y Evolution API (`evolution.orvian.com.do`) corren en el VPS. ORVIAN se conecta directamente a las URLs de producción mediante variables de entorno. El costo es que el módulo de comunicaciones requiere conexión a internet en desarrollo local — lo cual es aceptable dado el alcance académico del proyecto.
+
+**Orden de dependencias obligatorio para el desarrollo:**
+1. Configurar `.env` con tokens del VPS antes de cualquier prueba de integración.
+2. Fase 1 (`ChatwootService` + Actions) establece la identidad del Director en Chatwoot.
+3. Fase 2 (migración `tutor_phone` + `WhatsAppService`) puede desarrollarse en paralelo con Fase 1.
+4. Fase 3 (Evaluador + Jobs) depende de que `tutor_phone` exista en la BD.
+5. Los webhooks (Fase 3.4) requieren ngrok activo en local para probarse de extremo a extremo.
+6. Fase 4 (UI/Iframe) puede comenzarse en paralelo; el SSO no se valida sin la instancia de Chatwoot activa en el VPS.
