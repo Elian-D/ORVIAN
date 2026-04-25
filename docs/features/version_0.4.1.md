@@ -177,7 +177,7 @@ Como consecuencia de delegar la creación del `User` al Observer, el componente 
 
 ### 2.1 — Implementación en AppServiceProvider
 
-- [ ] **Agregar en el método `boot()` de `AppServiceProvider`:**
+- [x] **Agregar en el método `boot()` de `AppServiceProvider`:**
   ```php
   use Illuminate\Support\Facades\Cache;
   use Illuminate\Support\Facades\View;
@@ -196,12 +196,12 @@ Como consecuencia de delegar la creación del `User` al Observer, el componente 
   }
   ```
 
-- [ ] **Crear/actualizar el archivo `VERSION` en la raíz del proyecto:**
+- [x] **Actualizar el archivo `VERSION` en la raíz del proyecto:**
   ```
   0.4.1
   ```
 
-- [ ] **Invalidar la caché al desplegar** — agregar al script de deploy (o `post-autoload-dump` en `composer.json`):
+- [x] **Invalidar la caché al desplegar** — agregar al script de deploy (o `post-autoload-dump` en `composer.json`):
   ```bash
   php artisan cache:forget orvian.app_version
   ```

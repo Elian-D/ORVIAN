@@ -10,7 +10,7 @@
 
         {{-- Meta Info --}}
         <div class="flex items-center gap-4 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400/80 dark:text-slate-500">
-            <x-ui.badge variant="primary" size="sm" :dot="false">V 0.1.0-ALPHA</x-ui.badge>
+            <x-ui.badge variant="primary" size="sm" :dot="false">V {{ $appVersion }}</x-ui.badge>
             
             <span class="w-px h-3 bg-slate-200 dark:bg-white/10"></span>
             
