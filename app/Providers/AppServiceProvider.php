@@ -25,12 +25,15 @@ use App\Models\Tenant\Teacher;
 use App\Observers\Tenant\AttendanceExcuseObserver;
 use App\Observers\Tenant\StudentObserver;
 use App\Observers\Tenant\TeacherObserver;
+use App\Services\Communications\ChatwootService;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->singleton(ChatwootService::class, function ($app) {
+            return new ChatwootService();
+        });
     }
 
     public function boot(): void
