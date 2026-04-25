@@ -15,8 +15,7 @@
 | REQ-02 | 1 | Auth / Routing | Redirección post-login diferenciada según `school_id` del usuario autenticado | Alta | Pendiente |
 | REQ-03 | 1 | Auth / UI | Nueva interfaz de Login (estructura Blade preparada para recibir el HTML definitivo) | Alta | Pendiente |
 | REQ-04 | 2 | Config / Global | Lectura del archivo `VERSION` desde `base_path()` con caché y `View::share` global | Media | Pendiente |
-| REQ-05 | 3 | UI / Toast | Eliminar la progress bar del componente `x-ui.toasts` — diseño minimalista estático | Media | Pendiente |
-| REQ-06 | 3 | UI / Dashboard | Ocultar/desactivar visualmente los tiles de módulos incompletos en `app/dashboard` y `config/modules.php` | Alta | Pendiente |
+| REQ-05 | 3 | UI / Dashboard | Ocultar/desactivar visualmente los tiles de módulos incompletos en `app/dashboard` y `config/modules.php` | Alta | Pendiente |
 
 ---
 
@@ -226,213 +225,41 @@ Una vez implementado, la variable `$appVersion` está disponible en cualquier Bl
 ## Fase 3 — Simplificación de UI
 **Rama:** `refactor/ui-simplification`
 
-### 3.1 — Componente Toast: Eliminación de la Progress Bar
+### 3.1 — Dashboard y config/modules.php: Visibilidad de Módulos
 
-**Archivo:** `resources/views/components/ui/toasts.blade.php`
-
-**Objetivo:** Remover la barra de progreso animada del HTML y su lógica JavaScript asociada (`percent`, `startTimer` interval, `pause`, `resume`). El toast pasa a ser estático: aparece, espera su duración y desaparece. El hover ya no pausa el timer.
-
-- [ ] **Eliminar del HTML del toast** el bloque de la barra de progreso:
-  ```blade
-  {{-- ELIMINAR este bloque completo --}}
-  <div class="absolute bottom-0 left-0 w-full h-1 bg-black/5 dark:bg-white/10">
-      <div class="h-full transition-all ease-linear"
-          :class="config.progressClass"
-          :style="`width: ${percent}%`"></div>
-  </div>
-  ```
-
-- [ ] **Eliminar del `toastItem` Alpine** las propiedades y métodos relacionados con el progreso:
-  ```javascript
-  // ELIMINAR estas propiedades del data object:
-  remaining: toast.duration,
-  interval: null,
-  paused: false,
-  percent: 100,
-
-  // ELIMINAR estos métodos completos:
-  startTimer() { ... },
-  pause() { ... },
-  resume() { ... },
-  ```
-
-- [ ] **Reemplazar la lógica del timer** por un simple `setTimeout`:
-  ```javascript
-  // REEMPLAZAR startTimer() por esto en init():
-  init() {
-      this.setConfig();
-      setTimeout(() => { this.show = true; }, 50);
-      setTimeout(() => { this.close(); }, toast.duration);
-  },
-  ```
-
-- [ ] **Eliminar los handlers de hover** del elemento del toast:
-  ```blade
-  {{-- ELIMINAR estos dos atributos del div del toast --}}
-  @mouseenter="pause()"
-  @mouseleave="resume()"
-  ```
-
-- [ ] **Eliminar `progressClass` de `setConfig()`** — ya no es necesario en ningún config de variante. Los objetos de config quedan solo con `bgClass` e `iconClass`:
-  ```javascript
-  setConfig() {
-      const configs = {
-          success: { bgClass: '...', iconClass: 'text-emerald-500' },
-          error:   { bgClass: '...', iconClass: 'text-red-500'     },
-          warning: { bgClass: '...', iconClass: 'text-amber-500'   },
-          info:    { bgClass: '...', iconClass: 'text-blue-500'    },
-      };
-      this.config = configs[toast.type] || configs.info;
-  },
-  ```
-
-> **Impacto visual:** Los toasts quedan con un diseño más limpio y plano. Sin barra inferior, el padding del componente puede reducirse ligeramente (`pb-3` en lugar de `pb-4`) si se desea dar más aire. Esto es opcional y queda a criterio del equipo de diseño.
-
----
-
-### 3.2 — Dashboard y config/modules.php: Visibilidad de Módulos
-
-**Archivos:** `config/modules.php` y `resources/views/app/dashboard.blade.php` (o el componente Livewire equivalente).
+**Archivo :** ``resources/views/app/dashboard.blade.php`.
 
 **Objetivo:** Para la demostración, mostrar solo los módulos funcionales. Los módulos pausados o incompletos (Comunicaciones, Inventario/Facturación y cualquier otro sin completar) se ocultan visualmente o se marcan con `comingSoon: true`.
 
-**Módulos a mostrar activos:**
-- Académico (`academico`)
-- Asistencia (`asistencia`)
-- Configuración (`configuracion`)
-
-**Módulos a deshabilitar visualmente:**
-- Comunicaciones (`comunicaciones`)
-- Inventario / Facturación (`inventario`)
-- Cualquier otro tile sin implementación completa
-
-#### 3.2.1 — Agregar flag `visible` en `config/modules.php`
-
-- [ ] **Agregar la propiedad `visible` a cada módulo** en el array de configuración:
-  ```php
-  // config/modules.php
-
-  return [
-      'academico' => [
-          'name'        => 'Académico',
-          'icon'        => 'academico',
-          'visible'     => true,   // Activo para la demo
-          'moduleLinks' => [ ... ],
-      ],
-
-      'asistencia' => [
-          'name'        => 'Asistencia',
-          'icon'        => 'asistencia',
-          'visible'     => true,   // Activo para la demo
-          'moduleLinks' => [ ... ],
-      ],
-
-      'configuracion' => [
-          'name'        => 'Configuración',
-          'icon'        => 'configuracion',
-          'visible'     => true,   // Activo para la demo
-          'moduleLinks' => [ ... ],
-      ],
-
-      'comunicaciones' => [
-          'name'        => 'Comunicaciones',
-          'icon'        => 'comunicaciones',
-          'visible'     => false,  // Pausado — no mostrar en demo
-          'moduleLinks' => [],
-      ],
-
-      'inventario' => [
-          'name'        => 'Inventario',
-          'icon'        => 'inventario',
-          'visible'     => false,  // Sin implementar
-          'moduleLinks' => [],
-      ],
-      // ... resto de módulos con visible: false si corresponde
-  ];
-  ```
-
-#### 3.2.2 — Filtrar tiles en el Dashboard
-
-- [ ] **En el controlador o Livewire del dashboard**, filtrar el array de módulos antes de pasarlo a la vista:
-  ```php
-  // En el método render() del componente Livewire del dashboard,
-  // o en el método del controlador:
-
-  $modules = collect(config('modules'))
-      ->filter(fn ($module) => $module['visible'] ?? false)
-      ->all();
-  ```
-
-- [ ] **En la vista `app/dashboard.blade.php`**, iterar solo sobre `$modules` filtrados:
-  ```blade
-  @foreach ($modules as $key => $module)
-      <x-ui.app-tile
-          :module="$key"
-          :title="$module['name']"
-          :url="route('app.' . $key . '.dashboard')"
-      />
-  @endforeach
-  ```
-
-  > Si el dashboard actualmente tiene los tiles hardcodeados en Blade (no dinámicos), reemplazar los tiles de módulos pausados por nada, o comentarlos con una nota clara:
-  > ```blade
-  > {{-- COMUNICACIONES: pausado en v0.4.1, reactivar cuando retome desarrollo --}}
-  > {{-- <x-ui.app-tile module="comunicaciones" title="Comunicaciones" comingSoon /> --}}
-  > ```
-
-#### 3.2.3 — Proteger las rutas de módulos pausados
-
-- [ ] **Agregar middleware o verificación en los controladores** de los módulos pausados para evitar acceso directo por URL:
-  ```php
-  // Opción simple: en el constructor del controlador del módulo
-  public function __construct()
-  {
-      $this->middleware(function ($request, $next) {
-          if (! (config('modules.comunicaciones.visible') ?? false)) {
-              abort(404);
-          }
-          return $next($request);
-      });
-  }
-  ```
-  > Si las rutas aún no están definidas, este punto no aplica. Solo es necesario si las rutas existen y se quiere evitar el acceso durante la demo.
+- [x] **Comentar modulos:** `classrom`, `horarios` y `web` de `app/dashboard.blade.php` para que no se rendericen.
 
 ---
 
 ## Checklist de Completitud v0.4.1
 
 ### Fase 1 — Autenticación e Identidad
-- [ ] `StudentObserver@created` genera `User` a partir del `rnc`
-- [ ] Email generado con patrón `{rnc_limpio}@orvian.com.do`
-- [ ] Usuario creado con `status = 'inactive'` y rol `Student` asignado en scope del tenant
-- [ ] `student.user_id` actualizado con `updateQuietly()` tras crear el User
-- [ ] Caso de RNC nulo manejado (guard al inicio del método)
-- [ ] Caso de email duplicado manejado (guard con `User::where('email', ...)->exists()`)
-- [ ] Compatibilidad verificada con el Job de importación masiva de v0.4.0
-- [ ] `AuthenticatedSessionController@store` redirige según `school_id`
-- [ ] Ruta `admin.hub` verificada y existente
-- [ ] Prueba manual de redirección con ambos tipos de usuario
-- [ ] Vista `auth/login.blade.php` estructurada con dos columnas y lista para recibir HTML
+- [x] `StudentObserver@created` genera `User` a partir del `rnc`
+- [x] Email generado con patrón `{rnc_limpio}@orvian.com.do`
+- [x] Usuario creado con `status = 'inactive'` y rol `Student` asignado en scope del tenant
+- [x] `student.user_id` actualizado con `updateQuietly()` tras crear el User
+- [x] Caso de RNC nulo manejado (guard al inicio del método)
+- [x] Caso de email duplicado manejado (guard con `User::where('email', ...)->exists()`)
+- [x] Compatibilidad verificada con el Job de importación masiva de v0.4.0
+- [x] `AuthenticatedSessionController@store` redirige según `school_id`
+- [x] Ruta `admin.hub` verificada y existente
+- [x] Prueba manual de redirección con ambos tipos de usuario
+- [x] Vista `auth/login.blade.php` estructurada con dos columnas y lista para recibir HTML
 
 ### Fase 2 — Versión Global
-- [ ] `Cache::rememberForever('orvian.app_version', ...)` implementado en `AppServiceProvider@boot`
-- [ ] `View::share('appVersion', $version)` activo
-- [ ] Archivo `VERSION` en raíz del proyecto actualizado a `0.4.1`
-- [ ] Fallback `'dev'` implementado si el archivo no existe
-- [ ] Estrategia de invalidación de caché en deploy documentada/implementada
-- [ ] Variable `$appVersion` usada al menos en el layout del login (panel de marca)
+- [x] `Cache::rememberForever('orvian.app_version', ...)` implementado en `AppServiceProvider@boot`
+- [x] `View::share('appVersion', $version)` activo
+- [x] Archivo `VERSION` en raíz del proyecto actualizado a `0.4.1`
+- [x] Fallback `'dev'` implementado si el archivo no existe
+- [x] Estrategia de invalidación de caché en deploy documentada/implementada
+- [x] Variable `$appVersion` usada al menos en el layout del login (panel de marca)
 
 ### Fase 3 — UI Simplificada
-- [ ] Bloque HTML de la progress bar eliminado de `toasts.blade.php`
-- [ ] Propiedades Alpine `remaining`, `interval`, `paused`, `percent` eliminadas de `toastItem`
-- [ ] Métodos `startTimer()`, `pause()`, `resume()` eliminados
-- [ ] Timer reemplazado por `setTimeout(() => this.close(), toast.duration)` en `init()`
-- [ ] Handlers `@mouseenter` y `@mouseleave` eliminados del div del toast
-- [ ] `progressClass` eliminado de todos los objetos en `setConfig()`
-- [ ] Flag `visible` agregado a todos los módulos en `config/modules.php`
-- [ ] Dashboard filtra y renderiza solo módulos con `visible: true`
-- [ ] Módulos `comunicaciones` e `inventario` con `visible: false`
-- [ ] Rutas de módulos pausados protegidas contra acceso directo (si aplica)
+- [x] Tiles de módulos incompletos (Comunicaciones, Inventario/Facturación) comentados en `app/dashboard.blade.php`
 
 ---
 
@@ -441,11 +268,10 @@ Una vez implementado, la variable `$appVersion` está disponible en cualquier Bl
 **Orden de ejecución recomendado:**
 
 1. Fase 2 primero (sin dependencias, cambio aislado en `AppServiceProvider`)
-2. Fase 3.1 (simplificación del Toast, cambio en un solo archivo)
-3. Fase 3.2 (módulos del dashboard, requiere editar `config/modules.php` antes que las vistas)
-4. Fase 1.2 (redirección post-login, cambio en el controlador)
-5. Fase 1.1 (Observer de estudiantes, el más crítico — probar con un estudiante individual antes de importaciones masivas)
-6. Fase 1.3 (estructura del login, preparar el slot, esperar entrega del HTML definitivo)
+2. Fase 3.1 (módulos del dashboard, requiere editar `config/modules.php` antes que las vistas)
+3. Fase 1.2 (redirección post-login, cambio en el controlador)
+4. Fase 1.1 (Observer de estudiantes, el más crítico — probar con un estudiante individual antes de importaciones masivas)
+5. Fase 1.3 (estructura del login, preparar el slot, esperar entrega del HTML definitivo)
 
 ---
 
@@ -456,8 +282,6 @@ Una vez implementado, la variable `$appVersion` está disponible en cualquier Bl
 | **Fase 2 — Cache de versión** | `Cache::rememberForever` elimina lecturas repetidas de disco. Sin embargo, en entornos con `CACHE_DRIVER=file`, todos los workers comparten el mismo archivo de caché. | No es un problema en desarrollo. En producción, si se usa Redis, el invalidado de caché con `cache:forget` es instantáneo para todos los workers. |
 | **Fase 1.1 — Creación de User en Observer** | Un Observer sícrono crea un User por cada Student en el mismo request. En importaciones masivas esto puede generar N inserciones adicionales por cada fila del Excel, multiplicando el tiempo total. | Si se detecta latencia real en importaciones de +200 registros, mover la creación del User a `CreateStudentUserJob::dispatch($student)->afterCommit()`. La importación en sí usa chunks, así que el impacto puede ser menor de lo estimado. |
 | **Fase 3.2 — Filtro de módulos** | `collect(config('modules'))->filter(...)` es una operación O(n) sobre un array pequeño (≤ 15 módulos). No representa costo computacional significativo. | Si el dashboard usa Livewire con `#[Lazy]`, el filtro ocurre en el primer render diferido, sin bloquear la carga inicial de la página. Sin acción adicional necesaria. |
-| **Fase 3.1 — Toast sin timer de interval** | Eliminar el `setInterval` de 10ms reduce la carga de JavaScript de forma perceptible cuando hay múltiples toasts activos simultáneamente. El `setTimeout` es una sola operación del event loop. | Mejora directa sin contraparte negativa. |
-
 ---
 
 ## Archivos Modificados en esta Versión
@@ -469,7 +293,6 @@ Una vez implementado, la variable `$appVersion` está disponible en cualquier Bl
 | `resources/views/auth/login.blade.php` | Reemplazo — estructura nueva | 1.3 |
 | `app/Providers/AppServiceProvider.php` | Modificación — método `boot` | 2.1 |
 | `VERSION` | Actualización — `0.4.1` | 2.1 |
-| `resources/views/components/ui/toasts.blade.php` | Modificación — remoción de progress bar | 3.1 |
 | `config/modules.php` | Modificación — flag `visible` por módulo | 3.2 |
 | `resources/views/app/dashboard.blade.php` | Modificación — filtro de tiles visibles | 3.2 |
 
@@ -480,5 +303,3 @@ Una vez implementado, la variable `$appVersion` está disponible en cualquier Bl
 **Módulo de Comunicaciones — Pausa indefinida:** El módulo de Comunicaciones queda excluido de la hoja de ruta activa hasta nueva decisión del equipo. Su tile en el dashboard se oculta mediante el flag `visible: false` en `config/modules.php`. Las rutas definidas (si existen) deben retornar 404 en entorno de demostración. Esta decisión se revisará post-demo según prioridades del cliente.
 
 **Redirección post-login en el controlador vs. en el modelo:** Se optó por mantener la lógica de redirección en `AuthenticatedSessionController` y no en el modelo `User`. El modelo no debe conocer rutas de la aplicación. El controlador es el lugar semánticamente correcto para este tipo de decisión de flujo.
-
-**Toast sin pausa al hover:** Eliminar la pausa al hover es una simplificación deliberada para la demo. Si en versiones futuras se decide reinstaurar la interactividad del toast, el diseño original está documentado en `toast.md` y puede restaurarse de forma incremental.
