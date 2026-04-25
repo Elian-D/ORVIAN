@@ -27,19 +27,17 @@ class StudentShow extends Component
     public function updateCredentials()
     {
         $this->validate([
-            'email' => 'required|email|unique:users,email,' . $this->student->user_id,
             'password' => 'nullable|min:6',
         ]);
 
         $user = $this->student->user;
-        $user->email = $this->email;
 
         if (!empty($this->password)) {
             $user->password = Hash::make($this->password);
+            $user->save();
         }
 
-        $user->save();
-        $this->password = ''; // Limpiar campo
+        $this->password = '';
 
         // Disparar notificación Toast
         $this->dispatch('notify', 

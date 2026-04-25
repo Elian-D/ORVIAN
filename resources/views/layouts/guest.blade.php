@@ -149,7 +149,7 @@
                     </div>
                     <div>
                         <p class="text-white text-sm font-bold leading-none mb-1">ORVIAN System</p>
-                        <p class="text-blue-100/50 text-[10px] uppercase tracking-widest font-bold">Versión 0.1.0 Alpha</p>
+                        <p class="text-blue-100/50 text-[10px] uppercase tracking-widest font-bold"> v{{ $appVersion ?? '0.4.1' }}</p>
                     </div>
                 </div>
             </div>
@@ -191,16 +191,19 @@
                 {{-- Lado Derecho: Acciones --}}
                 <div class="flex items-center gap-3 order-1 sm:order-2">
                     
+                    @if (Route::is('login'))
+                        
                     {{-- Botón Escáner QR --}}
-                    <button @click="$dispatch('open-qr-scanner')" 
+                        <button @click="$dispatch('open-qr-scanner')" 
                             type="button"
                             title="Escanear Código QR"
                             class="w-10 h-10 rounded-xl flex items-center justify-center transition-all border shadow-sm hover:scale-105 active:scale-95"
                             :class="darkMode ? 'bg-[#1e3a5f] border-white/10 text-orange-400' : 'bg-white border-gray-200 text-[#f78904]'">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
-                        </svg>
-                    </button>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
+                            </svg>
+                        </button>
+                    @endif
 
                     {{-- Toggle Modo Oscuro --}}
                     <button @click="darkMode = !darkMode" 

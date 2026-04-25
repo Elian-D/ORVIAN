@@ -37,6 +37,7 @@ class Profile extends Component
     // Preferencias
     public string $theme = 'system';
     public bool $sidebar_collapsed = false;
+    public string $loginVersion = 'v2';
 
     public function mount(): void
     {
@@ -54,6 +55,7 @@ class Profile extends Component
         // Cargar preferencias del JSON (usando el helper que creaste en el modelo)
         $this->theme             = $user->preference('theme', 'system');
         $this->sidebar_collapsed = (bool) $user->preference('sidebar_collapsed', false);
+        $this->loginVersion      = $user->preference('loginVersion', 'v2');
     }
     // ── Información personal ───────────────────────────────
 
@@ -170,8 +172,16 @@ class Profile extends Component
         $preferences['sidebar_collapsed'] = $this->isAdmin
             ? $this->sidebar_collapsed
             : ($user->preference('sidebar_collapsed', false)); // mantiene el valor anterior sin tocarlo
+        $preferences['login_version'] = $this->loginVersion; // Nuevo
 
         $user->update(['preferences' => $preferences]);
+        
+        // Sincronizar Cookie para la pre-autenticación (1 año)
+        \Illuminate\Support\Facades\Cookie::queue(
+            'orvian_login_version', 
+            $this->loginVersion, 
+            60 * 24 * 365
+        );
 
         $this->dispatch('notify-redirect',
             type:    'success',
