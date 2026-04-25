@@ -37,8 +37,11 @@ class AuthenticatedSessionController extends Controller
                 Auth::login($user, $request->boolean('remember'));
                 $request->session()->regenerate();
                 
-                return redirect()->intended(route('app.dashboard'))
-                    ->with('success', '¡Sesión iniciada vía QR!');
+                return redirect()->intended(
+                    is_null($user->school_id)
+                        ? route('admin.hub')
+                        : route('app.dashboard')
+                )->with('success', '¡Sesión iniciada vía QR!');
             }
 
             return back()->withErrors(['email' => 'Código QR no reconocido.']);
@@ -48,7 +51,11 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
         $request->session()->regenerate();
 
-        return redirect()->intended(route('app.dashboard'));
+        return redirect()->intended(
+            is_null(Auth::user()->school_id)
+                ? route('admin.hub')
+                : route('app.dashboard')
+        );
     }
 
     /**

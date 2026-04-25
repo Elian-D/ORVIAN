@@ -20,6 +20,7 @@ export default {
             fontFamily: {
                 // Establecemos Inter como la fuente principal
                 sans: ['Inter', ...defaultTheme.fontFamily.sans],
+                etna: ['Etna', 'sans-serif'],
             },
             colors: {
                 orvian: {

@@ -1,227 +1,286 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
-      x-data="{ darkMode: localStorage.getItem('darkMode') === 'true' }"
-      x-init="$watch('darkMode', val => localStorage.setItem('darkMode', val))"
-      :class="{ 'dark': darkMode }">
-    <link rel="icon" href="{{ asset('img/logos/logo-icon-light.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
-
-    <link rel="icon" href="{{ asset('img/logos/logo-icon-dark.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
-    @livewireStyles
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="light">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ config('app.name', 'ORVIAN') }}</title>
+
+    <link rel="icon" href="{{ asset('img/logos/logo-icon-light.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: light)">
+    <link rel="icon" href="{{ asset('img/logos/logo-icon-dark.svg') }}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+
+    @livewireStyles
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <x-ui.theme-init />
+
     <style>
-        /* Orbs exteriores */
-        .bg-orb {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(90px);
-            pointer-events: none;
-            z-index: 0;
+        /* ── Grid blueprint ──
+           Light: más visible con mayor opacidad naranja
+           Dark:  tenue, casi imperceptible */
+        .orvian-grid {
+            background-image:
+                linear-gradient(to right,  rgba(247,137,4,0.10) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(247,137,4,0.10) 1px, transparent 1px);
+            background-size: 100px 100px;
+        }
+        .dark .orvian-grid {
+            background-image:
+                linear-gradient(to right,  rgba(247,137,4,0.035) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(247,137,4,0.035) 1px, transparent 1px);
         }
 
-        /* Fade-in-up para el card */
-        @keyframes fade-in-up {
-            from { opacity: 0; transform: translateY(24px); }
+        /* ── Puntos ──
+           Light: notables
+           Dark:  sutiles */
+        .orvian-dots {
+            background-image: radial-gradient(circle at 2px 2px, rgba(247,137,4,0.18) 1.5px, transparent 0);
+            background-size: 40px 40px;
+        }
+        .dark .orvian-dots {
+            background-image: radial-gradient(circle at 2px 2px, rgba(247,137,4,0.055) 1.5px, transparent 0);
+        }
+
+        /* ── Parpadeo status dot ── */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.2; }
+        }
+        .status-blink { animation: blink 2.8s ease-in-out infinite; }
+
+        /* ── Animación de entrada ── */
+        @keyframes card-rise {
+            from { opacity: 0; transform: translateY(20px); }
             to   { opacity: 1; transform: translateY(0); }
         }
-        .animate-fade-in-up {
-            animation: fade-in-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
+        .card-rise { animation: card-rise 0.5s cubic-bezier(0.16,1,0.3,1) both; }
 
-        /* Orbs del panel izquierdo */
-        .panel-orb {
+        /* ── Fade entre frases ── */
+        @keyframes phrase-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .phrase-in { animation: phrase-in 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+
+        /* ── Anillos orbitales ── */
+        .orbit {
             position: absolute;
             border-radius: 50%;
-            filter: blur(80px);
             pointer-events: none;
         }
 
-        /* Input underline */
-        .input-underline {
-            background: transparent;
-            border: none;
-            border-bottom: 1.5px solid;
-            border-radius: 0;
-            outline: none;
-            transition: border-color 0.2s, color 0.2s;
-            width: 100%;
-            padding: 10px 0 10px 36px;
-            font-size: 0.9rem;
-        }
-        .input-underline::placeholder {
-            transition: color 0.2s;
+        /* ── Separador luminoso entre paneles ──
+           Light: más brillante y visible
+           Dark:  igual pero sobre fondo oscuro */
+        .panel-divider {
+            position: absolute;
+            top: 0; right: 0;
+            width: 1px;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(247,137,4,0.25) 20%,
+                rgba(247,137,4,0.75) 50%,
+                rgba(247,137,4,0.25) 80%,
+                transparent 100%
+            );
+            box-shadow:
+                0 0 14px 2px rgba(247,137,4,0.35),
+                0 0 40px 6px rgba(247,137,4,0.12);
         }
 
-        /* Toggle iOS */
-        .ios-toggle {
-            position: relative;
-            width: 52px;
-            height: 28px;
-            border-radius: 999px;
-            transition: background 0.3s;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-        .ios-toggle-thumb {
+        /* ── Cruz decorativa (esquinas) ── */
+        .corner-cross {
             position: absolute;
-            top: 3px;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: white;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.25);
-            transition: left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Orbit rings decorativos */
-        .orbit-ring {
-            position: absolute;
-            border-radius: 50%;
-            border: 1px solid rgba(255,255,255,0.07);
+            width: 20px; height: 20px;
             pointer-events: none;
+        }
+        .corner-cross::before,
+        .corner-cross::after {
+            content: '';
+            position: absolute;
+            background: rgba(247,137,4,0.35);
+        }
+        .dark .corner-cross::before,
+        .dark .corner-cross::after {
+            background: rgba(247,137,4,0.18);
+        }
+        .corner-cross::before { width: 1px; height: 100%; left: 50%; top: 0; }
+        .corner-cross::after  { height: 1px; width: 100%; top: 50%; left: 0; }
+
+        /* ── Línea diagonal decorativa ── */
+        .diag-line {
+            position: absolute;
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, rgba(247,137,4,0.20), transparent);
+            transform-origin: top center;
+            pointer-events: none;
+        }
+        .dark .diag-line {
+            background: linear-gradient(to bottom, transparent, rgba(247,137,4,0.08), transparent);
         }
     </style>
 </head>
-<body class="font-sans antialiased transition-colors duration-500 min-h-screen flex items-center justify-center p-4 sm:p-8 relative overflow-hidden"
-      style="background: #030a18;">
 
-    {{-- Orbs de fondo exterior --}}
-    <div class="bg-orb" style="width:500px;height:500px;background:#04275f;opacity:0.5;top:-100px;left:-120px;"></div>
-    <div class="bg-orb" style="width:420px;height:420px;background:#f78904;opacity:0.25;bottom:-80px;right:-80px;"></div>
-    <div class="bg-orb" style="width:280px;height:280px;background:#1e3a6e;opacity:0.4;top:60%;right:5%;"></div>
-    
-    {{-- Esferas flotantes decorativas --}}
-    <div class="fixed" style="top:5%;right:8%;width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#f78904,#c96a00);box-shadow:0 8px 32px rgba(247,137,4,0.4);pointer-events:none;z-index:1;"></div>
-    <div class="fixed" style="bottom:8%;left:6%;width:80px;height:80px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#3b6fd4,#1a3a8a);box-shadow:0 8px 32px rgba(59,111,212,0.4);pointer-events:none;z-index:1;"></div>
-    <div class="fixed" style="top:55%;right:2%;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#5b8dee,#2a50a8);box-shadow:0 6px 24px rgba(91,141,238,0.4);pointer-events:none;z-index:1;"></div>
+@php
+    $frases = [
+        'Registro de asistencia en segundos, no en minutos.',
+        'Del aula al informe: gestión académica sin fricciones.',
+        'Construido para las escuelas dominicanas, desde adentro.',
+        'Un sistema que entiende cómo funciona una escuela de verdad.',
+        'Biometría, QR o manual — el centro decide cómo registrar.',
+        'Calificaciones validadas, boletines generados. Sin papel.',
+        'Multi-institución. Un solo sistema. Datos separados.',
+        'Privacidad primero. Los datos del centro son del centro.',
+        'Diseñado para directores, maestros y coordinadores.',
+        'De la matrícula al egreso: un solo hilo conductor.',
+    ];
+    $frase = $frases[array_rand($frases)];
+@endphp
+
+<body class="min-h-screen flex bg-[#f5f3f0] dark:bg-dark-bg antialiased transition-colors duration-500">
+
+    {{-- Orbs de ambiente --}}
+    <div aria-hidden="true" class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute rounded-full"
+             style="width:700px;height:700px;background:#03224e;opacity:0.06;filter:blur(120px);top:-200px;left:-200px;"></div>
+        <div class="absolute rounded-full"
+             style="width:500px;height:500px;background:#f78904;opacity:0.07;filter:blur(130px);bottom:-100px;right:4%;"></div>
+        {{-- Orb oscuro solo visible en dark --}}
+        <div class="absolute rounded-full dark:opacity-40 opacity-0 transition-opacity duration-500"
+             style="width:700px;height:700px;background:#03224e;filter:blur(120px);top:-200px;left:-200px;"></div>
+    </div>
 
     <x-ui.toasts />
 
-    {{-- Card principal --}}
-    <div class="w-full max-w-5xl rounded-[2rem] overflow-hidden flex flex-col lg:flex-row relative z-10 animate-fade-in-up"
-         style="min-height:560px;box-shadow:0 40px 80px -20px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.06);">
+    {{-- ══════════════════════════════════════════
+         PANEL IZQUIERDO — Branding
+    ══════════════════════════════════════════ --}}
+    <aside class="hidden lg:flex lg:w-[55%] xl:w-[58%] flex-col justify-center
+                  relative overflow-hidden min-h-screen p-16 xl:p-24
+                  bg-white dark:bg-dark-bg transition-colors duration-500">
 
-        {{-- Panel izquierdo: Branding --}}
-        <div class="hidden lg:flex lg:w-[48%] flex-col justify-between relative overflow-hidden p-12"
-             style="background: #04275f;">
+        {{-- Texturas: grid + dots (intensidad controlada por CSS arriba) --}}
+        <div aria-hidden="true" class="orvian-grid absolute inset-0 pointer-events-none"></div>
+        <div aria-hidden="true" class="orvian-dots absolute inset-0 pointer-events-none"></div>
 
-            {{-- Orbit rings --}}
-            <div class="orbit-ring" style="width:500px;height:500px;top:50%;left:50%;transform:translate(-50%,-50%);"></div>
-            <div class="orbit-ring" style="width:350px;height:350px;top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+        {{-- Zona naranja suave en esquina superior izquierda — más visible en light --}}
+        <div aria-hidden="true" class="absolute inset-0 pointer-events-none"
+             style="background: radial-gradient(ellipse 60% 40% at 0% 0%, rgba(247,137,4,0.06) 0%, transparent 70%);"></div>
+        <div aria-hidden="true" class="absolute inset-0 pointer-events-none dark:block hidden"
+             style="background: radial-gradient(ellipse at 15% 55%, rgba(4,39,95,0.3) 0%, transparent 65%);"></div>
 
-            {{-- Orbs del panel --}}
-            <div class="panel-orb" style="width:300px;height:300px;background:#0d3a7a;opacity:0.8;top:-60px;left:-60px;"></div>
-            <div class="panel-orb" style="width:250px;height:250px;background:#f78904;opacity:0.2;bottom:-40px;right:-40px;"></div>
+        {{-- Figura isométrica decorativa — más visible en light --}}
+        <div aria-hidden="true" class="absolute inset-0 flex items-center justify-center pointer-events-none"
+             style="opacity: 0.12;">
+            <div class="dark:opacity-100" style="opacity:0.7;width:820px;height:620px;
+                        border-left:1px solid rgba(247,137,4,0.6);
+                        border-top:1px solid rgba(247,137,4,0.6);
+                        transform:rotate(30deg) skewX(-10deg);"></div>
+            <div class="dark:opacity-100" style="position:absolute;opacity:0.7;width:420px;height:310px;
+                        border:1px solid rgba(247,137,4,0.7);
+                        transform:rotate(30deg) skewX(-10deg) translate(85px,-42px);"></div>
+        </div>
 
-            {{-- Contenido top --}}
-            <div class="relative z-10">
-                <x-application-logo type="full" mode="dark" class="h-13" />
+        {{-- Anillo orbital principal --}}
+        <div aria-hidden="true" class="orbit"
+             style="width:640px;height:640px;
+                    border:1px solid rgba(247,137,4,0.12);
+                    top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+        {{-- Anillo secundario más pequeño --}}
+        <div aria-hidden="true" class="orbit"
+             style="width:380px;height:380px;
+                    border:1px solid rgba(247,137,4,0.08);
+                    top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+
+        {{-- Cruces decorativas en esquinas internas --}}
+        <div aria-hidden="true" class="corner-cross" style="top:48px; left:48px;"></div>
+        <div aria-hidden="true" class="corner-cross" style="bottom:48px; right:48px;"></div>
+        <div aria-hidden="true" class="corner-cross" style="top:48px; right:60px;"></div>
+
+        {{-- Líneas diagonales decorativas --}}
+        <div aria-hidden="true" class="diag-line"
+             style="height:180px;top:60px;right:120px;transform:rotate(45deg);"></div>
+        <div aria-hidden="true" class="diag-line"
+             style="height:120px;bottom:80px;left:80px;transform:rotate(-30deg);"></div>
+
+        {{-- Separador luminoso derecho --}}
+        <div aria-hidden="true" class="panel-divider"></div>
+
+        {{-- ── Contenido principal ── --}}
+        <div class="relative z-10 max-w-xl">
+
+            {{-- Wordmark ORVIAN --}}
+            <div class="card-rise" style="animation-delay:0.05s;">
+                <h1 class="font-etna text-[5.5rem] xl:text-[6.8rem] tracking-tighter leading-none select-none"
+                    style="color:#f78904; font-weight:900;">
+                    ORVIAN
+                </h1>
             </div>
 
-            {{-- Contenido central --}}
-            <div class="relative z-10">
-                <h2 class="text-4xl xl:text-5xl font-black text-white leading-[1.1] mb-6">
-                    Gestión educativa<br>
-                    <span style="color:#f78904;">inteligente y fluida.</span>
-                </h2>
-                <p class="text-base text-blue-100/65 leading-relaxed max-w-sm">
-                    Bienvenido al ecosistema modular diseñado para transformar la administración escolar en la República Dominicana.
-                </p>
-            </div>
+            {{-- Badge versión + frase aleatoria --}}
+            <div class="mt-6 space-y-6 card-rise" style="animation-delay:0.12s;">
 
-            {{-- Badge inferior --}}
-            <div class="relative z-10">
-                <div class="inline-flex items-center gap-4 px-5 py-3.5 rounded-2xl"
-                     style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">
-                    <div class="flex -space-x-2.5">
-                        <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-[10px] font-black text-white"
-                             style="border-color:#04275f;background:#f78904;box-shadow:0 4px 12px rgba(247,137,4,0.35);">OR</div>
-                        <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-[10px] font-black text-white"
-                             style="border-color:#04275f;background:#3b6fd4;">VI</div>
-                        <div class="w-9 h-9 rounded-full border-2 flex items-center justify-center text-[10px] font-black text-white"
-                             style="border-color:#04275f;background:#5b4ecf;">AN</div>
-                    </div>
-                    <div>
-                        <p class="text-white text-sm font-bold leading-none mb-1">ORVIAN System</p>
-                        <p class="text-blue-100/50 text-[10px] uppercase tracking-widest font-bold">Versión 0.1.0 Alpha</p>
-                    </div>
+                {{-- Badge versión --}}
+                <div class="flex items-center gap-3">
+                    <span class="font-mono text-[11px] tracking-widest uppercase px-2.5 py-1 rounded
+                                 text-gray-500 dark:text-[#79747e]
+                                 border border-gray-300 dark:border-[#cac4cf]/15
+                                 bg-white/60 dark:bg-transparent">
+                        v{{ $appVersion ?? '0.4.1' }}
+                    </span>
+                    <div class="h-px flex-1 bg-gray-200 dark:bg-[#cac4cf]/10"></div>
                 </div>
+
+                {{-- Frase aleatoria --}}
+                <p class="phrase-in font-light text-lg leading-relaxed max-w-sm
+                           text-gray-600 dark:text-[#e2e2e5]/75">
+                    {{ $frase }}
+                </p>
             </div>
         </div>
 
-        {{-- Panel derecho: Formulario --}}
-        <div class="flex-1 flex flex-col justify-between relative"
-             :class="darkMode ? 'bg-[#0d1424]' : 'bg-white'">
+        {{-- Decoración inferior: coordenadas ficticias estilo blueprint --}}
+        <div class="absolute bottom-10 left-16 xl:left-24 z-10 pointer-events-none">
+            <p class="font-mono text-[9px] tracking-widest uppercase
+                      text-gray-300 dark:text-white/10">
+                18°28'N 69°54'O — RD // EDU.NODE.01
+            </p>
+        </div>
+    </aside>
 
-            {{-- Formulario centrado --}}
-            <div class="flex-1 flex items-center justify-center px-8 sm:px-14 py-12">
+    {{-- ══════════════════════════════════════════
+         PANEL DERECHO — Formulario (slot)
+    ══════════════════════════════════════════ --}}
+    {{-- ─── PANEL DERECHO — Formulario ─── --}}
+        <div class="flex-1 flex flex-col relative bg-white dark:bg-dark-bg">
+
+            {{-- Logo visible solo en mobile --}}
+            <div class="lg:hidden flex justify-center pt-10 pb-0">
+                <span class="font-etna font-black text-5xl tracking-tighter leading-none select-none"
+                      style="color:#f78904;">ORVIAN</span>
+            </div>
+
+            {{-- Formulario: centrado verticalmente --}}
+            <div class="flex-1 flex items-center justify-center px-8 sm:px-16 py-12">
                 <div class="w-full max-w-sm">
-
-                    {{-- Logo móvil --}}
-                    <div class="lg:hidden flex justify-center mb-10">
-                        <x-application-logo type="full" mode="dynamic" class="h-10" />
-                    </div>
-
                     {{ $slot }}
                 </div>
             </div>
 
-            {{-- Footer del panel --}}
-            <div class="px-8 sm:px-14 py-6 flex flex-col sm:flex-row items-center justify-between gap-4"
-                :class="darkMode ? 'border-t border-white/5' : 'border-t border-gray-100'">
-
-                {{-- Lado Izquierdo: Enlaces Legales --}}
-                <div class="flex items-center gap-6 order-2 sm:order-1">
-                    <a href="#" class="text-[11px] font-medium transition-colors"
-                    :class="darkMode ? 'text-white/30 hover:text-white/60' : 'text-gray-400 hover:text-gray-600'">
-                        Términos y Condiciones
-                    </a>
-                    <a href="#" class="text-[11px] font-medium transition-colors"
-                    :class="darkMode ? 'text-white/30 hover:text-white/60' : 'text-gray-400 hover:text-gray-600'">
-                        Privacidad
-                    </a>
-                </div>
-
-                {{-- Lado Derecho: Acciones --}}
-                <div class="flex items-center gap-3 order-1 sm:order-2">
-                    
-                    {{-- Botón Escáner QR --}}
-                    <button @click="$dispatch('open-qr-scanner')" 
-                            type="button"
-                            title="Escanear Código QR"
-                            class="w-10 h-10 rounded-xl flex items-center justify-center transition-all border shadow-sm hover:scale-105 active:scale-95"
-                            :class="darkMode ? 'bg-[#1e3a5f] border-white/10 text-orange-400' : 'bg-white border-gray-200 text-[#f78904]'">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5zM6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" />
-                        </svg>
-                    </button>
-
-                    {{-- Toggle Modo Oscuro --}}
-                    <button @click="darkMode = !darkMode" 
-                            type="button"
-                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
-                            :class="darkMode ? 'bg-orange-500' : 'bg-gray-200'">
-                        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform flex items-center justify-center shadow-sm"
-                            :class="darkMode ? 'translate-x-6' : 'translate-x-1'">
-                            <svg x-show="!darkMode" class="w-2.5 h-2.5 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18z"/>
-                            </svg>
-                            <svg x-show="darkMode" x-cloak class="w-2.5 h-2.5 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z"/>
-                            </svg>
-                        </span>
-                    </button>
-
-                </div>
+        {{-- Badge de seguridad --}}
+        <div class="absolute bottom-8 right-8 sm:right-12 text-right hidden sm:block pointer-events-none">
+            <div class="flex items-center justify-end gap-1.5 mb-0.5
+                        text-gray-300 dark:text-white/15">
+                <x-heroicon-s-shield-check class="w-3 h-3 flex-shrink-0" />
+                <span class="font-mono text-[8.5px] uppercase tracking-widest">
+                    Creado con seguridad y privacidad en mente
+                </span>
             </div>
+            <p class="font-mono text-[7.5px] uppercase tracking-tighter text-gray-200 dark:text-white/10">
+                Tus datos están seguros con nosotros
+            </p>
         </div>
-
     </div>
 
     @livewireScripts
