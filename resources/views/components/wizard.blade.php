@@ -28,7 +28,7 @@
             <x-application-logo mode="dynamic" class="h-12 w-auto" />
             
             <div class="flex items-center gap-4">
-                <span class="text-sm font-medium text-slate-500 uppercase tracking-widest">Setup v0.2.0</span>
+                <span class="text-sm font-medium text-slate-500 uppercase tracking-widest">Setup v{{ $appVersion }}</span>
             </div>
         </header>
 

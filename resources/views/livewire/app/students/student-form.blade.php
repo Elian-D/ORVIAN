@@ -61,22 +61,21 @@
                         required 
                     />
 
-                    <x-ui.forms.input 
-                        label="Correo Electrónico" 
+                    <x-ui.forms.input
+                        label="Correo Electrónico"
                         type="email"
-                        wire:model="email" 
-                        placeholder="estudiante@orvian.com" 
-                        :error="$errors->first('email')" 
-                        required 
+                        wire:model="email"
+                        hint="{{ $isEdit ? 'Generado automáticamente. No es editable.' : 'Se genera al ingresar el documento.' }}"
+                        readonly
                     />
 
-                    <x-ui.forms.input 
-                        label="Documento" 
-                        wire:model="rnc" 
-                        placeholder="000-0000000-0" 
-                        :error="$errors->first('rnc')" 
+                    <x-ui.forms.input
+                        label="Documento"
+                        wire:model.live="rnc"
+                        placeholder="000-0000000-0"
+                        :error="$errors->first('rnc')"
                         hint="Identificación oficial"
-                        required 
+                        required
                     />
 
                     <div class="flex flex-col gap-3">

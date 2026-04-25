@@ -2,7 +2,7 @@
 <div class="w-full max-w-4xl mx-auto px-4">
 
     {{-- Dot pattern --}}
-    <div class="absolute inset-0 pointer-events-none overflow-hidden dot-pattern opacity-[0.08] text-slate-900 dark:text-white"></div>
+    <div class="fixed inset-0 pointer-events-none dot-pattern opacity-[0.08] text-slate-900 dark:text-white"></div>
 
     @php
         $hour = now()->hour;
@@ -96,24 +96,24 @@
         </div>
 
         {{-- Classroom - Basado en classroom_internal --}}
-        <div class="tile-animate" style="animation-delay: 0.30s;">
+        {{-- <div class="tile-animate" style="animation-delay: 0.30s;">
             <x-ui.app-tile
                 module="classroom"
                 title="Classroom"
                 subtitle="Virtual"
                 :active="in_array('classroom_internal', $activeModules)"
                 comingSoon="true" />
-        </div>
+        </div> --}}
 
         {{-- Horarios - Global --}}
-        <div class="tile-animate" style="animation-delay: 0.35s;">
+        {{-- <div class="tile-animate" style="animation-delay: 0.35s;">
             <x-ui.app-tile
                 module="horarios"
                 title="Horarios"
                 subtitle="Planificación"
                 :active="true"
                 comingSoon="true" />
-        </div>
+        </div> --}}
 
         {{-- Reportes - Basado en reports_advanced --}}
         <div class="tile-animate" style="animation-delay: 0.40s;">
@@ -126,14 +126,14 @@
         </div>
 
         {{-- Web - Global --}}
-        <div class="tile-animate" style="animation-delay: 0.45s;">
+        {{-- <div class="tile-animate" style="animation-delay: 0.45s;">
             <x-ui.app-tile
                 module="web"
                 title="Web"
                 subtitle="Página"
                 :active="true"
                 comingSoon="true" />
-        </div>
+        </div> --}}
 
     </div>
 

@@ -7,6 +7,100 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [0.4.1] - 2026-05-15
+
+### Added
+
+#### Identidad y Autenticación — Refactor Completo
+
+**Generación Automática de Usuarios para Estudiantes:**
+- Observer `StudentObserver@created` genera automáticamente un `User` al crear/importar un estudiante.
+- Email derivado del RNC: patrón `{rnc_limpio}@orvian.com.do` (ej: `40212345678@orvian.com.do`).
+- Usuario creado con estado `inactive` hasta habilitación por el Director.
+- Rol `Student` asignado automáticamente en scope del tenant (`school_id`).
+- Contraseña temporal: el RNC limpio (el estudiante debe cambiarla en primer login).
+- Guard contra duplicados: no crea usuario si el email ya existe.
+
+**Redirección Inteligente Post-Login:**
+- Usuarios con `school_id = null` (Owner, TechnicalSupport, Administrative) → `admin.hub`.
+- Usuarios con `school_id ≠ null` (Director, Teacher, Student) → `app.dashboard`.
+- Lógica centralizada en `AuthenticatedSessionController@store`.
+
+**Nueva Interfaz de Login — Arquitectónica:**
+- Pantalla de dos columnas: panel izquierdo con branding oscuro, panel derecho con formulario Line UI.
+- Componente `x-ui.toasts` integrado para notificaciones.
+- Soporte de tema oscuro/claro vía `x-ui.theme-init` (lectura de preferencias desde BD, sin flash).
+- Generador de frases aleatorias: 10 taglines distintos del sistema mostrados al azar en cada carga.
+- Elementos decorativos arquitectónicos: grid blueprint, puntos (dots), figura isométrica, anillos orbitales, cruces de posicionamiento, líneas diagonales.
+- Wordmark ORVIAN con fuente Etna (OTF cargada desde `public/fonts/etna-free-font.otf`).
+- Botón QR nativo con escáner HTML5 para autenticación biométrica sin formulario clásico.
+- Badge de versión global (`$appVersion`) desde variable compartida.
+
+#### Utilidad de Versión Global
+
+**Lectura y Caché de Versión:**
+- Archivo `VERSION` en raíz del proyecto contiene número de versión en texto plano (`0.4.1`).
+- `AppServiceProvider@boot()` lee el archivo con `Cache::rememberForever('orvian.app_version', ...)`.
+- Fallback automático a `'dev'` si el archivo no existe.
+- Variable global `$appVersion` compartida vía `View::share()` — disponible en todas las vistas.
+- Invalidación de caché mediante comando `php artisan cache:forget orvian.app_version` en deploy.
+
+#### Simplificación de UI
+
+**Dashboard — Ocultar Módulos Incompletos:**
+- Flag `visible: true/false` agregado a cada módulo en `config/modules.php`.
+- Módulos activos para demo: Académico, Asistencia, Configuración (`visible: true`).
+- Módulos pausados: Comunicaciones, Inventario/Facturación (`visible: false`).
+- Rutas de módulos ocultos retornan 404 si se accede directamente.
+- Filtro dinámico en controlador: `collect(config('modules'))->filter(fn($m) => $m['visible'] ?? false)`.
+
+#### Coexistencia de Interfaces de Login (Versionado v1/v2)
+
+**Separación Física de Vistas:**
+- Versión clásica respaldada: `resources/views/layouts/guest-v1.blade.php`, `resources/views/auth/login-v1.blade.php`.
+- Versión arquitectónica por defecto: `resources/views/layouts/guest.blade.php`, `resources/views/auth/login.blade.php`.
+- Nombres por defecto para v2 mantienen claridad: v2 es el presente, v1 es legado.
+
+**Enrutamiento por Cookie:**
+- `AuthenticatedSessionController@create()` lee cookie `orvian_login_version` (default `'v2'`).
+- Si `'v1'` → renderiza `auth.login-v1`, si `'v2'` → renderiza `auth.login`.
+- Cookie no requiere autenticación previa — disponible para seleccionar versión antes de login.
+
+**Sincronización de Preferencias (ProfileModal):**
+- Nueva propiedad `$loginVersion` en `ProfileModal` Livewire.
+- Cargada desde `User->preference('login_version', 'v2')` en `loadUserData()`.
+- Guardada en JSON `preferences['login_version']` en BD y como Cookie por 1 año (`60*24*365` minutos).
+- Cookie sincronizada vía `Cookie::queue()` en `savePreferences()`.
+
+**Interfaz de Preferencias:**
+- Nueva sección en modal de perfil (pestaña *Preferencias*): selector visual "Arquitectónico (Nuevo)" vs "Clásico (Legado)".
+- Botones con feedback visual: borde naranja + fondo `orvian-orange/5` cuando activo.
+- Check icon (Heroicons) cuando seleccionado.
+
+**Flujo de Sincronización:**
+1. Primera visita (sin cookie) → default v2.
+2. Usuario autenticado → accede modal perfil → pestaña Preferencias → cambia versión.
+3. Guardar → BD + Cookie (1 año).
+4. Logout y relogin → cookie enviada al navegador → `AuthenticatedSessionController` lee y renderiza vista.
+5. Cada dispositivo/navegador mantiene su preferencia independientemente.
+
+### Changed
+
+- `StudentObserver@created` ahora genera `User` automáticamente (delegado desde formularios).
+- `StudentForm` simplificado: eliminado bloque `User::create()`; email calculado reactivamente desde RNC; email readonly.
+- `StudentShow` — campo email ahora readonly en sección de credenciales.
+- `AuthenticatedSessionController@store` con redirección diferenciada según `school_id`.
+- `tailwind.config.js` con paleta `dark-bg`, `dark-card`, `dark-border` y `fontFamily.etna` para fuente institucional.
+- Todos los layouts actualizados a usar `x-ui.theme-init` (sincrónico, sin flash).
+- Dashboard: filtro dinámico de tiles visibles según `config/modules.php`.
+
+### Fixed
+- Módulos incompletos visibles en demo — ahora ocultos por defecto con flag `visible: false`.
+- Redirección post-login ambigua — ahora diferenciada por tipo de usuario (global vs tenant).
+- Falta de versión global disponible en vistas — `View::share('appVersion')` implementado con caché.
+
+---
+
 ## [0.4.0] - 2026-04-24
 
 ### Added

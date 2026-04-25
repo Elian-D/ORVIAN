@@ -2,7 +2,6 @@
 
 namespace App\Livewire\App\Students;
 
-use App\Models\User;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Academic\SchoolSection;
 use App\Services\Students\StudentService;
@@ -11,7 +10,6 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class StudentForm extends Component
@@ -36,15 +34,22 @@ class StudentForm extends Component
         return [
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email,' . ($this->student?->user_id ?? 'NULL'),
             'school_section_id' => 'required|exists:school_sections,id',
             'gender' => 'required|in:M,F',
             'date_of_birth' => 'nullable|date',
-            'rnc' => 'required|string|min:11|max:15', 
-            'photo' => 'nullable|image|max:2048', // 2MB máximo
+            'rnc' => 'required|string|min:11|max:15',
+            'photo' => 'nullable|image|max:2048',
             'blood_type' => 'nullable|string',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function updatedRnc(): void
+    {
+        if (!$this->isEdit) {
+            $clean = preg_replace('/[^0-9]/', '', $this->rnc ?? '');
+            $this->email = $clean ? $clean . '@orvian.com.do' : '';
+        }
     }
 
     public function mount(?Student $student = null)
@@ -89,22 +94,8 @@ class StudentForm extends Component
             $currentSchoolId = Auth::user()->school_id;
 
             if (!$this->isEdit) {
-                // 1. Crear Usuario
-                $password = !empty($cleanRnc) ? $cleanRnc : '123456';
-                $user = User::create([
-                    'name' => "{$this->first_name} {$this->last_name}",
-                    'email' => $this->email,
-                    'password' => Hash::make($password),
-                    'school_id' => $currentSchoolId,
-                    'status' => 'active',
-                ]);
-                
-                setPermissionsTeamId($currentSchoolId);
-                $user->assignRole('student');
-
-                // 2. Crear Estudiante usando el Servicio (Aquí se genera el QR automáticamente)
+                // Usuario creado automáticamente por StudentObserver@created desde el RNC
                 $this->student = $studentService->createStudent([
-                    'user_id' => $user->id,
                     'school_id' => $currentSchoolId,
                     'first_name' => $this->first_name,
                     'last_name' => $this->last_name,
@@ -119,10 +110,9 @@ class StudentForm extends Component
                     'is_active' => $this->is_active,
                 ]);
             } else {
-                // Actualizar usuario vinculado
+                // Actualizar nombre del usuario vinculado — email es inmutable (generado por Observer)
                 $this->student->user->update([
                     'name' => "{$this->first_name} {$this->last_name}",
-                    'email' => $this->email,
                 ]);
 
                 // Actualizar datos básicos del estudiante
