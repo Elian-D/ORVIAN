@@ -896,115 +896,18 @@ Corregir cómo se envía el mensjae como lo espera evolution api y mejorar los t
 ## Fase 4 — UI: Iframe de Chatwoot e Indicador de Estado
 **Rama:** `feature/comms-ui`
 
-### 4.1 — Vista del Centro de Mensajes (Directores)
+### 4.1 — Acceso de Usuarios a Conversaciones 
 
-```blade
-{{-- resources/views/app/conversations/index.blade.php --}}
-@extends('layouts.app-module', config('modules.conversaciones'))
+- [x] `resources/views/app/dashboard.blade.php` actualiuzar el tile de Conversaciones para que apunte a la hacia `chat.orvian.com.do`.
+- [x] `resources/views/layouts/sidebar.blade.php` agregar ruta hacia `chat.orvian.com.do`.
 
-@section('content')
-<div class="flex flex-col h-[calc(100vh-3.5rem-3rem)] -mx-4 -mb-4">
+### 4.2 — Eliminar obsoletos
 
-    <x-app.module-toolbar>
-        <x-slot:actions>
-            <span class="text-sm font-medium text-slate-500 dark:text-slate-400">
-                Centro de Mensajes
-            </span>
-        </x-slot:actions>
-        <x-slot:secondary>
-            <livewire:app.conversations.whatsapp-status-indicator />
-        </x-slot:secondary>
-    </x-app.module-toolbar>
+Se decidio simpleficar el proceso de Chatwoot y en ves de hacer un iframe con SSO para los agentes y otro para los Owner/TechnicalSupport, se redirijirá hacia `chat.orvian.com.do` para todos los usuarios que tengan acceso a conversaciones. Esto simplifica la implementación y evita confusiones sobre qué vista se debe usar. Por lo tanto, se eliminarán los siguientes archivos que ya no son necesarios:
 
-    <div class="flex-1 overflow-hidden">
-        <iframe
-            src="{{ $chatwootUrl }}"
-            class="w-full h-full border-0"
-            allow="camera; microphone"
-            title="Centro de Mensajes ORVIAN"
-        ></iframe>
-    </div>
-</div>
-@endsection
-```
+- `app/Http/Controllers/App/ConversationsController.php`
+- `app/Http/Controllers/Admin/ConversationsController.php`
 
-### 4.2 — Vista de Administración (Owner / TechnicalSupport)
-
-```blade
-{{-- resources/views/admin/conversations/index.blade.php --}}
-@extends('layouts.admin')
-
-@section('content')
-<div class="flex flex-col h-[calc(100vh-4rem)]">
-    <x-ui.page-header title="Centro de Administración — Chatwoot">
-        <x-slot:actions>
-            <x-ui.badge variant="info" :dot="true">Panel Global</x-ui.badge>
-        </x-slot:actions>
-    </x-ui.page-header>
-
-    <div class="flex-1 mt-4 rounded-xl overflow-hidden border border-slate-200 dark:border-white/[0.07]">
-        <iframe
-            src="{{ $chatwootAdminUrl }}"
-            class="w-full h-full border-0"
-            allow="camera; microphone"
-            title="Administración Chatwoot"
-        ></iframe>
-    </div>
-</div>
-@endsection
-```
-
----
-
-## Fase 5 — Rutas, Permisos y Configuración de Módulo
-**Rama:** `feature/comms-config`
-
-### 5.1 — Rutas
-
-```php
-// routes/app/conversations.php
-use App\Http\Controllers\App\ConversationsController;
-use Illuminate\Support\Facades\Route;
-
-Route::middleware(['auth', 'tenant', 'can:view conversations'])
-    ->prefix('app/conversations')
-    ->name('app.conversations.')
-    ->group(function () {
-        Route::get('/', [ConversationsController::class, 'index'])->name('index');
-    });
-```
-
-```php
-// routes/admin/conversations.php
-use App\Http\Controllers\Admin\ConversationsController as AdminConversationsController;
-
-Route::middleware(['auth', 'global-admin', 'can:admin conversations'])
-    ->prefix('admin/conversations')
-    ->name('admin.conversations.')
-    ->group(function () {
-        Route::get('/', [AdminConversationsController::class, 'index'])->name('index');
-    });
-```
-
-### 5.2 — `config/modules.php`
-
-```php
-'conversaciones' => [
-    'name'        => 'Conversaciones',
-    'icon'        => 'conversaciones',
-    'visible'     => true,    // Activado en v0.5.0
-    'moduleLinks' => [
-        ['label' => 'Centro de Mensajes', 'route' => 'app.conversations.index'],
-    ],
-],
-```
-
-### 5.3 — Nuevos Permisos y Seeders
-
-- [ ] Agregar grupo `communications` en `PermissionGroupSeeder` con `context = 'tenant'`.
-- [ ] Agregar en `PermissionSeeder`: `view conversations`, `manage conversations`, `send whatsapp notifications`.
-- [ ] Agregar `admin conversations` en `PermissionSeeder` con `context = 'global'`.
-- [ ] Actualizar `RoleAcademicSeeder`: `School Principal` → todos los permisos de `communications`; `Academic Coordinator` → `view conversations`; `Teacher` → sin permisos.
 
 ---
 
@@ -1012,51 +915,39 @@ Route::middleware(['auth', 'global-admin', 'can:admin conversations'])
 
 ### Configuración e Infraestructura
 
-- [ ] `config/communications.php` creado con todos los keys
-- [ ] `.env` actualizado con tokens de Chatwoot y Evolution (VPS)
-- [ ] Ngrok/Expose configurado para desarrollo local (webhooks entrantes)
+- [x] `config/communications.php` creado con todos los keys
+- [x] `.env` actualizado con tokens de Chatwoot y Evolution (VPS)
+- [x] Ngrok/Expose configurado para desarrollo local (webhooks entrantes)
 
-### Fase 1 — Chatwoot SSO
+### Fase 1 — Chatwoot SSO ``FASE ELIMINADA``
 
-- [ ] `app/Services/Communications/ChatwootService.php` creado y registrado como singleton
-- [ ] `app/Http/Controllers/App/ConversationsController.php` creado con generación de HMAC server-side
-- [ ] `app/Http/Controllers/Admin/ConversationsController.php` creado (acceso directo sin SSO)
-- [ ] `app/Actions/Tenant/CompleteOnboardingAction.php` modificado — inyectar `ChatwootService`, llamar `syncPrincipalToChatwoot()` al final
-- [ ] `app/Actions/Tenant/CompleteTenantOnboardingAction.php` modificado — inyectar `ChatwootService`, llamar `syncPrincipalToChatwoot()` después de asignar rol
+- [x] `app/Services/Communications/ChatwootService.php` creado y registrado como singleton 
+-  `app/Http/Controllers/App/ConversationsController.php` creado con generación de HMAC server-side `ELIMINADO`
+-  `app/Http/Controllers/Admin/ConversationsController.php` creado (acceso directo sin SSO) `ELIMINADO`
+- [x] `app/Actions/Tenant/CompleteOnboardingAction.php` modificado — inyectar `ChatwootService`, llamar `syncPrincipalToChatwoot()` al final
+- [x] `app/Actions/Tenant/CompleteTenantOnboardingAction.php` modificado — inyectar `ChatwootService`, llamar `syncPrincipalToChatwoot()` después de asignar rol
 
 ### Fase 2 — Migración y WhatsApp Service
 
-- [ ] `database/migrations/xxxx_add_tutor_fields_to_students_table.php` creado y ejecutado
-- [ ] `app/Models/Tenant/Student.php` — `$fillable` actualizado con `tutor_phone` (y `tutor_name` si aplica)
-- [ ] `StudentService` actualizado para persistir `tutor_phone`
-- [ ] Formulario de edición de estudiante con campo `tutor_phone` validado (E.164)
-- [ ] `app/Services/Communications/WhatsAppService.php` creado y registrado como singleton
-- [ ] `app/Services/Communications/WhatsAppTemplates.php` creado
+- [x] `database/migrations/xxxx_add_tutor_fields_to_students_table.php` creado y ejecutado
+- [x] `app/Models/Tenant/Student.php` — `$fillable` actualizado con `tutor_phone` (y `tutor_name` si aplica)
+- [x] `StudentService` actualizado para persistir `tutor_phone`
+- [x] Formulario de edición de estudiante con campo `tutor_phone` validado (E.164)
+- [x] `app/Services/Communications/WhatsAppService.php` creado y registrado como singleton
+- [x] `app/Services/Communications/WhatsAppTemplates.php` creado
 
 ### Fase 3 — Motor de Notificaciones
 
-- [ ] `app/Services/Communications/AttendanceAlertEvaluator.php` creado
-- [ ] `app/Jobs/Communications/SendAttendanceAlertJob.php` creado con 3 reintentos
-- [ ] `app/Console/Commands/EvaluateAttendanceAlertsCommand.php` creado
-- [ ] `routes/console.php` — comando programado a las 16:00 con `withoutOverlapping()`
+- [x] `app/Services/Communications/AttendanceAlertEvaluator.php` creado
+- [x] `app/Jobs/Communications/SendAttendanceAlertJob.php` creado con 3 reintentos
+- [x] `app/Console/Commands/EvaluateAttendanceAlertsCommand.php` creado
+- [x] `routes/console.php` — comando programado a las 16:00 con `withoutOverlapping()`
 
 ### Fase 4 — UI
 
-- [ ] `resources/views/app/conversations/index.blade.php` creado con Iframe SSO
-- [ ] `resources/views/admin/conversations/index.blade.php` creado con Iframe admin
-- [ ] `app/Livewire/App/Conversations/WhatsappStatusIndicator.php` creado
-- [ ] `resources/views/livewire/app/conversations/whatsapp-status-indicator.blade.php` creado
-- [ ] SVG `conversaciones.svg` añadido a `public/assets/icons/modules/`
-- [ ] Tile `conversaciones` con `visible: true` en `config/modules.php`
+- [x] `resources/views/app/dashboard.blade.php` actualiuzar el tile de Conversaciones para que apunte a la hacia `chat.orvian.com.do`.
+- [x] `resources/views/layouts/sidebar.blade.php` agregar ruta hacia `chat.orvian.com.do`.
 
-### Fase 5 — Rutas y Permisos
-
-- [ ] `routes/app/conversations.php` creado
-- [ ] `routes/admin/conversations.php` creado
-- [ ] Grupo `communications` en `PermissionGroupSeeder`
-- [ ] Permisos de conversaciones en `PermissionSeeder`
-- [ ] `RoleAcademicSeeder` actualizado con permisos de `communications`
-- [ ] `AppServiceProvider` — singletons de `ChatwootService` y `WhatsAppService` registrados
 
 ---
 
@@ -1077,15 +968,11 @@ Route::middleware(['auth', 'global-admin', 'can:admin conversations'])
 | `app/Jobs/Communications/SendAttendanceAlertJob.php` | Creación | 3.2 |
 | `app/Console/Commands/EvaluateAttendanceAlertsCommand.php` | Creación | 3.3 |
 | `routes/console.php` | Modificación — programar comando diario | 3.3 |
-| `resources/views/app/conversations/index.blade.php` | Creación — Iframe con SSO | 4.1 |
-| `resources/views/admin/conversations/index.blade.php` | Creación — Iframe admin | 4.2 |
+| `resources/views/app/dashboard.blade.php` | Modificación — actualizar tile de Conversaciones | 4.1 |
+| `resources/views/layouts/sidebar.blade.php` | Modificación — actualizar link de Conversaciones | 4.1 |
+| `app/Livewire/App/Students/StudentForm.php` | Modificación — validación de `tutor_phone` | 2.1 |
+| `resources/views/livewire/app/students/student-form.blade.php` | Modificación — campo `tutor_phone` | 2.1 |
 | `config/communications.php` | Creación | Conectividad |
-| `config/modules.php` | Modificación — `conversaciones` con `visible: true` | 5.2 |
-| `database/seeders/PermissionGroupSeeder.php` | Modificación — grupo `communications` | 5.3 |
-| `database/seeders/PermissionSeeder.php` | Modificación — permisos de conversaciones | 5.3 |
-| `database/seeders/RoleAcademicSeeder.php` | Modificación — asignar permisos de communications | 5.3 |
-| `routes/app/conversations.php` | Creación | 5.1 |
-| `routes/admin/conversations.php` | Creación | 5.1 |
 | `app/Providers/AppServiceProvider.php` | Modificación — singletons de servicios | 1.1, 2.2 |
 | `.env` | Modificación — tokens de Chatwoot y Evolution | Conectividad |
 
