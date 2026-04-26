@@ -62,6 +62,11 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('viewPulse', fn (User $user) => $user->hasRole('Owner'));
 
+        // Solo Owner y TechnicalSupport pueden ver los logs
+        Gate::define('viewLogViewer', function (User $user) {
+            return $user->hasAnyRole(['Owner', 'TechnicalSupport']);
+        });
+
         // --- Versión de la aplicación ---
         // Lee el archivo VERSION como fallback seguro (funciona en build time sin Redis)
         $version = file_exists(base_path('VERSION'))
