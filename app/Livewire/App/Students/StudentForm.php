@@ -22,8 +22,9 @@ class StudentForm extends Component
     // Propiedades del Formulario
     public $first_name, $last_name, $email, $rnc, $gender = 'M';
     public $date_of_birth, $address, $school_section_id;
+    public $tutor_name, $tutor_phone;
     public $blood_type, $allergies, $medical_notes;
-    public $photo; 
+    public $photo;
     public $is_active = true;
 
     // Inyectamos el servicio mediante el método save o mount si fuera necesario, 
@@ -39,6 +40,8 @@ class StudentForm extends Component
             'date_of_birth' => 'nullable|date',
             'rnc' => 'required|string|min:11|max:15',
             'photo' => 'nullable|image|max:2048',
+            'tutor_name' => 'nullable|string|max:120',
+            'tutor_phone' => ['nullable', 'string', 'regex:/^\+[1-9]\d{7,14}$/'],
             'blood_type' => 'nullable|string',
             'is_active' => 'boolean',
         ];
@@ -66,6 +69,8 @@ class StudentForm extends Component
             $this->date_of_birth = $student->date_of_birth?->format('Y-m-d');
             $this->address = $student->address;
             $this->school_section_id = $student->school_section_id;
+            $this->tutor_name = $student->tutor_name;
+            $this->tutor_phone = $student->tutor_phone;
             $this->blood_type = $student->blood_type;
             $this->allergies = $student->allergies;
             $this->medical_notes = $student->medical_notes;
@@ -104,6 +109,8 @@ class StudentForm extends Component
                     'date_of_birth' => $this->date_of_birth,
                     'address' => $this->address,
                     'school_section_id' => $this->school_section_id,
+                    'tutor_name' => $this->tutor_name ?: null,
+                    'tutor_phone' => $this->tutor_phone ?: null,
                     'blood_type' => $this->blood_type,
                     'allergies' => $this->allergies,
                     'medical_notes' => $this->medical_notes,
@@ -124,6 +131,8 @@ class StudentForm extends Component
                     'date_of_birth' => $this->date_of_birth,
                     'address' => $this->address,
                     'school_section_id' => $this->school_section_id,
+                    'tutor_name' => $this->tutor_name ?: null,
+                    'tutor_phone' => $this->tutor_phone ?: null,
                     'blood_type' => $this->blood_type,
                     'allergies' => $this->allergies,
                     'medical_notes' => $this->medical_notes,

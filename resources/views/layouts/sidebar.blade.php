@@ -5,6 +5,15 @@
 
     <x-sidebar.title>Operativa</x-sidebar.title>
     <x-sidebar.group>
+        {{-- Centro de Mensajes (Chatwoot Externo) --}}
+        <x-sidebar.item 
+            href="https://chat.orvian.com.do" 
+            icon="heroicon-s-chat-bubble-left-right" 
+            target="_blank"
+        >
+            Conversaciones
+        </x-sidebar.item>
+
         @can('schools.view')
         <x-sidebar.dropdown id="escuelas" icon="heroicon-s-academic-cap" label="Gestión Escolar" :activeRoutes="['admin.schools.*']">
             <x-sidebar.subitem href="{{ route('admin.schools.index') }}" :active="request()->routeIs('admin.schools.index')">Listado de Escuelas</x-sidebar.subitem>

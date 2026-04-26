@@ -5,13 +5,16 @@ namespace App\Actions\Tenant;
 use App\Events\Tenant\SchoolConfigured;
 use App\Models\Tenant\School;
 use App\Models\User;
+use App\Services\Communications\ChatwootService;
 use App\Services\School\SchoolRoleService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CompleteTenantOnboardingAction
 {
     public function __construct(
         protected SchoolRoleService $roleService,
+        protected ChatwootService $chatwootService,
     ) {}
 
     /**
@@ -88,6 +91,11 @@ class CompleteTenantOnboardingAction
 
             // 7. Disparar Evento
             event(new SchoolConfigured($school, $wizardData['academic']));
+
+            // Fuera de la conexión de BD, después del commit
+            DB::afterCommit(function () use ($principalUser) {
+                $this->chatwootService->syncUserAsAgent($principalUser);
+            });
 
             return $school;
         });

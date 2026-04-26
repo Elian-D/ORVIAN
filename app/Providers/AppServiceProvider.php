@@ -25,12 +25,20 @@ use App\Models\Tenant\Teacher;
 use App\Observers\Tenant\AttendanceExcuseObserver;
 use App\Observers\Tenant\StudentObserver;
 use App\Observers\Tenant\TeacherObserver;
+use App\Services\Communications\ChatwootService;
+use App\Services\Communications\WhatsAppService;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->singleton(ChatwootService::class, function ($app) {
+            return new ChatwootService();
+        });
+
+        $this->app->singleton(WhatsAppService::class, function ($app) {
+            return new WhatsAppService();
+        });
     }
 
     public function boot(): void
@@ -63,10 +71,17 @@ class AppServiceProvider extends ServiceProvider
             return $user->hasRole('Owner');
         });
 
-        $version = Cache::rememberForever('orvian.app_version', function () {
-            $path = base_path('VERSION');
-            return file_exists($path) ? trim(file_get_contents($path)) : 'dev';
-        });
+        if (!app()->runningInConsole() || app()->environment('production')) {
+            $version = Cache::rememberForever('orvian.app_version', function () {
+                $path = base_path('VERSION');
+                return file_exists($path) ? trim(file_get_contents($path)) : 'dev';
+            });
+        } else {
+            $version = file_exists(base_path('VERSION')) 
+                ? trim(file_get_contents(base_path('VERSION'))) 
+                : 'dev';
+        }
+        
         View::share('appVersion', $version);
 
 /*         // Registro de los listeners del Onboarding
