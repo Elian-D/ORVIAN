@@ -4,13 +4,16 @@ namespace App\Actions\Tenant;
 
 use App\Models\Tenant\School;
 use App\Events\Tenant\SchoolConfigured;
+use App\Services\Communications\ChatwootService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CompleteOnboardingAction
 {
     public function __construct(
         protected CreateSchoolPrincipalAction $createPrincipal,
         protected \App\Services\School\SchoolRoleService $roleService, 
+        protected ChatwootService $chatwootService,
     ) {}
 
     /**
@@ -73,12 +76,20 @@ class CompleteOnboardingAction
             // 5. CREAR DIRECTOR DESPUÉS.
             // Ahora, cuando CreateSchoolPrincipalAction haga ->assignRole('School Principal'),
             // Spatie encontrará el rol que acabamos de crear en el paso 3.
-            $this->createPrincipal->execute($wizardData['principal'], $school->id);
+            $principal = $this->createPrincipal->execute(
+                $wizardData['principal'], 
+                $school->id
+            );
 
             // 6. Resetear ID de equipo al final de todo para seguridad
             setPermissionsTeamId(null);
 
             event(new SchoolConfigured($school, $wizardData['academic']));
+
+            // afterCommit aquí — esta es la transacción real que MySQL ve
+            DB::afterCommit(function () use ($principal) {
+                $this->chatwootService->syncUserAsAgent($principal);
+            });
 
             return $school;
         });

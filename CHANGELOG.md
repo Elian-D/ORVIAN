@@ -7,6 +7,42 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [0.5.0] - 2026-04-25
+
+### Added
+
+#### Módulo de Comunicaciones
+- `config/communications.php` — configuración centralizada para Chatwoot y Evolution API (base URL, tokens, umbrales de notificación).
+- `ChatwootService` — cliente HTTP singleton hacia el VPS de Chatwoot: creación de agentes, generación de `identifier_hash` HMAC-SHA256 para SSO, conteo de conversaciones abiertas y método `syncUserAsAgent()`.
+- Sincronización automática del Director con Chatwoot al completar el onboarding: `CompleteOnboardingAction` y `CompleteTenantOnboardingAction` invocan `ChatwootService::syncUserAsAgent()` mediante `DB::afterCommit`, garantizando que el agente se registra solo tras el commit exitoso de la transacción.
+- `CreateSchoolPrincipalAction` refactorizado: eliminada la transacción interna propia; la sincronización con Chatwoot se delega a la Action padre para evitar anidamiento de transacciones.
+- Acceso al Centro de Mensajes desde el panel app — redirección directa a `chat.orvian.com.do` con parámetros SSO generados server-side (email + `identifier_hash`). No se usa Iframe embebido.
+- `WhatsAppService` — cliente HTTP singleton hacia Evolution API en VPS. ORVIAN actúa exclusivamente como emisor; no procesa respuestas entrantes.
+- `WhatsAppTemplates` — plantillas estáticas para alertas de ausencia y tardanza con formato WhatsApp (`*negrita*`, `_cursiva_`).
+- `AttendanceAlertEvaluator` — evalúa umbrales mensuales de ausencias y tardanzas por estudiante. Despacha `SendAttendanceAlertJob` con protección anti-spam por caché semanal (`alert_{tipo}_{student_id}_{weekOfYear}`, TTL 7 días).
+- `SendAttendanceAlertJob` — Job asíncrono con 3 reintentos y backoff de 60 segundos. Llama a `WhatsAppService::sendTextMessage()` con la plantilla correspondiente.
+- Comando `orvian:evaluate-attendance-alerts` con opción `--school` para evaluar un centro específico o todos. Programado diariamente a las 16:00 con `withoutOverlapping()` en `routes/console.php`.
+- Migración `add_tutor_fields_to_students_table`: campo `tutor_phone` (string 20, nullable, formato E.164) en tabla `students`. `tutor_name` agregado con guardia `Schema::hasColumn` para compatibilidad con v0.4.0.
+- `$fillable` del modelo `Student` actualizado con `tutor_phone`.
+- Campo `tutor_phone` en formulario de edición de estudiante con validación E.164.
+- Tile `conversaciones` activado con `visible: true` en `config/modules.php`.
+- Singletons de `ChatwootService` y `WhatsAppService` registrados en `AppServiceProvider`.
+
+### Changed
+
+- `CompleteOnboardingAction` — inyecta `ChatwootService`; la sincronización Chatwoot se ejecuta vía `DB::afterCommit` en lugar de dentro del closure de transacción.
+- `CompleteTenantOnboardingAction` — inyecta `ChatwootService`; mismo patrón `DB::afterCommit` para la sincronización.
+- `CreateSchoolPrincipalAction` — eliminada transacción `DB::transaction` propia; ahora opera dentro de la transacción padre sin anidamiento.
+- Acceso a conversaciones simplificado: eliminados `ConversationsController` (app y admin) basados en Iframe; el acceso se resuelve mediante redirección directa al dominio externo de Chatwoot con parámetros SSO en query string.
+
+### Fixed
+
+- `DB::afterCommit` en transacción anidada no disparaba el callback — resuelto eliminando la transacción interna de `CreateSchoolPrincipalAction` para que `afterCommit` opere sobre la transacción real (la de la Action padre).
+- Email corrupto con sufijo numérico en agentes de prueba provocaba rechazo silencioso en Chatwoot sin log de error — agregado log explícito del status y body de la respuesta en `createAgent`.
+
+---
+
+
 ## [0.4.1] - 2026-05-15
 
 ### Added

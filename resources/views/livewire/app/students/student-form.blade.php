@@ -95,6 +95,37 @@
                 </div>
             </section>
 
+            {{-- Card: Información del Tutor --}}
+            <section class="bg-white dark:bg-dark-card rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 dark:border-dark-border">
+                <div class="flex items-center gap-3 mb-8 border-b border-slate-50 dark:border-dark-border pb-4">
+                    <div class="p-2 bg-orvian-orange/10 text-orvian-orange rounded-lg">
+                        <x-heroicon-s-phone class="w-6 h-6" />
+                    </div>
+                    <h3 class="font-bold uppercase text-sm tracking-widest text-slate-700 dark:text-slate-300">Información del Tutor</h3>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <x-ui.forms.input
+                        label="Nombre del Tutor"
+                        wire:model="tutor_name"
+                        placeholder="Ej. María García"
+                        :error="$errors->first('tutor_name')"
+                        hint="Nombre completo del responsable del estudiante"
+                        iconLeft="heroicon-o-user"
+                    />
+
+                    <x-ui.forms.input
+                        label="Teléfono WhatsApp del Tutor"
+                        type="tel"
+                        wire:model="tutor_phone"
+                        placeholder="+18091234567"
+                        :error="$errors->first('tutor_phone')"
+                        hint="Formato internacional E.164. Ej: +18091234567"
+                        iconLeft="heroicon-o-device-phone-mobile"
+                    />
+                </div>
+            </section>
+
             {{-- Card: Información Médica --}}
             <section class="bg-white dark:bg-dark-card rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 dark:border-dark-border">
                 <div class="flex items-center gap-3 mb-8 border-b border-slate-50 dark:border-dark-border pb-4 text-red-500">
