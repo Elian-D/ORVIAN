@@ -65,14 +65,15 @@
                 :active="in_array('attendance_qr', $activeModules)" />
         </div>
 
-        {{-- Conversaciones - Global / Chat --}}
+        {{-- Conversaciones - Ahora envía fuera de Orvian --}}
         <div class="tile-animate" style="animation-delay: 0.15s;">
             <x-ui.app-tile
                 module="conversaciones"
-                title="Conversaciones"
-                subtitle="Chat"
-                :active="true"
-                comingSoon="true" />
+                title="Mensajería"
+                subtitle="Chatwoot"
+                {{-- Aquí la URL de tu VPS --}}
+                url="https://chat.orvian.com.do" 
+                :comingSoon="false" />
         </div>
 
         {{-- Académico - Basado en academic_grades --}}
