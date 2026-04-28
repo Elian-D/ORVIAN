@@ -34,7 +34,7 @@
         {{-- 2. TABLA --}}
         <x-data-table.base-table
             :items="$teachers"
-            :definition="\App\Tables\App\TeacherTableConfig::class"
+            :definition="\App\Tables\App\Academic\TeacherTableConfig::class"
             :visibleColumns="$visibleColumns"
             :activeChips="$this->getActiveChips()"
             :hasFilters="count(array_filter($filters)) > 0"

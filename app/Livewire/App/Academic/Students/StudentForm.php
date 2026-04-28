@@ -177,6 +177,6 @@ class StudentForm extends Component
             'sections' => $sections,
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return $view->layout('layouts.app-module', config('modules.academico'));
     }
 }

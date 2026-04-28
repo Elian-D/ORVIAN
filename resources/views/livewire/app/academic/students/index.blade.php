@@ -82,7 +82,7 @@
     {{-- 3. TABLA BASE --}}
     <x-data-table.base-table 
         :items="$students" 
-        :definition="\App\Tables\App\StudentTableConfig::class"
+        :definition="\App\Tables\App\Academic\StudentTableConfig::class"
         :visibleColumns="$visibleColumns"
         :activeChips="$this->getActiveChips()"
         :hasFilters="count(array_filter($filters)) > 0">
