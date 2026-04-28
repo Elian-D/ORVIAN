@@ -6,7 +6,7 @@ use App\Imports\RawStudentImport;
 use App\Models\Tenant\Academic\SchoolSection;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\StudentImportRecord;
-use App\Services\Students\StudentService;
+use App\Services\Academic\Students\StudentService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;

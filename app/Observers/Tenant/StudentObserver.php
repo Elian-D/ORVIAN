@@ -4,7 +4,7 @@ namespace App\Observers\Tenant;
 
 use App\Models\Tenant\Student;
 use App\Models\User;
-use App\Services\Students\StudentService;
+use App\Services\Academic\Students\StudentService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
