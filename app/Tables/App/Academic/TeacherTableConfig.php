@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Tables\App;
+namespace App\Tables\App\Academic;
 
 use App\Tables\Contracts\TableConfig;
 use App\Tables\Concerns\HasResponsiveColumns;
@@ -10,7 +10,7 @@ class TeacherTableConfig implements TableConfig
     use HasResponsiveColumns;
 
     /**
-     * Catálogo completo de columnas disponibles para el módulo de estudiantes.
+     * Catálogo completo de columnas disponibles para el módulo de docentes.
 
      */
     public static function allColumns(): array

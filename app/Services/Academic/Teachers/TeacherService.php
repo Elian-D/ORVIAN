@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Teachers;
+namespace App\Services\Academic\Teachers;
 
 use App\Models\Tenant\Teacher;
 use Carbon\Carbon;

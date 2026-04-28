@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filters\App\Students;
+namespace App\Filters\App\Academic\Students;
 
 use Illuminate\Database\Eloquent\Builder;
 use App\Filters\Contracts\FilterInterface;
 
-class SectionFilter implements FilterInterface
+class HasPhotoFilter implements FilterInterface
 {
     public function apply(Builder $query, mixed $value): Builder
     {
-        return $query->where('school_section_id', $value);
+        return $value ? $query->whereNotNull('photo_path') : $query;
     }
 }

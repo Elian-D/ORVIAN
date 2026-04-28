@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filters\App\Teachers;
+namespace App\Filters\App\Academic\Teachers;
 
 use App\Filters\Base\QueryFilter;
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filters\App\Students;
+namespace App\Filters\App\Academic\Students;
 
 use Illuminate\Database\Eloquent\Builder;
 use App\Filters\Contracts\FilterInterface;

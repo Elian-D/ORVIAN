@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Tables\App;
+namespace App\Tables\App\Academic;
 
 use App\Tables\Contracts\TableConfig;
 use App\Tables\Concerns\HasResponsiveColumns;
