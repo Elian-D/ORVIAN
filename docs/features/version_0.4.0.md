@@ -324,7 +324,7 @@
 
 - [x] **Crear `app/Services/Students/StudentService.php`:**
   ```php
-  namespace App\Services\Students;
+  namespace App\Services\Academic\Students;
 
   use App\Models\Tenant\Student;
   use Illuminate\Http\UploadedFile;
@@ -403,7 +403,7 @@
 
 - [x] **Crear `app/Services/Teachers/TeacherService.php`:**
   ```php
-  namespace App\Services\Teachers;
+  namespace App\Services\Academic\Teachers;
 
   use App\Models\Tenant\Teacher;
   use Illuminate\Http\UploadedFile;
@@ -481,7 +481,7 @@
   namespace App\Observers\Tenant;
 
   use App\Models\Tenant\Student;
-  use App\Services\Students\StudentService;
+  use App\Services\Academic\Students\StudentService;
   use Illuminate\Support\Facades\Log;
   use Illuminate\Support\Facades\Storage;
 
@@ -520,7 +520,7 @@
   namespace App\Observers\Tenant;
 
   use App\Models\Tenant\Teacher;
-  use App\Services\Teachers\TeacherService;
+  use App\Services\Academic\Teachers\TeacherService;
   use Illuminate\Support\Facades\Log;
   use Illuminate\Support\Facades\Storage;
 
@@ -5199,15 +5199,15 @@ class ProfileModal extends Component
 
 ### 7.5.2 — Gestión de Impresión Masiva de Carnets
 
-- [x] **Crear componente Livewire `App\Livewire\App\Students\StudentPrintManager.php`:**
+- [x] **Crear componente Livewire `App\Livewire\App\Academic\Students\StudentPrintManager.php`:**
   ```php
-  namespace App\Livewire\App\Students;
+  namespace App\Livewire\App\Academic\Students;
 
   use App\Models\Tenant\Student;
   use App\Models\Tenant\SchoolSection;
   use App\Models\Tenant\SchoolShift;
   use App\Models\Tenant\Academic\Grade;
-  use App\Filters\App\Students\StudentFilters;
+  use App\Filters\App\Academic\Students\StudentFilters;
   use Livewire\Component;
   use Livewire\WithPagination;
   use Livewire\Attributes\Layout;
@@ -5380,7 +5380,7 @@ class ProfileModal extends Component
       {
           $students = $this->getFilteredStudents()->paginate($this->perPage);
 
-          return view('livewire.app.students.student-print-manager', [
+          return view('livewire.app.academic.students.student-print-manager', [
               'students' => $students,
               'totalSelected' => count($this->selectedStudents),
           ]);
@@ -5451,7 +5451,7 @@ class ProfileModal extends Component
 
 - [x] **Actualizar `routes/app/students.php` (o crear si no existe):**
   ```php
-  use App\Livewire\App\Students\StudentPrintManager;
+  use App\Livewire\App\Academic\Students\StudentPrintManager;
   use App\Http\Controllers\App\Students\StudentPrintController;
 
   Route::middleware(['can:students.view'])->group(function () {
@@ -5530,10 +5530,10 @@ class ProfileModal extends Component
   ```php
   <?php
 
-  use App\Livewire\App\Teachers\TeacherIndex;
-  use App\Livewire\App\Teachers\TeacherShow;
-  use App\Livewire\App\Teachers\TeacherForm;
-  use App\Livewire\App\Teachers\TeacherAssignments;
+  use App\Livewire\App\Academic\Teachers\TeacherIndex;
+  use App\Livewire\App\Academic\Teachers\TeacherShow;
+  use App\Livewire\App\Academic\Teachers\TeacherForm;
+  use App\Livewire\App\Academic\Teachers\TeacherAssignments;
   use Illuminate\Support\Facades\Route;
 
   /*
@@ -5613,7 +5613,7 @@ Siguiendo el mismo pipeline de `app/Filters/App/Students/`:
 
 - [x] **Crear `app/Livewire/App/Teachers/TeacherShow.php`:**
   ```php
-  namespace App\Livewire\App\Teachers;
+  namespace App\Livewire\App\Academic\Teachers;
 
   use App\Models\Tenant\Teacher;
   use Livewire\Component;
@@ -5633,7 +5633,7 @@ Siguiendo el mismo pipeline de `app/Filters/App/Students/`:
 
       public function render()
       {
-          return view('livewire.app.teachers.teacher-show')
+          return view('livewire.app.academic.teachers.teacher-show')
               ->layout('layouts.app-module', config('modules.configuracion'));
       }
   }
@@ -5654,7 +5654,7 @@ Siguiendo el mismo pipeline de `app/Filters/App/Students/`:
 
 - [x] **Actualizar `app/Services/Teachers/TeacherAssignmentService.php`:**
   ```php
-  namespace App\Services\Teachers;
+  namespace App\Services\Academic\Teachers;
 
   use App\Models\Tenant\Academic\AcademicYear;
   use App\Models\Tenant\Academic\Subject;
@@ -5725,12 +5725,12 @@ Siguiendo el mismo pipeline de `app/Filters/App/Students/`:
 
 - [x] **Crear `app/Livewire/App/Teachers/TeacherAssignments.php`:**
   ```php
-  namespace App\Livewire\App\Teachers;
+  namespace App\Livewire\App\Academic\Teachers;
 
   use App\Models\Tenant\Academic\SchoolSection;
   use App\Models\Tenant\Academic\TeacherSubjectSection;
   use App\Models\Tenant\Teacher;
-  use App\Services\Teachers\TeacherAssignmentService;
+  use App\Services\Academic\Teachers\TeacherAssignmentService;
   use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
   use Livewire\Attributes\Computed;
   use Livewire\Component;
@@ -5820,7 +5820,7 @@ Siguiendo el mismo pipeline de `app/Filters/App/Students/`:
 
       public function render()
       {
-          return view('livewire.app.teachers.teacher-assignments')
+          return view('livewire.app.academic.teachers.teacher-assignments')
               ->layout('layouts.app-module', config('modules.configuracion'));
       }
   }
