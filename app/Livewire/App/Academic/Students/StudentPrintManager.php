@@ -148,6 +148,6 @@ class StudentPrintManager extends Component
             'totalSelected' => count($this->selectedStudents),
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return $view->layout('layouts.app-module', config('modules.academico'));
     }
 }

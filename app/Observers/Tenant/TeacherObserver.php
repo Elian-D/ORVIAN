@@ -3,7 +3,7 @@
 namespace App\Observers\Tenant;
 
 use App\Models\Tenant\Teacher;
-use App\Services\Teachers\TeacherService;
+use App\Services\Academic\Teachers\TeacherService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 

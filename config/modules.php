@@ -51,8 +51,8 @@ return [
         'module'      => 'Académico',
         'moduleIcon'  => 'academico',
         'moduleLinks' => [
-            ['label' => 'Estudiantes', 'route' => 'app.academic.students'],
-            ['label' => 'Maestros',  'route' => 'app.academic.teachers'], 
+            ['label' => 'Estudiantes', 'route' => 'app.academic.students.index'],
+            ['label' => 'Maestros',  'route' => 'app.academic.teachers.index'], 
         ],
     ],
 

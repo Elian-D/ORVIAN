@@ -173,7 +173,7 @@ class StudentIndex extends DataTable
             'sections' => $sections,
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return $view->layout('layouts.app-module', config('modules.academico'));
     }
 
     protected function formatFilterValue(string $key, mixed $value): string

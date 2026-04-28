@@ -2,16 +2,16 @@
 
 use App\Http\Controllers\App\Students\StudentPrintController;
 use Illuminate\Support\Facades\Route;
-use App\Livewire\App\Students\StudentIndex;
-use App\Livewire\App\Students\StudentShow;
-use App\Livewire\App\Students\StudentForm;
-use App\Livewire\App\Students\StudentPrintManager;
-use App\Livewire\App\Students\StudentImportWizard;
+use App\Livewire\App\Academic\Students\StudentIndex;
+use App\Livewire\App\Academic\Students\StudentShow;
+use App\Livewire\App\Academic\Students\StudentForm;
+use App\Livewire\App\Academic\Students\StudentPrintManager;
+use App\Livewire\App\Academic\Students\StudentImportWizard;
 
-use App\Livewire\App\Teachers\TeacherIndex;
-use App\Livewire\App\Teachers\TeacherShow;
-use App\Livewire\App\Teachers\TeacherForm;
-use App\Livewire\App\Teachers\TeacherAssignments;
+use App\Livewire\App\Academic\Teachers\TeacherIndex;
+use App\Livewire\App\Academic\Teachers\TeacherShow;
+use App\Livewire\App\Academic\Teachers\TeacherForm;
+use App\Livewire\App\Academic\Teachers\TeacherAssignments;
 
 /*
 |--------------------------------------------------------------------------
