@@ -49,18 +49,6 @@
 
 Mover las entidades de dominio académico a un namespace explícito (`App\Models\Tenant\Academic`) para mejorar la legibilidad del codebase, facilitar el onboarding de nuevos desarrolladores y establecer una separación clara entre modelos de infraestructura y modelos del dominio educativo.
 
-### 1.1 — Inventario de Entidades a Migrar
-
-| Archivo Actual | Destino | Impacto |
-| :--- | :--- | :--- |
-| `App\Models\Tenant\Student` | `App\Models\Tenant\Academic\Student` | Alto — usado en 30+ archivos |
-| `App\Models\Tenant\Teacher` | `App\Models\Tenant\Academic\Teacher` | Alto — usado en 15+ archivos |
-| `App\Observers\Tenant\StudentObserver` | `App\Observers\Tenant\Academic\StudentObserver` | Medio |
-| `App\Observers\Tenant\TeacherObserver` | `App\Observers\Tenant\Academic\TeacherObserver` | Medio |
-| `Database\Factories\Tenant\StudentFactory` | `Database\Factories\Tenant\Academic\StudentFactory` | Bajo |
-| `Database\Factories\Tenant\TeacherFactory` | `Database\Factories\Tenant\Academic\TeacherFactory` | Bajo |
-
-> **Nota:** Los modelos `Subject`, `TeacherSubjectSection`, `SchoolSection`, `SchoolShift`, `AcademicYear`, `Level`, `Grade` ya están en `App\Models\Tenant\Academic` desde v0.4.0. Esta fase solo consolida `Student` y `Teacher` al mismo namespace.
 
 ### 1.2 — Estrategia de Migración (Sin Romper Dependencias)
 
@@ -91,173 +79,180 @@ namespace App\Models\Tenant\Academic;  // ← Cambio clave
 // ... resto igual
 ```
 
-**Paso C — Agregar aliases de backward-compatibility en `AppServiceProvider`:**
-
-Este es el paso crítico. Los aliases permiten que el código existente siga funcionando mientras el refactor se propaga por el codebase. Eliminamos los aliases solo cuando todos los `use` han sido actualizados.
-
-```php
-// app/Providers/AppServiceProvider.php
-
-use App\Models\Tenant\Academic\Student as AcademicStudent;
-use App\Models\Tenant\Academic\Teacher as AcademicTeacher;
-
-public function register(): void
-{
-    // Backward-compatibility aliases — eliminar al completar el Find & Replace
-    // Permite que código legado con el namespace antiguo siga funcionando
-    // durante la transición sin errores fatales.
-    class_alias(AcademicStudent::class, 'App\Models\Tenant\Student');
-    class_alias(AcademicTeacher::class, 'App\Models\Tenant\Teacher');
-}
-```
-
-**Paso D — Find & Replace global con confirmación por archivo:**
-
-```bash
-# Usando git grep para inventariar todos los archivos afectados ANTES de tocarlos
-git grep -rl "App\\Models\\Tenant\\Student" --include="*.php" > /tmp/student_refs.txt
-git grep -rl "App\\Models\\Tenant\\Teacher" --include="*.php" > /tmp/teacher_refs.txt
-
-wc -l /tmp/student_refs.txt   # Verificar cantidad antes de proceder
-wc -l /tmp/teacher_refs.txt
-```
-
-```bash
-# Reemplazo global (macOS/Linux)
-find app database routes -name "*.php" -exec sed -i \
-  's/App\\Models\\Tenant\\Student/App\\Models\\Tenant\\Academic\\Student/g' {} \;
-
-find app database routes -name "*.php" -exec sed -i \
-  's/App\\Models\\Tenant\\Teacher/App\\Models\\Tenant\\Academic\\Teacher/g' {} \;
-
-# También actualizar en archivos Blade (uso de ::class en @php)
-find resources -name "*.blade.php" -exec sed -i \
-  's/App\\Models\\Tenant\\Student/App\\Models\\Tenant\\Academic\\Student/g' {} \;
-```
-
-```bash
-# Verificar que no quedaron referencias antiguas
-git grep "App\Models\Tenant\Student[^A-Za-z]" --include="*.php"
-git grep "App\Models\Tenant\Teacher[^A-Za-z]" --include="*.php"
-# Resultado esperado: 0 líneas
-```
-
-**Paso E — Actualizar Observers y Factories:**
-
-```php
-// app/Observers/Tenant/Academic/StudentObserver.php
-namespace App\Observers\Tenant\Academic;
-
-use App\Models\Tenant\Academic\Student;
-// ... resto igual
-
-// app/Observers/Tenant/Academic/TeacherObserver.php
-namespace App\Observers\Tenant\Academic;
-
-use App\Models\Tenant\Academic\Teacher;
-// ... resto igual
-```
-
-```php
-// app/Providers/AppServiceProvider.php — actualizar registros de Observers
-
-use App\Models\Tenant\Academic\Student;
-use App\Models\Tenant\Academic\Teacher;
-use App\Observers\Tenant\Academic\StudentObserver;
-use App\Observers\Tenant\Academic\TeacherObserver;
-
-public function boot(): void
-{
-    Student::observe(StudentObserver::class);
-    Teacher::observe(TeacherObserver::class);
-    // ... resto de observers
-}
-```
-
-**Paso F — Actualizar `$useFactory` en los modelos (si aplica) y eliminar aliases:**
-
-```php
-// app/Models/Tenant/Academic/Student.php
-use HasFactory;
-
-protected static function newFactory()
-{
-    return \Database\Factories\Tenant\Academic\StudentFactory::new();
-}
-```
-
-Una vez que todos los `use` han sido actualizados y las pruebas pasan, eliminar los `class_alias` del `AppServiceProvider`.
 
 ### 1.3 — Checklist de Completitud — Fase 1
 
-- [ ] Directorio `app/Models/Tenant/Academic/` contiene `Student.php` y `Teacher.php` con namespace correcto
-- [ ] Directorio `app/Observers/Tenant/Academic/` contiene observers actualizados
-- [ ] Directorio `database/factories/Tenant/Academic/` contiene factories actualizadas
-- [ ] Aliases de backward-compatibility registrados en `AppServiceProvider`
-- [ ] Find & Replace ejecutado sobre `app/`, `database/`, `routes/`, `resources/`
-- [ ] `git grep` para namespace antiguo devuelve 0 resultados
-- [ ] `php artisan route:clear && php artisan config:clear && php artisan view:clear` pasa sin errores
-- [ ] Aliases eliminados del `AppServiceProvider` tras verificar que todo compila
-- [ ] Archivos viejos (`app/Models/Tenant/Student.php`, `app/Models/Tenant/Teacher.php`) eliminados
+- [x] Mover componentes livewire relacionados a asignaciones docentes a `App\Livewire\App\Academic\Teachers` y ``App\Livewire\App\Academic\Students`` respectivamente.
+- [x] Actualizar namespaces de las vistas blade relacionadas ``resources/views/app/academic/teachers`` y ``resources/views/app/academic/students``.
+- [x] Refactorizar servicios relacionados a asignaciones docentes a `App\Services\Academic\Teachers` y `App\Services\Academic\Students`.
+- [x] Actualizar filtros ``App\Filters\Academic\TeacherFilter`` y ``App\Filters\Academic\StudentFilter`` respectivamente.
 
 ---
 
-## Fase 2 — Academic Builder (Estructura Institucional)
+## Fase 2 — Academic Builder (Gestión de Cursos)
 **Rama:** `feature/academic-builder`
 
-### Objetivo
+### Diagnóstico y Decisión Arquitectónica
 
-Proveer una interfaz interactiva basada en Cards para que el Director pueda visualizar y gestionar la estructura académica del centro (Niveles → Grados → Secciones → Tandas) sin necesidad de acceder al panel de administración global.
+El wizard de configuración inicial crea una estructura *genérica* basada en combinaciones cartesianas (niveles × grados × paralelos × tandas). Esa data es un punto de partida, no la realidad del centro. El Director necesita un flujo para refinarla: eliminar lo que no existe, crear lo que falta, desactivar lo que ya no aplica al año siguiente.
 
-### 2.1 — Componente Livewire `AcademicBuilder`
+Meter todo (visualizar + crear + editar) en un solo componente genera una vista inmanejable. La solución es **separar en tres vistas con responsabilidades únicas**.
+
+---
+
+### Arquitectura de las Tres Vistas
+
+```
+/academic/courses              → CourseIndex   (visualizar, desactivar, eliminar)
+/academic/courses/create       → CourseForm    (crear una sección nueva)
+/academic/courses/{section}    → CourseShow    (detalle + estudiantes de la sección)
+```
+
+**Regla semántica para secciones:**
+- **Eliminar (soft delete):** Solo si la sección nunca tuvo estudiantes. Quita basura del wizard.
+- **Desactivar (`is_active = false`):** Si tuvo actividad histórica pero no va el próximo año. Conserva el historial de asistencia y notas.
+
+---
+
+### 2.0 — Migraciones Previas
+
+Antes de implementar las vistas, se necesitan dos cambios en la base de datos.
+
+#### 2.0.1 — `is_active` y `deleted_at` en `school_sections`
 
 ```php
-// app/Livewire/App/Academic/AcademicBuilder.php
+// database/migrations/xxxx_update_school_sections_add_status_fields.php
+public function up(): void
+{
+    Schema::table('school_sections', function (Blueprint $table) {
+        $table->boolean('is_active')->default(true)->after('technical_title_id');
+        $table->softDeletes()->after('updated_at'); // deleted_at
+    });
+}
+
+public function down(): void
+{
+    Schema::table('school_sections', function (Blueprint $table) {
+        $table->dropColumn('is_active');
+        $table->dropSoftDeletes();
+    });
+}
+```
+
+#### 2.0.2 — Confirmar que `school_levels` existe
+
+La tabla `school_levels` (pivote `school_id` ↔ `level_id`) ya tiene su migración. Confirmar que está ejecutada. Es el origen de verdad para saber qué niveles habilitó el wizard para cada escuela.
+
+```bash
+php artisan migrate:status | grep school_levels
+# Debe aparecer como "Ran"
+```
+
+---
+
+### 2.1 — Actualizaciones al Modelo `SchoolSection`
+
+Agregar `SoftDeletes` y los scopes necesarios. El modelo ya tiene `is_active` y `scopeActive()` desde la iteración anterior:
+
+```php
+// app/Models/Tenant/Academic/SchoolSection.php
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class SchoolSection extends Model
+{
+    use BelongsToSchool, SoftDeletes;
+
+    protected $fillable = [
+        'school_id', 'school_shift_id', 'grade_id',
+        'label', 'technical_title_id', 'is_active',
+    ];
+
+    protected $casts = ['is_active' => 'boolean'];
+
+    // ... relaciones existentes sin cambios ...
+
+    // Scope: lo que muestra el Index (activas, no eliminadas)
+    public function scopeVisible($query)
+    {
+        return $query->where('is_active', true);
+        // SoftDeletes aplica automáticamente whereNull('deleted_at')
+    }
+
+    // Scope: incluye historial para reportes y auditoría
+    public function scopeWithHistory($query)
+    {
+        return $query->withTrashed();
+    }
+
+    // Scope: secciones que el wizard creó y nunca tuvieron estudiantes
+    public function scopeEmpty($query)
+    {
+        return $query->doesntHave('students');
+    }
+}
+```
+
+---
+
+### 2.2 — `CourseIndex` (Visualización y Acciones Destructivas)
+
+**Responsabilidad única:** mostrar la estructura agrupada, permitir navegar al detalle y al formulario de creación, y ejecutar las acciones destructivas (desactivar / eliminar silenciosamente las del wizard).
+
+```php
+// app/Livewire/App/Academic/CourseIndex.php
 
 namespace App\Livewire\App\Academic;
 
-use App\Models\Tenant\Academic\Level;
-use App\Models\Tenant\Academic\Grade;
+use App\Models\Tenant\Academic\AcademicYear;
 use App\Models\Tenant\Academic\SchoolSection;
-use App\Models\Tenant\Academic\SchoolShift;
+use App\Models\Tenant\Student;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
-class AcademicBuilder extends Component
+class CourseIndex extends Component
 {
-    // Panel de Sección seleccionada para edición inline
-    public ?int $editingSectionId = null;
-    public string $editingLabel   = '';
-    public ?int   $editingShiftId = null;
+    // ── Confirmación de eliminación ────────────────────────────────
+    public ?int  $deletingSectionId   = null;
+    public bool  $showDeleteConfirm   = false;
 
-    // Creación de nueva sección
-    public bool   $showCreatePanel = false;
-    public int    $newGradeId      = 0;
-    public string $newLabel        = '';
-    public int    $newShiftId      = 0;
-
+    // ── Estructura computada ───────────────────────────────────────
     #[Computed]
     public function structure(): array
     {
+        // Traemos TODAS (activas e inactivas) para que el Director
+        // pueda ver qué desactivar. Solo excluimos las soft-deleted.
         $sections = SchoolSection::with([
             'grade.level',
             'shift',
-            'technicalTitle',
-            'students' => fn ($q) => $q->where('is_active', true)->select('id', 'school_section_id'),
+            'technicalTitle.family',
+            'students' => fn ($q) => $q->active()->select('id', 'school_section_id'),
         ])
-        ->where('school_id', auth()->user()->school_id)
-        ->get();
+        ->where('school_id', Auth::user()->school_id)
+        ->get(); // SoftDeletes excluye deleted_at automáticamente
 
-        // Agrupar: Nivel → Grado → Secciones
         return $sections
             ->groupBy(fn ($s) => $s->grade->level->name)
-            ->map(fn ($bLevel, $levelName) => [
+            ->map(fn ($byLevel, $levelName) => [
                 'name'   => $levelName,
-                'grades' => $bLevel
-                    ->groupBy(fn ($s) => $s->grade->name)
-                    ->map(fn ($bGrade, $gradeName) => [
-                        'name'     => $gradeName,
-                        'sections' => $bGrade->sortBy('label')->values(),
+                'grades' => $byLevel
+                    ->groupBy(fn ($s) => $s->grade->id)
+                    ->map(fn ($byGrade) => [
+                        'id'       => $byGrade->first()->grade->id,
+                        'name'     => $byGrade->first()->grade->name,
+                        'academic' => $byGrade
+                            ->filter(fn ($s) => is_null($s->technical_title_id))
+                            ->sortBy('label')
+                            ->values(),
+                        'technical_groups' => $byGrade
+                            ->filter(fn ($s) => ! is_null($s->technical_title_id))
+                            ->groupBy(fn ($s) => $s->technicalTitle->name ?? 'Técnico')
+                            ->map(fn ($group, $titleName) => [
+                                'title'    => $titleName,
+                                'family'   => $group->first()->technicalTitle->family->name ?? null,
+                                'sections' => $group->sortBy('label')->values(),
+                            ])
+                            ->values(),
                     ])
                     ->values(),
             ])
@@ -266,269 +261,1295 @@ class AcademicBuilder extends Component
     }
 
     #[Computed]
-    public function shifts(): \Illuminate\Database\Eloquent\Collection
+    public function stats(): array
     {
-        return SchoolShift::where('school_id', auth()->user()->school_id)->get();
+        $sections = SchoolSection::where('school_id', Auth::user()->school_id)->get();
+        return [
+            'total_active'   => $sections->where('is_active', true)->count(),
+            'total_inactive' => $sections->where('is_active', false)->count(),
+            'total_students' => Student::where('school_id', Auth::user()->school_id)
+                ->where('is_active', true)->count(),
+        ];
+    }
+
+    // ── Toggle activo / inactivo ───────────────────────────────────
+    public function toggleSectionStatus(int $sectionId): void
+    {
+        $section = SchoolSection::with('students')->findOrFail($sectionId);
+
+        if ($section->is_active && $section->students()->where('is_active', true)->exists()) {
+            $this->dispatch('notify', type: 'error',
+                message: 'No se puede desactivar: la sección tiene estudiantes activos.');
+            return;
+        }
+
+        $section->update(['is_active' => ! $section->is_active]);
+        unset($this->structure, $this->stats);
+
+        $msg = ! $section->is_active ? 'Sección reactivada.' : 'Sección desactivada.';
+        $this->dispatch('notify', type: 'info', message: $msg);
+    }
+
+    // ── Eliminar (soft delete — solo secciones vacías del wizard) ──
+    public function confirmDelete(int $sectionId): void
+    {
+        $section = SchoolSection::findOrFail($sectionId);
+
+        if ($section->students()->withTrashed()->exists()) {
+            $this->dispatch('notify', type: 'error',
+                message: 'Esta sección tiene historial de estudiantes y no puede eliminarse. Desactívala.');
+            return;
+        }
+
+        $this->deletingSectionId = $sectionId;
+        $this->showDeleteConfirm = true;
+    }
+
+    public function executeDelete(): void
+    {
+        if (! $this->deletingSectionId) return;
+
+        $section = SchoolSection::findOrFail($this->deletingSectionId);
+
+        // Doble guard en el método de ejecución
+        if ($section->students()->withTrashed()->exists()) {
+            $this->dispatch('notify', type: 'error', message: 'No se puede eliminar.');
+            $this->reset(['deletingSectionId', 'showDeleteConfirm']);
+            return;
+        }
+
+        $section->delete(); // soft delete
+        $this->reset(['deletingSectionId', 'showDeleteConfirm']);
+        unset($this->structure, $this->stats);
+        $this->dispatch('notify', type: 'success', message: 'Sección eliminada.');
+    }
+
+    public function render()
+    {
+        return view('livewire.app.academic.course-index')
+            ->layout('layouts.app-module', config('modules.academico'));
+    }
+}
+```
+
+**Vista `course-index.blade.php`** — idéntica visualmente al `AcademicBuilder` anterior (cards con burbujas, sidebar de resumen), con estos cambios funcionales:
+
+- Botón "Nuevo Curso" → `wire:navigate` a `route('app.academic.courses.create')`
+- Cada burbuja de sección → `wire:navigate` a `route('app.academic.courses.show', $section->id)` (no abre slide-over)
+- Botón de papelera en hover → `wire:click="confirmDelete({{ $section->id }})"` (solo visible si `students_count === 0`)
+- Botón ojo — toggle activo/inactivo → `wire:click="toggleSectionStatus({{ $section->id }})"`
+- Modal de confirmación de eliminación (usa el componente `x-modal` existente)
+
+```html
+{{-- resources/views/livewire/app/academic/course-index.blade.php --}}
+<div>
+    <x-app.module-toolbar>
+        <x-slot:title>Gestión de Cursos</x-slot:title>
+        <x-slot:actions>
+            <x-ui.button href="{{ route('app.academic.courses.create') }}"
+                variant="primary" size="sm" iconLeft="heroicon-o-plus">
+                Nuevo Curso
+            </x-ui.button>
+        </x-slot:actions>
+    </x-app.module-toolbar>
+
+    <div class="p-4 md:p-6">
+        <div class="mb-6">
+            <h1 class="text-2xl font-black text-slate-900 dark:text-white leading-tight">
+                Gestión de Cursos
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Supervisión y organización de niveles académicos.
+            </p>
+        </div>
+
+        <div class="flex gap-6 items-start">
+            {{-- ══ Contenido principal ══ --}}
+            <div class="flex-1 min-w-0 space-y-10">
+
+                @forelse($this->structure as $level)
+                    <section>
+                        <div class="flex items-center gap-3 mb-5">
+                            <h2 class="text-xs font-black uppercase tracking-widest
+                                       text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                                {{ $level['name'] }}
+                            </h2>
+                            <div class="flex-grow border-t border-slate-200 dark:border-dark-border"></div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach($level['grades'] as $grade)
+
+                                {{-- Card académica --}}
+                                @if($grade['academic']->isNotEmpty() || $grade['technical_groups']->isEmpty())
+                                    <x-academic.course-card
+                                        :grade="$grade"
+                                        :sections="$grade['academic']"
+                                        type="academic" />
+                                @endif
+
+                                {{-- Cards técnicas --}}
+                                @foreach($grade['technical_groups'] as $techGroup)
+                                    <x-academic.course-card
+                                        :grade="$grade"
+                                        :sections="$techGroup['sections']"
+                                        :tech-group="$techGroup"
+                                        type="technical" />
+                                @endforeach
+
+                            @endforeach
+                        </div>
+                    </section>
+                @empty
+                    <div class="flex flex-col items-center justify-center py-24 text-center">
+                        <div class="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-white/5
+                                    flex items-center justify-center mb-4">
+                            <x-heroicon-o-academic-cap class="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                        </div>
+                        <p class="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                            No hay cursos configurados
+                        </p>
+                        <p class="text-xs text-slate-400 dark:text-slate-600 mt-1">
+                            Crea el primer curso para comenzar a organizar los estudiantes.
+                        </p>
+                        <div class="mt-5">
+                            <x-ui.button href="{{ route('app.academic.courses.create') }}"
+                                variant="primary" size="sm" iconLeft="heroicon-o-plus">
+                                Crear primer curso
+                            </x-ui.button>
+                        </div>
+                    </div>
+                @endforelse
+            </div>
+
+            {{-- ══ Sidebar ══ --}}
+            <aside class="hidden lg:flex flex-col gap-4 w-[17rem] flex-shrink-0">
+                <div class="bg-white dark:bg-dark-card rounded-2xl
+                            border border-slate-200 dark:border-dark-border p-5">
+                    <div class="flex items-center gap-2 mb-4">
+                        <x-heroicon-s-chart-bar class="w-4 h-4 text-orvian-orange flex-shrink-0" />
+                        <h3 class="text-[10px] font-black uppercase tracking-widest
+                                   text-slate-700 dark:text-white">
+                            Resumen Académico
+                        </h3>
+                    </div>
+                    <div class="space-y-2.5">
+                        <div class="rounded-xl p-3.5 bg-slate-50 dark:bg-white/5
+                                    border border-slate-100 dark:border-dark-border">
+                            <p class="text-[9px] font-black uppercase tracking-widest mb-1
+                                       text-slate-400 dark:text-slate-600">Total Estudiantes</p>
+                            <p class="text-2xl font-black leading-none text-slate-800 dark:text-white">
+                                {{ number_format($this->stats['total_students']) }}
+                            </p>
+                        </div>
+                        <div class="rounded-xl p-3.5 bg-slate-50 dark:bg-white/5
+                                    border border-slate-100 dark:border-dark-border">
+                            <p class="text-[9px] font-black uppercase tracking-widest mb-1
+                                       text-slate-400 dark:text-slate-600">Secciones Activas</p>
+                            <div class="flex items-baseline gap-2">
+                                <p class="text-2xl font-black leading-none text-slate-800 dark:text-white">
+                                    {{ $this->stats['total_active'] }}
+                                </p>
+                                <p class="text-[10px] text-slate-400 dark:text-slate-600">
+                                    en {{ collect($this->structure)->count() }} niveles
+                                </p>
+                            </div>
+                            @if($this->stats['total_inactive'] > 0)
+                                <p class="text-[9px] mt-1 text-slate-400 dark:text-slate-600">
+                                    + {{ $this->stats['total_inactive'] }} inactivas
+                                </p>
+                            @endif
+                        </div>
+                        @php
+                            $year = \App\Models\Tenant\Academic\AcademicYear::where('school_id', Auth::user()->school_id)
+                                ->where('is_active', true)->first();
+                        @endphp
+                        @if($year)
+                            <div class="rounded-xl p-3.5
+                                        bg-orvian-orange/8 dark:bg-orvian-orange/10
+                                        border border-orvian-orange/15 dark:border-orvian-orange/12">
+                                <p class="text-[9px] font-black uppercase tracking-widest mb-1
+                                           text-orvian-orange/70">Año Escolar</p>
+                                <p class="text-lg font-black leading-none text-orvian-orange">
+                                    {{ $year->year_name ?? $year->name }}
+                                </p>
+                                @if($year->start_date && $year->end_date)
+                                    @php
+                                        $start     = \Carbon\Carbon::parse($year->start_date);
+                                        $end       = \Carbon\Carbon::parse($year->end_date);
+                                        $totalDays = max($start->diffInDays($end), 1);
+                                        $elapsed   = min($start->diffInDays(now()), $totalDays);
+                                        $progress  = round(($elapsed / $totalDays) * 100);
+                                    @endphp
+                                    <div class="mt-2.5">
+                                        <div class="w-full h-1.5 rounded-full bg-orvian-orange/20">
+                                            <div class="h-full rounded-full bg-orvian-orange"
+                                                 style="width: {{ $progress }}%"></div>
+                                        </div>
+                                        <p class="text-[9px] text-orvian-orange/60 mt-1 text-right">
+                                            {{ $progress }}% completado
+                                        </p>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-dark-card rounded-2xl
+                            border border-slate-200 dark:border-dark-border p-5">
+                    <h3 class="text-[10px] font-black uppercase tracking-widest mb-3
+                               text-slate-700 dark:text-white">Acciones Rápidas</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        @foreach([
+                            ['icon' => 'heroicon-o-document-text', 'label' => 'Listados'],
+                            ['icon' => 'heroicon-o-arrow-up-tray', 'label' => 'Importar'],
+                            ['icon' => 'heroicon-o-envelope',      'label' => 'Circular'],
+                            ['icon' => 'heroicon-o-cog-6-tooth',   'label' => 'Config'],
+                        ] as $action)
+                            <button class="flex flex-col items-center gap-2 p-3.5 rounded-xl
+                                           text-center group transition-all
+                                           bg-slate-50 dark:bg-white/5
+                                           border border-slate-100 dark:border-dark-border
+                                           hover:bg-slate-100 dark:hover:bg-white/8
+                                           hover:border-slate-200 dark:hover:border-white/15">
+                                <x-dynamic-component :component="$action['icon']"
+                                    class="w-5 h-5 transition-colors
+                                           text-slate-400 dark:text-slate-600
+                                           group-hover:text-slate-600 dark:group-hover:text-slate-400" />
+                                <span class="text-[10px] font-semibold transition-colors
+                                             text-slate-500 dark:text-slate-500
+                                             group-hover:text-slate-700 dark:group-hover:text-slate-300">
+                                    {{ $action['label'] }}
+                                </span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    {{-- Modal confirmación de eliminación --}}
+    <x-modal name="delete-section-confirm" maxWidth="sm">
+        <div class="p-6">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-950/40
+                            flex items-center justify-center flex-shrink-0">
+                    <x-heroicon-o-trash class="w-5 h-5 text-red-500 dark:text-red-400" />
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800 dark:text-white">
+                        Eliminar sección
+                    </h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Esta acción no se puede deshacer.
+                    </p>
+                </div>
+            </div>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-5">
+                La sección no tiene estudiantes y puede eliminarse del sistema.
+                Si en el futuro necesitas esta combinación, deberás crearla nuevamente.
+            </p>
+            <div class="flex gap-3 justify-end">
+                <x-ui.button
+                    x-on:click="$dispatch('close-modal', 'delete-section-confirm')"
+                    wire:click="$set('showDeleteConfirm', false)"
+                    variant="ghost" size="sm">
+                    Cancelar
+                </x-ui.button>
+                <x-ui.button
+                    wire:click="executeDelete"
+                    variant="danger" size="sm"
+                    wire:loading.attr="disabled" wire:target="executeDelete">
+                    <span wire:loading.remove wire:target="executeDelete">Eliminar</span>
+                    <span wire:loading wire:target="executeDelete">Eliminando...</span>
+                </x-ui.button>
+            </div>
+        </div>
+    </x-modal>
+</div>
+```
+
+> **Componente `x-academic.course-card`** — Extraer las cards a `app/View/Components/Academic/CourseCard.php` para no duplicar el HTML de card académica y técnica. Recibe `$grade`, `$sections`, `$type` y opcionalmente `$techGroup`. Emite eventos `wire:click` al padre para toggle y delete. Esto es opcional si la vista es manejable, pero se recomienda cuando hay más de 20 cursos.
+
+---
+
+### 2.3 — `CourseForm` (Creación Guiada de Secciones)
+
+Este es el componente clave que faltaba. Wizard de **4 pasos** en el mismo componente Livewire — sin navegación entre páginas, solo cambio de `$step` con transición.
+
+**Lógica de filtrado de niveles y títulos técnicos:**
+
+- Los niveles disponibles se leen de `school_levels` (la tabla pivote que ya tiene migración). Si la tabla no tiene datos para esa escuela aún, se muestran todos los niveles del sistema como fallback.
+- Los títulos técnicos se leen de `school_technical_titles` (ya existe desde v0.2.0). Solo se muestran títulos de la familia/modalidad de la escuela.
+- Los grados se filtran por nivel seleccionado usando la relación `Level → Grade`.
+- Si el grado tiene `allows_technical = false`, el paso de tipo/título técnico se salta automáticamente.
+
+```php
+// app/Livewire/App/Academic/CourseForm.php
+
+namespace App\Livewire\App\Academic;
+
+use App\Models\Tenant\Academic\Grade;
+use App\Models\Tenant\Academic\Level;
+use App\Models\Tenant\Academic\SchoolSection;
+use App\Models\Tenant\Academic\SchoolShift;
+use App\Models\Tenant\Academic\TechnicalTitle;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
+use Livewire\Component;
+
+class CourseForm extends Component
+{
+    public int    $step        = 1;
+    public int    $totalSteps  = 4;  // Se reduce a 3 si el grado no permite técnico
+
+    // Paso 1: Nivel
+    public ?int   $selectedLevelId = null;
+
+    // Paso 2: Grado
+    public ?int   $selectedGradeId = null;
+
+    // Paso 3: Tipo + Título Técnico (se salta si grade->allows_technical = false)
+    public string $sectionType          = 'academic'; // 'academic' | 'technical'
+    public ?int   $selectedTitleId      = null;
+
+    // Paso 4: Paralelo + Tanda
+    public string $label   = '';
+    public ?int   $shiftId = null;
+
+    // ── Propiedades computadas por paso ──────────────────────────
+
+    #[Computed]
+    public function levels(): \Illuminate\Database\Eloquent\Collection
+    {
+        $schoolId = Auth::user()->school_id;
+
+        // Leer niveles habilitados desde school_levels (tabla pivote del wizard)
+        $enabledLevelIds = \DB::table('school_levels')
+            ->where('school_id', $schoolId)
+            ->pluck('level_id');
+
+        if ($enabledLevelIds->isEmpty()) {
+            // Fallback: mostrar todos si la tabla pivote no tiene datos
+            return Level::with('grades')->orderBy('id')->get();
+        }
+
+        return Level::with('grades')
+            ->whereIn('id', $enabledLevelIds)
+            ->orderBy('id')
+            ->get();
     }
 
     #[Computed]
     public function grades(): \Illuminate\Database\Eloquent\Collection
     {
-        return Grade::with('level')->orderBy('order')->get();
+        if (! $this->selectedLevelId) return collect();
+
+        return Grade::where('level_id', $this->selectedLevelId)
+            ->orderBy('order')
+            ->get();
     }
 
-    public function startEdit(int $sectionId): void
+    #[Computed]
+    public function selectedGrade(): ?Grade
     {
-        $section = SchoolSection::findOrFail($sectionId);
-        $this->editingSectionId = $sectionId;
-        $this->editingLabel     = $section->label;
-        $this->editingShiftId   = $section->school_shift_id;
+        return $this->selectedGradeId ? Grade::find($this->selectedGradeId) : null;
+    }
+
+    /**
+     * ¿El grado elegido soporta secciones técnicas?
+     * Determina si se muestra el paso 3 o se salta directo al paso 4.
+     */
+    #[Computed]
+    public function gradeAllowsTechnical(): bool
+    {
+        return $this->selectedGrade?->allows_technical ?? false;
+    }
+
+    /**
+     * Títulos técnicos disponibles para esta escuela.
+     * Filtra por school_technical_titles (tabla pivote v0.2.0).
+     */
+    #[Computed]
+    public function availableTitles(): \Illuminate\Database\Eloquent\Collection
+    {
+        $schoolId = Auth::user()->school_id;
+
+        return TechnicalTitle::whereHas('schools', fn ($q) =>
+            $q->where('schools.id', $schoolId)
+        )
+        ->with('family')
+        ->orderBy('name')
+        ->get();
+    }
+
+    #[Computed]
+    public function shifts(): \Illuminate\Database\Eloquent\Collection
+    {
+        return SchoolShift::where('school_id', Auth::user()->school_id)->get();
+    }
+
+    /**
+     * Secciones que ya existen para el grado/título elegido.
+     * Se muestra en el paso 4 para evitar duplicados.
+     */
+    #[Computed]
+    public function existingSections(): \Illuminate\Database\Eloquent\Collection
+    {
+        if (! $this->selectedGradeId) return collect();
+
+        return SchoolSection::with('shift')
+            ->where('school_id', Auth::user()->school_id)
+            ->where('grade_id', $this->selectedGradeId)
+            ->when(
+                $this->sectionType === 'technical' && $this->selectedTitleId,
+                fn ($q) => $q->where('technical_title_id', $this->selectedTitleId),
+                fn ($q) => $q->whereNull('technical_title_id')
+            )
+            ->orderBy('label')
+            ->get();
+    }
+
+    // ── Navegación entre pasos ────────────────────────────────────
+
+    public function nextStep(): void
+    {
+        $this->validateCurrentStep();
+
+        // Si el grado no permite técnico, saltar paso 3
+        if ($this->step === 2 && ! $this->gradeAllowsTechnical) {
+            $this->sectionType = 'academic';
+            $this->step        = 4;
+            return;
+        }
+
+        $this->step++;
+    }
+
+    public function prevStep(): void
+    {
+        // Si estamos en el paso 4 y el grado no permite técnico,
+        // volver al paso 2 (porque el 3 fue saltado)
+        if ($this->step === 4 && ! $this->gradeAllowsTechnical) {
+            $this->step = 2;
+            return;
+        }
+
+        $this->step = max(1, $this->step - 1);
+    }
+
+    protected function validateCurrentStep(): void
+    {
+        match ($this->step) {
+            1 => $this->validate(['selectedLevelId' => 'required|integer|exists:levels,id']),
+            2 => $this->validate(['selectedGradeId' => 'required|integer|exists:grades,id']),
+            3 => $this->validateStep3(),
+            4 => $this->validate([
+                'label'   => 'required|string|max:10',
+                'shiftId' => 'required|integer|exists:school_shifts,id',
+            ]),
+        };
+    }
+
+    protected function validateStep3(): void
+    {
+        $this->validate(['sectionType' => 'required|in:academic,technical']);
+
+        if ($this->sectionType === 'technical') {
+            $this->validate(['selectedTitleId' => 'required|integer|exists:technical_titles,id']);
+        }
+    }
+
+    // ── Crear ─────────────────────────────────────────────────────
+
+    public function create(): void
+    {
+        $this->validateCurrentStep(); // valida paso 4
+
+        $label     = strtoupper(trim($this->label));
+        $schoolId  = Auth::user()->school_id;
+        $titleId   = $this->sectionType === 'technical' ? $this->selectedTitleId : null;
+
+        // Guard de duplicado explícito con mensaje claro
+        $exists = SchoolSection::where('school_id', $schoolId)
+            ->where('grade_id', $this->selectedGradeId)
+            ->where('label', $label)
+            ->where('school_shift_id', $this->shiftId)
+            ->where('technical_title_id', $titleId)
+            ->exists();
+
+        if ($exists) {
+            $this->addError('label', 'Ya existe una sección con ese paralelo, tanda y tipo para este grado.');
+            return;
+        }
+
+        $section = SchoolSection::create([
+            'school_id'          => $schoolId,
+            'grade_id'           => $this->selectedGradeId,
+            'school_shift_id'    => $this->shiftId,
+            'label'              => $label,
+            'technical_title_id' => $titleId,
+            'is_active'          => true,
+        ]);
+
+        $this->dispatch('notify', type: 'success',
+            message: "Sección {$section->full_label} creada correctamente.");
+
+        $this->redirect(route('app.academic.courses.index'), navigate: true);
+    }
+
+    public function render()
+    {
+        return view('livewire.app.academic.course-form')
+            ->layout('layouts.app-module', config('modules.academico'));
+    }
+}
+```
+
+**Vista `course-form.blade.php`** — Wizard de 4 pasos con barra de progreso:
+
+```html
+{{-- resources/views/livewire/app/academic/course-form.blade.php --}}
+<div>
+    <x-app.module-toolbar>
+        <x-slot:title>Nuevo Curso</x-slot:title>
+        <x-slot:actions>
+            <x-ui.button href="{{ route('app.academic.courses.index') }}"
+                variant="ghost" size="sm" iconLeft="heroicon-o-arrow-left">
+                Volver
+            </x-ui.button>
+        </x-slot:actions>
+    </x-app.module-toolbar>
+
+    <div class="p-4 md:p-6 max-w-2xl mx-auto">
+
+        {{-- Barra de progreso --}}
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    Paso {{ $step }} de {{ $this->gradeAllowsTechnical ? 4 : 3 }}
+                </p>
+                <p class="text-xs text-slate-400 dark:text-slate-600">
+                    @if($step === 1) Seleccionar nivel
+                    @elseif($step === 2) Seleccionar grado
+                    @elseif($step === 3) Tipo de sección
+                    @else Configurar paralelo
+                    @endif
+                </p>
+            </div>
+            <div class="w-full h-1.5 rounded-full bg-slate-100 dark:bg-white/8">
+                @php
+                    $totalActual = $this->gradeAllowsTechnical ? 4 : 3;
+                    // Mapear step real al step visual (cuando se salta el 3)
+                    $stepVisual = $step;
+                    if (!$this->gradeAllowsTechnical && $step === 4) $stepVisual = 3;
+                    $pct = round(($stepVisual / $totalActual) * 100);
+                @endphp
+                <div class="h-full rounded-full bg-orvian-orange transition-all duration-300"
+                     style="width: {{ $pct }}%"></div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-dark-card rounded-2xl border
+                    border-slate-200 dark:border-dark-border">
+
+            {{-- ══ Paso 1: Nivel ══ --}}
+            @if($step === 1)
+                <div class="p-6">
+                    <h2 class="text-base font-bold text-slate-800 dark:text-white mb-1">
+                        ¿En qué nivel educativo?
+                    </h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                        Selecciona el nivel al que pertenece el nuevo curso.
+                    </p>
+
+                    <div class="space-y-2">
+                        @foreach($this->levels as $level)
+                            <button
+                                wire:click="$set('selectedLevelId', {{ $level->id }})"
+                                class="w-full flex items-center justify-between p-4 rounded-xl
+                                       border-2 transition-all text-left
+                                       {{ $selectedLevelId === $level->id
+                                           ? 'border-orvian-orange bg-orvian-orange/5 dark:bg-orvian-orange/8'
+                                           : 'border-slate-200 dark:border-dark-border
+                                              hover:border-slate-300 dark:hover:border-white/20
+                                              bg-slate-50 dark:bg-white/4' }}">
+                                <div>
+                                    <p class="text-sm font-bold
+                                               {{ $selectedLevelId === $level->id
+                                                   ? 'text-orvian-orange'
+                                                   : 'text-slate-700 dark:text-white' }}">
+                                        {{ $level->name }}
+                                    </p>
+                                    <p class="text-xs mt-0.5
+                                               text-slate-400 dark:text-slate-500">
+                                        {{ $level->grades->count() }} grados disponibles
+                                    </p>
+                                </div>
+                                @if($selectedLevelId === $level->id)
+                                    <x-heroicon-s-check-circle class="w-5 h-5 text-orvian-orange flex-shrink-0" />
+                                @endif
+                            </button>
+                        @endforeach
+                    </div>
+
+                    @error('selectedLevelId')
+                        <p class="text-xs text-red-500 dark:text-red-400 mt-3">{{ $message }}</p>
+                    @enderror
+                </div>
+            @endif
+
+            {{-- ══ Paso 2: Grado ══ --}}
+            @if($step === 2)
+                <div class="p-6">
+                    <h2 class="text-base font-bold text-slate-800 dark:text-white mb-1">
+                        ¿Qué grado?
+                    </h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                        Grados disponibles en
+                        <strong class="text-slate-700 dark:text-slate-200">
+                            {{ $this->levels->firstWhere('id', $selectedLevelId)?->name }}
+                        </strong>.
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        @foreach($this->grades as $grade)
+                            <button
+                                wire:click="$set('selectedGradeId', {{ $grade->id }})"
+                                class="flex flex-col p-4 rounded-xl border-2 transition-all text-left
+                                       {{ $selectedGradeId === $grade->id
+                                           ? 'border-orvian-orange bg-orvian-orange/5 dark:bg-orvian-orange/8'
+                                           : 'border-slate-200 dark:border-dark-border
+                                              hover:border-slate-300 dark:hover:border-white/20
+                                              bg-slate-50 dark:bg-white/4' }}">
+                                <p class="text-sm font-bold
+                                           {{ $selectedGradeId === $grade->id
+                                               ? 'text-orvian-orange'
+                                               : 'text-slate-700 dark:text-white' }}">
+                                    {{ $grade->name }}
+                                </p>
+                                @if($grade->allows_technical)
+                                    <span class="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold
+                                                 uppercase tracking-wider text-orvian-orange/70">
+                                        <x-heroicon-o-cog-6-tooth class="w-3 h-3" />
+                                        Permite técnico
+                                    </span>
+                                @endif
+                            </button>
+                        @endforeach
+                    </div>
+
+                    @error('selectedGradeId')
+                        <p class="text-xs text-red-500 dark:text-red-400 mt-3">{{ $message }}</p>
+                    @enderror
+                </div>
+            @endif
+
+            {{-- ══ Paso 3: Tipo + Título Técnico ══ --}}
+            @if($step === 3)
+                <div class="p-6">
+                    <h2 class="text-base font-bold text-slate-800 dark:text-white mb-1">
+                        ¿Académico o Técnico?
+                    </h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                        El grado <strong class="text-slate-700 dark:text-slate-200">
+                            {{ $this->selectedGrade?->name }}
+                        </strong> admite secciones técnicas.
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-3 mb-6">
+                        <button
+                            wire:click="$set('sectionType', 'academic')"
+                            class="flex flex-col items-center p-5 rounded-xl border-2 transition-all
+                                   {{ $sectionType === 'academic'
+                                       ? 'border-orvian-orange bg-orvian-orange/5 dark:bg-orvian-orange/8'
+                                       : 'border-slate-200 dark:border-dark-border
+                                          hover:border-slate-300 dark:hover:border-white/20
+                                          bg-slate-50 dark:bg-white/4' }}">
+                            <div class="w-10 h-10 rounded-xl mb-3
+                                        {{ $sectionType === 'academic'
+                                            ? 'bg-orvian-orange/15'
+                                            : 'bg-slate-100 dark:bg-white/8' }}
+                                        flex items-center justify-center">
+                                <x-heroicon-o-academic-cap
+                                    class="w-5 h-5 {{ $sectionType === 'academic'
+                                        ? 'text-orvian-orange'
+                                        : 'text-slate-400 dark:text-slate-500' }}" />
+                            </div>
+                            <p class="text-sm font-bold
+                                       {{ $sectionType === 'academic'
+                                           ? 'text-orvian-orange'
+                                           : 'text-slate-700 dark:text-white' }}">
+                                Académico
+                            </p>
+                            <p class="text-xs text-slate-400 dark:text-slate-500 mt-1 text-center">
+                                Plan general de estudios
+                            </p>
+                        </button>
+
+                        <button
+                            wire:click="$set('sectionType', 'technical')"
+                            class="flex flex-col items-center p-5 rounded-xl border-2 transition-all
+                                   {{ $sectionType === 'technical'
+                                       ? 'border-orvian-orange bg-orvian-orange/5 dark:bg-orvian-orange/8'
+                                       : 'border-slate-200 dark:border-dark-border
+                                          hover:border-slate-300 dark:hover:border-white/20
+                                          bg-slate-50 dark:bg-white/4' }}">
+                            <div class="w-10 h-10 rounded-xl mb-3
+                                        {{ $sectionType === 'technical'
+                                            ? 'bg-orvian-orange/15'
+                                            : 'bg-slate-100 dark:bg-white/8' }}
+                                        flex items-center justify-center">
+                                <x-heroicon-o-cog-6-tooth
+                                    class="w-5 h-5 {{ $sectionType === 'technical'
+                                        ? 'text-orvian-orange'
+                                        : 'text-slate-400 dark:text-slate-500' }}" />
+                            </div>
+                            <p class="text-sm font-bold
+                                       {{ $sectionType === 'technical'
+                                           ? 'text-orvian-orange'
+                                           : 'text-slate-700 dark:text-white' }}">
+                                Técnico
+                            </p>
+                            <p class="text-xs text-slate-400 dark:text-slate-500 mt-1 text-center">
+                                Bachiller o título técnico
+                            </p>
+                        </button>
+                    </div>
+
+                    {{-- Selector de título técnico (condicional) --}}
+                    @if($sectionType === 'technical')
+                        @if($this->availableTitles->isEmpty())
+                            <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30
+                                        border border-amber-200 dark:border-amber-800/50">
+                                <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                                    Sin títulos técnicos habilitados
+                                </p>
+                                <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                    Ve a Configuración → Escuela para habilitar los títulos técnicos de tu centro.
+                                </p>
+                            </div>
+                        @else
+                            <x-ui.forms.select
+                                label="Título Técnico"
+                                name="selectedTitleId"
+                                wire:model="selectedTitleId"
+                                hint="Solo se muestran los títulos habilitados para este centro."
+                                :error="$errors->first('selectedTitleId')">
+                                <option value="">Seleccionar título...</option>
+                                @foreach($this->availableTitles->groupBy(fn ($t) => $t->family?->name ?? 'General') as $family => $titles)
+                                    <optgroup label="{{ $family }}">
+                                        @foreach($titles as $title)
+                                            <option value="{{ $title->id }}">{{ $title->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </x-ui.forms.select>
+                        @endif
+                    @endif
+
+                    @error('sectionType')
+                        <p class="text-xs text-red-500 dark:text-red-400 mt-3">{{ $message }}</p>
+                    @enderror
+                </div>
+            @endif
+
+            {{-- ══ Paso 4: Paralelo + Tanda ══ --}}
+            @if($step === 4)
+                <div class="p-6 space-y-5">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800 dark:text-white mb-1">
+                            Configurar paralelo y tanda
+                        </h2>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            Define la letra del paralelo y el horario de la nueva sección.
+                        </p>
+                    </div>
+
+                    {{-- Resumen de lo seleccionado --}}
+                    <div class="flex flex-wrap gap-2">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+                                     bg-slate-100 dark:bg-white/8
+                                     text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            {{ $this->selectedGrade?->name }}
+                        </span>
+                        @if($sectionType === 'technical' && $selectedTitleId)
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+                                         bg-orvian-orange/10 dark:bg-orvian-orange/12
+                                         text-xs font-semibold text-orvian-orange">
+                                <x-heroicon-o-cog-6-tooth class="w-3 h-3" />
+                                {{ $this->availableTitles->firstWhere('id', $selectedTitleId)?->name }}
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+                                         bg-slate-100 dark:bg-white/8
+                                         text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                Académico
+                            </span>
+                        @endif
+                    </div>
+
+                    <x-ui.forms.input
+                        label="Paralelo"
+                        name="label"
+                        wire:model="label"
+                        placeholder="Ej: A"
+                        hint="Una letra identifica cada paralelo del grado. Ej: A, B, C."
+                        :error="$errors->first('label')" />
+
+                    <x-ui.forms.select
+                        label="Tanda"
+                        name="shiftId"
+                        wire:model="shiftId"
+                        :error="$errors->first('shiftId')">
+                        <option value="">Seleccionar tanda...</option>
+                        @foreach($this->shifts as $shift)
+                            <option value="{{ $shift->id }}">
+                                {{ $shift->type }}
+                                @if($shift->start_time && $shift->end_time)
+                                    — {{ $shift->start_time->format('h:i A') }}
+                                    a {{ $shift->end_time->format('h:i A') }}
+                                @endif
+                            </option>
+                        @endforeach
+                    </x-ui.forms.select>
+
+                    {{-- Secciones existentes para este grado/tipo --}}
+                    @if($this->existingSections->isNotEmpty())
+                        <div class="rounded-xl p-4 bg-slate-50 dark:bg-white/4
+                                    border border-slate-200 dark:border-dark-border">
+                            <p class="text-[10px] font-black uppercase tracking-widest mb-2
+                                       text-slate-400 dark:text-slate-600">
+                                Paralelos ya configurados
+                            </p>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($this->existingSections as $existing)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg
+                                                 bg-white dark:bg-white/6
+                                                 border border-slate-200 dark:border-dark-border
+                                                 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                        {{ $existing->label }}
+                                        <span class="text-[9px] text-slate-400 font-normal">
+                                            {{ $existing->shift?->type }}
+                                        </span>
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            @endif
+
+            {{-- Footer de navegación --}}
+            <div class="flex items-center justify-between p-6 pt-4
+                        border-t border-slate-100 dark:border-dark-border">
+                <x-ui.button
+                    wire:click="prevStep"
+                    variant="ghost" size="sm"
+                    iconLeft="heroicon-o-arrow-left"
+                    :disabled="$step === 1">
+                    Atrás
+                </x-ui.button>
+
+                @if($step < 4)
+                    <x-ui.button
+                        wire:click="nextStep"
+                        variant="primary" size="sm"
+                        iconRight="heroicon-o-arrow-right"
+                        :disabled="($step === 1 && !$selectedLevelId)
+                                    || ($step === 2 && !$selectedGradeId)
+                                    || ($step === 3 && $sectionType === 'technical' && !$selectedTitleId)">
+                        Continuar
+                    </x-ui.button>
+                @else
+                    <x-ui.button
+                        wire:click="create"
+                        variant="primary" size="sm"
+                        wire:loading.attr="disabled"
+                        wire:target="create">
+                        <span wire:loading.remove wire:target="create">Crear Sección</span>
+                        <span wire:loading wire:target="create">Creando...</span>
+                    </x-ui.button>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+---
+
+### 2.4 — `CourseShow` (Detalle de Sección)
+
+Vista de solo lectura + edición de metadatos simples (paralelo, tanda). Lista los estudiantes asignados.
+
+```php
+// app/Livewire/App/Academic/CourseShow.php
+
+namespace App\Livewire\App\Academic;
+
+use App\Models\Tenant\Academic\SchoolSection;
+use App\Models\Tenant\Academic\SchoolShift;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
+use Livewire\Component;
+
+class CourseShow extends Component
+{
+    public SchoolSection $section;
+
+    // Campos de edición inline
+    public string $editingLabel   = '';
+    public ?int   $editingShiftId = null;
+    public bool   $isEditing      = false;
+
+    public function mount(SchoolSection $section): void
+    {
+        // Guard: la sección debe pertenecer a la escuela del usuario
+        abort_if($section->school_id !== Auth::user()->school_id, 403);
+
+        $this->section = $section->load([
+            'grade.level',
+            'shift',
+            'technicalTitle.family',
+        ]);
+
+        $this->editingLabel   = $section->label;
+        $this->editingShiftId = $section->school_shift_id;
+    }
+
+    #[Computed]
+    public function students(): \Illuminate\Pagination\LengthAwarePaginator
+    {
+        return $this->section->students()
+            ->with('user:id,email')
+            ->orderBy('last_name')
+            ->paginate(25);
+    }
+
+    #[Computed]
+    public function shifts(): \Illuminate\Database\Eloquent\Collection
+    {
+        return SchoolShift::where('school_id', Auth::user()->school_id)->get();
+    }
+
+    #[Computed]
+    public function stats(): array
+    {
+        $students = $this->section->students();
+        return [
+            'total'    => $students->count(),
+            'active'   => $students->where('is_active', true)->count(),
+            'inactive' => $students->where('is_active', false)->count(),
+        ];
+    }
+
+    public function startEdit(): void
+    {
+        $this->isEditing = true;
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->isEditing      = false;
+        $this->editingLabel   = $this->section->label;
+        $this->editingShiftId = $this->section->school_shift_id;
+        $this->resetValidation();
     }
 
     public function saveEdit(): void
     {
-        $this->authorize('configuracion.academic_structure');
         $this->validate([
             'editingLabel'   => 'required|string|max:10',
             'editingShiftId' => 'required|integer|exists:school_shifts,id',
         ]);
 
-        SchoolSection::findOrFail($this->editingSectionId)->update([
-            'label'           => strtoupper($this->editingLabel),
+        $this->section->update([
+            'label'           => strtoupper(trim($this->editingLabel)),
             'school_shift_id' => $this->editingShiftId,
         ]);
 
-        $this->reset(['editingSectionId', 'editingLabel', 'editingShiftId']);
-        unset($this->structure);
-        $this->dispatch('notify', type: 'success', message: 'Sección actualizada correctamente.');
+        $this->section->refresh();
+        $this->isEditing = false;
+        $this->dispatch('notify', type: 'success', message: 'Sección actualizada.');
     }
 
-    public function createSection(): void
+    public function toggleStatus(): void
     {
-        $this->authorize('configuracion.academic_structure');
-        $this->validate([
-            'newGradeId' => 'required|integer|exists:grades,id',
-            'newLabel'   => 'required|string|max:10',
-            'newShiftId' => 'required|integer|exists:school_shifts,id',
-        ]);
-
-        SchoolSection::firstOrCreate([
-            'school_id'       => auth()->user()->school_id,
-            'grade_id'        => $this->newGradeId,
-            'label'           => strtoupper($this->newLabel),
-            'school_shift_id' => $this->newShiftId,
-        ]);
-
-        $this->reset(['showCreatePanel', 'newGradeId', 'newLabel', 'newShiftId']);
-        unset($this->structure);
-        $this->dispatch('notify', type: 'success', message: 'Sección creada correctamente.');
-    }
-
-    public function toggleSectionStatus(int $sectionId): void
-    {
-        $section = SchoolSection::findOrFail($sectionId);
-
-        // Bloquear si tiene estudiantes activos asignados
-        if ($section->students()->where('is_active', true)->exists()) {
+        if ($this->section->is_active
+            && $this->section->students()->where('is_active', true)->exists()) {
             $this->dispatch('notify', type: 'error',
-                message: 'No se puede desactivar una sección con estudiantes activos.');
+                message: 'No se puede desactivar: tiene estudiantes activos.');
             return;
         }
 
-        $section->update(['is_active' => ! $section->is_active]);
-        unset($this->structure);
+        $this->section->update(['is_active' => ! $this->section->is_active]);
+        $this->section->refresh();
+
+        $msg = $this->section->is_active ? 'Sección reactivada.' : 'Sección desactivada.';
+        $this->dispatch('notify', type: 'info', message: $msg);
     }
 
     public function render()
     {
-        return view('livewire.app.academic.academic-builder')
-            ->layout('layouts.app-module', config('modules.configuracion'));
+        return view('livewire.app.academic.course-show')
+            ->layout('layouts.app-module', config('modules.academico'));
     }
 }
 ```
 
-### 2.2 — Vista `academic-builder.blade.php`
+Vista `course-show.blade.php` (estructura, sin todo el HTML completo para brevedad):
 
-La vista implementa un grid de cards con identidad visual clara por nivel educativo. Cada Card de Sección muestra: etiqueta (paralelo), tanda, conteo de estudiantes activos, badge de estado (Activa/Inactiva) y acciones inline de edición.
-
-```blade
-{{-- resources/views/livewire/app/academic/academic-builder.blade.php --}}
+```html
+{{-- resources/views/livewire/app/academic/course-show.blade.php --}}
 <div>
     <x-app.module-toolbar>
-        <x-slot:title>Estructura Académica</x-slot:title>
+        <x-slot:title>{{ $section->full_label }}</x-slot:title>
         <x-slot:actions>
-            <x-ui.button wire:click="$set('showCreatePanel', true)" variant="primary" size="sm"
-                iconLeft="heroicon-o-plus">
-                Nueva Sección
+            <x-ui.button href="{{ route('app.academic.courses.index') }}"
+                variant="ghost" size="sm" iconLeft="heroicon-o-arrow-left">
+                Volver
             </x-ui.button>
+            @if(!$isEditing)
+                <x-ui.button wire:click="startEdit"
+                    variant="secondary" size="sm" iconLeft="heroicon-o-pencil">
+                    Editar
+                </x-ui.button>
+            @endif
         </x-slot:actions>
     </x-app.module-toolbar>
 
-    {{-- Panel de creación --}}
-    @if($showCreatePanel)
-        <div class="mb-8 p-6 bg-white dark:bg-dark-card border border-orvian-orange/30
-                    rounded-2xl shadow-sm space-y-4 animate-in slide-in-from-top duration-200">
-            <h3 class="text-sm font-bold text-slate-700 dark:text-white">Nueva Sección</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <x-ui.forms.select label="Grado" name="newGradeId" wire:model="newGradeId">
-                    <option value="">Seleccionar grado...</option>
-                    @foreach($this->grades->groupBy(fn ($g) => $g->level->name) as $nivel => $grados)
-                        <optgroup label="{{ $nivel }}">
-                            @foreach($grados as $grade)
-                                <option value="{{ $grade->id }}">{{ $grade->name }}</option>
-                            @endforeach
-                        </optgroup>
-                    @endforeach
-                </x-ui.forms.select>
+    <div class="p-4 md:p-6 space-y-6">
 
-                <x-ui.forms.input label="Paralelo (Letra)" name="newLabel"
-                    wire:model="newLabel" placeholder="Ej: A, B, C" />
-
-                <x-ui.forms.select label="Tanda" name="newShiftId" wire:model="newShiftId">
-                    <option value="">Seleccionar tanda...</option>
-                    @foreach($this->shifts as $shift)
-                        <option value="{{ $shift->id }}">{{ $shift->name }}</option>
-                    @endforeach
-                </x-ui.forms.select>
-            </div>
-            <div class="flex gap-3 justify-end">
-                <x-ui.button wire:click="$set('showCreatePanel', false)" variant="ghost" size="sm">
-                    Cancelar
-                </x-ui.button>
-                <x-ui.button wire:click="createSection" variant="primary" size="sm">
-                    Crear Sección
-                </x-ui.button>
-            </div>
-        </div>
-    @endif
-
-    {{-- Estructura por Nivel --}}
-    @foreach($this->structure as $level)
-        <div class="mb-10">
-            {{-- Header del Nivel --}}
-            <div class="flex items-center gap-3 mb-5">
-                <h2 class="text-lg font-extrabold text-orvian-navy dark:text-white">
-                    {{ $level['name'] }}
-                </h2>
-                <div class="flex-grow border-t border-slate-200 dark:border-white/10"></div>
-            </div>
-
-            {{-- Grid de Grados --}}
-            <div class="space-y-6">
-                @foreach($level['grades'] as $grade)
+        {{-- Header de la sección --}}
+        <div class="bg-white dark:bg-dark-card rounded-2xl border
+                    border-slate-200 dark:border-dark-border p-6">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-2xl flex items-center justify-center
+                                {{ $section->technicalTitle
+                                    ? 'bg-orvian-orange/10 dark:bg-orvian-orange/12'
+                                    : 'bg-slate-100 dark:bg-white/8' }}">
+                        @if($section->technicalTitle)
+                            <x-heroicon-o-cog-6-tooth class="w-7 h-7 text-orvian-orange" />
+                        @else
+                            <x-heroicon-o-academic-cap class="w-7 h-7 text-slate-400 dark:text-slate-300" />
+                        @endif
+                    </div>
                     <div>
-                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400
-                                  dark:text-slate-500 mb-3">{{ $grade['name'] }}</p>
+                        @if($isEditing)
+                            {{-- Formulario de edición --}}
+                            <div class="flex items-center gap-3">
+                                <x-ui.forms.input
+                                    name="editingLabel"
+                                    wire:model="editingLabel"
+                                    placeholder="Ej: A"
+                                    :error="$errors->first('editingLabel')"
+                                    size="sm" />
+                                <x-ui.forms.select
+                                    name="editingShiftId"
+                                    wire:model="editingShiftId"
+                                    :error="$errors->first('editingShiftId')"
+                                    size="sm">
+                                    @foreach($this->shifts as $shift)
+                                        <option value="{{ $shift->id }}">{{ $shift->type }}</option>
+                                    @endforeach
+                                </x-ui.forms.select>
+                            </div>
+                            <div class="flex gap-2 mt-2">
+                                <x-ui.button wire:click="saveEdit" variant="primary" size="sm">
+                                    Guardar
+                                </x-ui.button>
+                                <x-ui.button wire:click="cancelEdit" variant="ghost" size="sm">
+                                    Cancelar
+                                </x-ui.button>
+                            </div>
+                        @else
+                            <h1 class="text-xl font-black text-slate-900 dark:text-white">
+                                {{ $section->full_label }}
+                            </h1>
+                            <div class="flex items-center gap-2 mt-1">
+                                @if($section->technicalTitle)
+                                    <span class="text-xs font-semibold text-orvian-orange/70">
+                                        {{ $section->technicalTitle->family?->name }}
+                                    </span>
+                                    <span class="text-slate-300 dark:text-slate-700">·</span>
+                                @endif
+                                <span class="text-xs text-slate-400 dark:text-slate-500">
+                                    {{ $section->shift?->type ?? 'Sin tanda' }}
+                                </span>
+                            </div>
+                        @endif
+                    </div>
+                </div>
 
-                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                            @foreach($grade['sections'] as $section)
-                                <div class="group relative bg-white dark:bg-dark-card rounded-2xl p-4
-                                            border-2 transition-all
-                                            {{ $section->is_active
-                                                ? 'border-slate-200 dark:border-white/10 hover:border-orvian-orange/50'
-                                                : 'border-dashed border-slate-200 dark:border-white/5 opacity-60' }}">
+                {{-- Badge de estado + botón de toggle --}}
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                                 text-xs font-bold
+                                 {{ $section->is_active
+                                     ? 'bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400
+                                        border border-green-200 dark:border-green-900/50'
+                                     : 'bg-slate-100 dark:bg-white/8 text-slate-500 dark:text-slate-400
+                                        border border-slate-200 dark:border-dark-border' }}">
+                        <span class="w-1.5 h-1.5 rounded-full
+                                     {{ $section->is_active ? 'bg-green-500' : 'bg-slate-400' }}"></span>
+                        {{ $section->is_active ? 'Activa' : 'Inactiva' }}
+                    </span>
+                    <button wire:click="toggleStatus"
+                        class="text-xs font-semibold transition-colors
+                               {{ $section->is_active
+                                   ? 'text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300'
+                                   : 'text-green-600 dark:text-green-400 hover:opacity-80' }}">
+                        {{ $section->is_active ? 'Desactivar' : 'Reactivar' }}
+                    </button>
+                </div>
+            </div>
 
-                                    {{-- Paralelo --}}
-                                    <div class="text-3xl font-black text-orvian-orange leading-none mb-2">
-                                        {{ $section->label }}
-                                    </div>
-
-                                    {{-- Tanda --}}
-                                    <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase truncate">
-                                        {{ $section->shift->name ?? '—' }}
-                                    </p>
-
-                                    {{-- Conteo de estudiantes --}}
-                                    <div class="flex items-center gap-1 mt-2">
-                                        <x-heroicon-o-users class="w-3 h-3 text-slate-400" />
-                                        <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                            {{ $section->students->count() }}
-                                        </span>
-                                    </div>
-
-                                    {{-- Acciones (aparecen en hover) --}}
-                                    <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100
-                                                transition-opacity flex gap-1">
-                                        <button wire:click="startEdit({{ $section->id }})"
-                                                class="p-1 rounded-lg bg-slate-100 dark:bg-white/10
-                                                       hover:bg-orvian-orange/10 text-slate-500
-                                                       hover:text-orvian-orange transition-colors">
-                                            <x-heroicon-o-pencil-square class="w-3 h-3" />
-                                        </button>
-                                        <button wire:click="toggleSectionStatus({{ $section->id }})"
-                                                class="p-1 rounded-lg bg-slate-100 dark:bg-white/10
-                                                       hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500
-                                                       hover:text-red-500 transition-colors">
-                                            <x-heroicon-o-{{ $section->is_active ? 'eye-slash' : 'eye' }} class="w-3 h-3" />
-                                        </button>
-                                    </div>
-
-                                    {{-- Panel de edición inline --}}
-                                    @if($editingSectionId === $section->id)
-                                        <div class="absolute inset-0 bg-white dark:bg-dark-card rounded-2xl
-                                                    border-2 border-orvian-orange p-3 z-10 space-y-2">
-                                            <input wire:model="editingLabel"
-                                                   class="w-full text-center text-2xl font-black text-orvian-orange
-                                                          bg-transparent border-b border-orvian-orange/30
-                                                          focus:outline-none uppercase"
-                                                   maxlength="3" />
-                                            <select wire:model="editingShiftId"
-                                                    class="w-full text-xs bg-transparent border border-slate-200
-                                                           dark:border-white/10 rounded-lg p-1
-                                                           text-slate-600 dark:text-slate-300">
-                                                @foreach($this->shifts as $shift)
-                                                    <option value="{{ $shift->id }}">{{ $shift->name }}</option>
-                                                @endforeach
-                                            </select>
-                                            <div class="flex gap-1">
-                                                <button wire:click="saveEdit"
-                                                        class="flex-1 py-1 rounded-lg bg-orvian-orange text-white
-                                                               text-xs font-bold">✓</button>
-                                                <button wire:click="$set('editingSectionId', null)"
-                                                        class="flex-1 py-1 rounded-lg bg-slate-100
-                                                               dark:bg-white/10 text-slate-500 text-xs">✕</button>
-                                            </div>
-                                        </div>
-                                    @endif
-                                </div>
-                            @endforeach
-                        </div>
+            {{-- Stats rápidas --}}
+            <div class="grid grid-cols-3 gap-3 mt-6">
+                @foreach([
+                    ['label' => 'Total', 'value' => $this->stats['total']],
+                    ['label' => 'Activos', 'value' => $this->stats['active']],
+                    ['label' => 'Inactivos', 'value' => $this->stats['inactive']],
+                ] as $stat)
+                    <div class="rounded-xl p-3 bg-slate-50 dark:bg-white/4
+                                border border-slate-100 dark:border-dark-border text-center">
+                        <p class="text-lg font-black text-slate-800 dark:text-white">
+                            {{ $stat['value'] }}
+                        </p>
+                        <p class="text-[10px] font-bold uppercase tracking-wider mt-0.5
+                                   text-slate-400 dark:text-slate-600">
+                            {{ $stat['label'] }}
+                        </p>
                     </div>
                 @endforeach
             </div>
         </div>
-    @endforeach
+
+        {{-- Lista de estudiantes --}}
+        <div class="bg-white dark:bg-dark-card rounded-2xl border
+                    border-slate-200 dark:border-dark-border">
+            <div class="p-5 border-b border-slate-100 dark:border-dark-border">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-white">
+                    Estudiantes de esta sección
+                </h3>
+            </div>
+            <div class="divide-y divide-slate-100 dark:divide-dark-border">
+                @forelse($this->students as $student)
+                    <div class="flex items-center gap-3 px-5 py-3">
+                        <x-ui.student-avatar :student="$student" size="sm" />
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-slate-800 dark:text-white truncate">
+                                {{ $student->full_name }}
+                            </p>
+                            <p class="text-xs text-slate-400 dark:text-slate-500">
+                                {{ $student->rnc ?? 'Sin cédula' }}
+                            </p>
+                        </div>
+                        <x-ui.button
+                            href="{{ route('app.academic.students.show', $student) }}"
+                            variant="ghost" size="xs">
+                            Ver
+                        </x-ui.button>
+                    </div>
+                @empty
+                    <div class="py-10 text-center">
+                        <p class="text-sm text-slate-400 dark:text-slate-600">
+                            No hay estudiantes en esta sección.
+                        </p>
+                        <x-ui.button
+                            href="{{ route('app.academic.enrollment-hub') }}"
+                            variant="ghost" size="sm" class="mt-3">
+                            Asignar desde el Hub de Matriculación
+                        </x-ui.button>
+                    </div>
+                @endforelse
+            </div>
+            @if($this->students->hasPages())
+                <div class="p-4 border-t border-slate-100 dark:border-dark-border">
+                    {{ $this->students->links('pagination.orvian-compact') }}
+                </div>
+            @endif
+        </div>
+    </div>
 </div>
 ```
 
-### 2.3 — Ruta y Configuración de Módulo
+---
+
+### 2.5 — Rutas
 
 ```php
-// routes/app/academic.php — agregar ruta
-Route::get('/academic/builder', AcademicBuilder::class)
-    ->middleware('can:configuracion.academic_structure')
-    ->name('academic.builder');
+// routes/app/academic.php
+use App\Livewire\App\Academic\CourseIndex;
+use App\Livewire\App\Academic\CourseForm;
+use App\Livewire\App\Academic\CourseShow;
+
+Route::prefix('academic')->name('academic.')->group(function () {
+
+    // Gestión de cursos / secciones
+    Route::middleware('can:configuracion.academic_structure')->group(function () {
+        Route::get('/courses',          CourseIndex::class)->name('courses.index');
+        Route::get('/courses/create',   CourseForm::class)->name('courses.create');
+        Route::get('/courses/{section}',CourseShow::class)->name('courses.show');
+    });
+
+});
 ```
 
-```php
-// config/modules.php — agregar link en módulo configuracion
-'moduleLinks' => [
-    // ...existentes...
-    ['label' => 'Estructura Académica', 'route' => 'app.academic.builder'],
-],
-```
-
-### 2.4 — Checklist de Completitud — Fase 2
-
-- [ ] Componente `AcademicBuilder` creado con propiedades computadas cacheadas
-- [ ] Vista con grid de Cards por Nivel → Grado
-- [ ] Edición inline de label y tanda sin salir del grid
-- [ ] Panel de creación de nueva sección con validación
-- [ ] Toggle de estado (activa/inactiva) con guard de estudiantes activos
-- [ ] Ruta protegida por permiso `configuracion.academic_structure`
-- [ ] Link en `config/modules.php` del módulo Configuración
+> **Nota de transición:** El componente `AcademicBuilder` anterior se puede renombrar a `CourseIndex` moviendo el archivo, o mantener ambos durante un período de transición si ya hay rutas activas apuntando al anterior. Las rutas antiguas se deben redirigir a las nuevas.
 
 ---
+
+### 2.6 — Checklist de Completitud — Fase 2
+
+#### Migraciones
+- [x] `school_sections`: `is_active` (boolean, default true) agregado
+- [x] `school_sections`: `deleted_at` (softDeletes) agregado
+- [x] Migración `school_levels` confirmada como ejecutada (`migrate:status`)
+
+#### Modelo `SchoolSection`
+- [x] `SoftDeletes` importado y en el `use`
+- [x] `is_active` en `$fillable` y en `$casts`
+- [x] `scopeVisible()` — activas + no soft-deleted
+- [x] `scopeWithHistory()` — incluye trashed
+- [x] `scopeEmpty()` — sin estudiantes (incluye trashed de students)
+- [x] `scopeActive()` — existente, sin cambios
+
+#### `CourseIndex`
+- [x] Muestra activas e inactivas (todas, no solo visible)
+- [x] `toggleSectionStatus()` con guard de estudiantes activos
+- [x] `confirmDelete()` con guard de historial (incluye `withTrashed`)
+- [x] `executeDelete()` con doble guard
+- [x] Modal de confirmación de eliminación operativo
+- [x] Botón "Nuevo Curso" navega a `CourseForm` (no abre slide-over)
+- [x] Burbuja de sección navega a `CourseShow` (no abre slide-over)
+
+#### `CourseForm`
+- [x] `levels` computado desde `school_levels` con fallback a todos
+- [x] `grades` filtrado por `selectedLevelId`
+- [x] Paso 3 se salta si `grade->allows_technical === false`
+- [x] `availableTitles` filtrado por `school_technical_titles` de la escuela
+- [x] `existingSections` muestra paralelos ya creados para ese grado/tipo
+- [x] Guard de duplicado antes de `SchoolSection::create()`
+- [x] Barra de progreso refleja los pasos reales (3 o 4 según el grado)
+- [x] Redirección a `CourseIndex` tras crear exitosamente
+
+#### `CourseShow`
+- [x] Guard `abort_if` de school_id
+- [x] Edición inline de label y tanda
+- [x] Toggle activo/inactivo con guard
+- [x] Listado de estudiantes paginado
+- [x] Link a `EnrollmentHub` cuando la sección está vacía
+
+#### Rutas
+- [x] `courses.index`, `courses.create`, `courses.show` registradas
+- [x] Ruta antigua `AcademicBuilder` redirige a `courses.index`
+- [x] Permisos `can:configuracion.academic_structure` aplicados
+
 
 ## Fase 3 — Evolución del Importador SIGERD
 **Rama:** `feature/sigerd-importer-v2`
@@ -1023,7 +2044,7 @@ class EnrollmentHub extends Component
 
 ### 4.2 — Vista `enrollment-hub.blade.php` (Layout de Dos Paneles)
 
-```blade
+```html
 {{-- resources/views/livewire/app/academic/enrollment-hub.blade.php --}}
 <div>
     <x-app.module-toolbar>
@@ -1409,7 +2430,7 @@ class BiometricKiosk extends Component
 
 ### 5.2 — Vista `biometric-kiosk.blade.php`
 
-```blade
+```html
 {{-- resources/views/livewire/app/academic/biometric-kiosk.blade.php --}}
 <div>
     <x-app.module-toolbar>
@@ -1724,7 +2745,7 @@ public function classroomAttendanceSummary(): array
 
 **Sección de Tutor en la vista** (agregar en el tab "Perfil"):
 
-```blade
+```html
 {{-- Dentro del tab Perfil de student-show.blade.php --}}
 {{-- Sección: Información del Tutor --}}
 <div class="mt-8">
@@ -1891,7 +2912,7 @@ protected function buildQuery()
 
 **Chips de filtro rápido en la vista** (agregar en la toolbar de StudentIndex):
 
-```blade
+```html
 {{-- Chips de filtros rápidos visuales --}}
 <div class="flex flex-wrap gap-2 mb-4">
     @foreach([
@@ -1916,7 +2937,7 @@ protected function buildQuery()
 
 **Slide-Over Preview** (agregar al final del template):
 
-```blade
+```html
 {{-- Slide-Over de Preview del Estudiante --}}
 @teleport('body')
 <div x-data="{ show: @entangle('showPreviewSlider') }"
@@ -2195,7 +3216,7 @@ class TeacherAssignments extends Component
 
 ### 7.2 — Vista `teacher-assignments.blade.php` (Layout de Dos Paneles)
 
-```blade
+```html
 {{-- resources/views/livewire/app/teachers/teacher-assignments.blade.php --}}
 <div>
     <x-app.module-toolbar>
