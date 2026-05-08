@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\App\Students\StudentPrintController;
 use App\Livewire\App\Academic\AcademicBuilder;
+use App\Livewire\App\Academic\BiometricKiosk;
 use Illuminate\Support\Facades\Route;
 use App\Livewire\App\Academic\Students\StudentIndex;
 use App\Livewire\App\Academic\Students\StudentShow;
@@ -92,12 +93,21 @@ Route::prefix('academic')->name('academic.')->group(function () {
     });
 
     // -------------------------------------------------------------------------
-    //     // Hub de Matriculación (Sala de Espera)
+    // Hub de Matriculación (Sala de Espera) 
     // -------------------------------------------------------------------------
 
     Route::get('/enrollment-hub', EnrollmentHub::class)
     ->middleware('can:students.edit')
     ->name('enrollment-hub');
+
+    
+    // -------------------------------------------------------------------------
+    // Kiosko Biométrico (Enrolamiento Facial)
+    // -------------------------------------------------------------------------
+
+    Route::get('biometric-kiosk', BiometricKiosk::class)
+    ->middleware('can:students.edit')
+    ->name('biometric-kiosk');
 
 
 });

@@ -153,7 +153,7 @@
                             No hay estudiantes en esta sección.
                         </p>
                         <x-ui.button
-                            href="{{ route('app.academic.students.index') }}"
+                            href="{{ route('app.academic.enrollment-hub') }}"
                             type="ghost" size="sm" class="mt-3">
                             Asignar desde el Hub de Matriculación
                         </x-ui.button>

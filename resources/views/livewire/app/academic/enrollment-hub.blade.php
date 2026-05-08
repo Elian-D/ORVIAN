@@ -11,7 +11,7 @@
     </x-app.module-toolbar>
 
     {{-- Contenedor Principal: flex-col en móviles, flex-row en lg. Altura auto en móvil, fija en escritorio --}}
-    <div class="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-9rem)]">
+    <div class="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-9rem)] p-4 md:p-6">
 
         {{-- ══ PANEL IZQUIERDO: Sala de Espera ══ --}}
         {{-- w-full en móvil, w-1/2 en lg. Altura fija en móvil para que el scroll interno funcione --}}
