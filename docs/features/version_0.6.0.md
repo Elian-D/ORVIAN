@@ -2311,15 +2311,16 @@ Route::get('/academic/enrollment-hub', EnrollmentHub::class)
 
 ### 4.4 — Checklist de Completitud — Fase 4
 
-- [ ] `EnrollmentHub` carga estudiantes con `school_section_id = null`
-- [ ] Filtros rápidos por `metadata->sigerd_section` operativos
-- [ ] `selectBySigerdSection()` selecciona masivamente un grupo del metadata
-- [ ] Panel derecho filtra secciones por tanda
-- [ ] `executeAssignment()` actualiza en una sola query (sin N+1)
-- [ ] Guard en `executeAssignment()`: solo mueve estudiantes con `section_id = null`
-- [ ] Modal de confirmación antes de ejecutar
-- [ ] `metadata` actualizada tras asignación (`assigned_from_waiting_room`, `assigned_at`)
-- [ ] Ruta protegida por `students.edit`
+- [x] `EnrollmentHub` carga estudiantes con `school_section_id = null`
+- [x] Filtros rápidos por `metadata->sigerd_section` operativos
+- [x] `selectBySigerdSection()` selecciona masivamente un grupo del metadata
+- [x] Panel derecho filtra secciones por tanda
+- [x] `executeAssignment()` actualiza en una sola query (sin N+1)
+- [x] Guard en `executeAssignment()`: solo mueve estudiantes con `section_id = null`
+- [x] Modal de confirmación antes de ejecutar
+- [x] `metadata` actualizada tras asignación (`assigned_from_waiting_room`, `assigned_at`)
+- [x] Ruta protegida por `students.edit`
+- [x] Agregar ruta a `config/modules.php` para que sea accesible facil
 
 ---
 
@@ -3442,34 +3443,34 @@ class TeacherAssignments extends Component
 ## Checklist de Completitud Final — v0.6.0
 
 ### Fase 1 — Refactorización de Namespaces
-- [ ] `Student` y `Teacher` en `App\Models\Tenant\Academic`
-- [ ] Observers en `App\Observers\Tenant\Academic`
-- [ ] Factories en `Database\Factories\Tenant\Academic`
-- [ ] Aliases de backward-compat añadidos, Find & Replace ejecutado, aliases eliminados
-- [ ] `git grep` para namespace antiguo = 0 resultados
-- [ ] Suite de tests pasa sin errores tras la migración
+- [x] `Student` y `Teacher` en `App\Models\Tenant\Academic`
+- [x] Observers en `App\Observers\Tenant\Academic`
+- [x] Factories en `Database\Factories\Tenant\Academic`
+- [x] Aliases de backward-compat añadidos, Find & Replace ejecutado, aliases eliminados
+- [x] `git grep` para namespace antiguo = 0 resultados
+- [x] Suite de tests pasa sin errores tras la migración
 
 ### Fase 2 — Academic Builder
-- [ ] Componente `AcademicBuilder` con CRUD de secciones via Cards
-- [ ] Edición inline sin modales separados
-- [ ] Guard de estudiantes activos antes de desactivar sección
-- [ ] Ruta y link en `config/modules.php` activos
+- [x] Componente `AcademicBuilder` con CRUD de secciones via Cards
+- [x] Edición inline sin modales separados
+- [x] Guard de estudiantes activos antes de desactivar sección
+- [x] Ruta y link en `config/modules.php` activos
 
 ### Fase 3 — Importador SIGERD v2
-- [ ] `tutor_name` y `tutor_phone` en `$mappableFields` del wizard
-- [ ] `resolveSection()` tolerante: 4 niveles de resolución
-- [ ] Sala de Espera funcional (`school_section_id = null`)
-- [ ] `metadata->sigerd_section` almacena nombre crudo
-- [ ] `normalizePhone()` convierte a E.164
-- [ ] Reporte post-importación incluye `waiting_room_count` y agrupación por `sigerd_section`
+- [x] `tutor_name` y `tutor_phone` en `$mappableFields` del wizard
+- [x] `resolveSection()` tolerante: 4 niveles de resolución
+- [x] Sala de Espera funcional (`school_section_id = null`)
+- [x] `metadata->sigerd_section` almacena nombre crudo
+- [x] `normalizePhone()` convierte a E.164
+- [x] Reporte post-importación incluye `waiting_room_count` y agrupación por `sigerd_section`
 
 ### Fase 4 — Hub de Matriculación
-- [ ] Dos paneles: Sala de Espera vs Árbol de Secciones
-- [ ] Filtros rápidos por `sigerd_section` del metadata
-- [ ] `selectBySigerdSection()` para selección masiva por grupo
-- [ ] `executeAssignment()` en una sola query
-- [ ] Modal de confirmación antes de ejecutar
-- [ ] `metadata` actualizada tras asignación exitosa
+- [x] Dos paneles: Sala de Espera vs Árbol de Secciones
+- [x] Filtros rápidos por `sigerd_section` del metadata
+- [x] `selectBySigerdSection()` para selección masiva por grupo
+- [x] `executeAssignment()` en una sola query
+- [x] Modal de confirmación antes de ejecutar
+- [x] `metadata` actualizada tras asignación exitosa
 
 ### Fase 5 — Kiosko Biométrico
 - [ ] Grid visual con indicadores de estado biométrico
