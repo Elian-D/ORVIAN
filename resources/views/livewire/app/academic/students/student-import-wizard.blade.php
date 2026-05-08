@@ -198,9 +198,9 @@
                                             class="w-full text-sm border-0 border-b border-slate-200 dark:border-dark-border bg-transparent rounded-none py-1.5
                                                    text-slate-700 dark:text-slate-500 focus:ring-0 focus:border-orvian-orange transition-colors"
                                         >
-                                            <option value="">— Ignorar esta columna —</option>
+                                            <option class="text-black" value="">— Ignorar esta columna —</option>
                                             @foreach (self::ORVIAN_FIELDS as $value => $label)
-                                                <option value="{{ $value }}">{{ $label }}</option>
+                                                <option class="text-black" value="{{ $value }}">{{ $label }}</option>
                                             @endforeach
                                         </select>
                                     </td>
@@ -328,10 +328,14 @@
                     <h3 class="font-bold uppercase text-sm tracking-widest text-slate-700 dark:text-slate-300">Importación Completada</h3>
                 </div>
 
-                <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="grid grid-cols-4 gap-4 mb-6">
                     <div class="p-4 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl text-center border border-emerald-100 dark:border-emerald-500/20">
                         <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ $record->success_rows }}</p>
                         <p class="text-xs text-emerald-500 uppercase tracking-wider mt-1">Importados</p>
+                    </div>
+                    <div class="p-4 {{ $record->waiting_room_rows > 0 ? 'bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-dark-border/40' }} rounded-xl text-center">
+                        <p class="text-2xl font-bold {{ $record->waiting_room_rows > 0 ? 'text-amber-500' : 'text-slate-400' }}">{{ $record->waiting_room_rows }}</p>
+                        <p class="text-xs {{ $record->waiting_room_rows > 0 ? 'text-amber-400' : 'text-slate-400' }} uppercase tracking-wider mt-1">Sala de Espera</p>
                     </div>
                     <div class="p-4 {{ $record->failed_rows > 0 ? 'bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20' : 'bg-slate-50 dark:bg-dark-border/40' }} rounded-xl text-center">
                         <p class="text-2xl font-bold {{ $record->failed_rows > 0 ? 'text-red-500' : 'text-slate-400' }}">{{ $record->failed_rows }}</p>
@@ -342,6 +346,19 @@
                         <p class="text-xs text-slate-400 uppercase tracking-wider mt-1">Total Filas</p>
                     </div>
                 </div>
+
+                {{-- Aviso de Sala de Espera --}}
+                @if ($record->waiting_room_rows > 0)
+                    <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-100 dark:border-amber-500/20">
+                        <div class="flex gap-3">
+                            <x-heroicon-s-clock class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                            <div class="text-sm text-amber-700 dark:text-amber-300">
+                                <p class="font-semibold">{{ $record->waiting_room_rows }} estudiante(s) en Sala de Espera</p>
+                                <p class="text-amber-600 dark:text-amber-400 mt-0.5">Su sección de SIGERD no pudo mapearse automáticamente. Podrás asignarlos masivamente desde el Hub de Matriculación.</p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
 
                 {{-- Log de errores --}}
                 @if ($record->failed_rows > 0 && !empty($record->errors))

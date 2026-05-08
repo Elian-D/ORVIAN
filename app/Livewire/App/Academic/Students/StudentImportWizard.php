@@ -42,7 +42,9 @@ class StudentImportWizard extends Component
         'allergies'          => 'Alergias',
         'medical_conditions' => 'Condiciones Médicas',
         'enrollment_date'    => 'Fecha de Ingreso',
-        'section_name'       => 'Sección (normalización automática)',
+        'tutor_name'         => 'Nombre del Tutor/Responsable',
+        'tutor_phone'        => 'Teléfono del Tutor (WhatsApp)',
+        'sigerd_section'     => 'Curso/Sección (tal como aparece en SIGERD)',
     ];
 
     #[Computed]
@@ -180,7 +182,9 @@ class StudentImportWizard extends Component
             str_contains($h, 'sangre') || str_contains($h, 'blood') => 'blood_type',
             str_contains($h, 'alergia') => 'allergies',
             str_contains($h, 'medic') || str_contains($h, 'condic') => 'medical_conditions',
-            str_contains($h, 'seccion') || str_contains($h, 'sección') || str_contains($h, 'grado') || str_contains($h, 'curso') => 'section_name',
+            str_contains($h, 'tutor') && (str_contains($h, 'tel') || str_contains($h, 'phone') || str_contains($h, 'celular') || str_contains($h, 'whatsapp')) => 'tutor_phone',
+            str_contains($h, 'tutor') || str_contains($h, 'responsable') || str_contains($h, 'encargado') => 'tutor_name',
+            str_contains($h, 'seccion') || str_contains($h, 'sección') || str_contains($h, 'grado') || str_contains($h, 'curso') => 'sigerd_section',
             str_contains($h, 'ingreso') || str_contains($h, 'matric') => 'enrollment_date',
             default => '',
         };
