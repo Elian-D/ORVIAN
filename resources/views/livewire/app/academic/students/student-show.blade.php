@@ -26,7 +26,7 @@
                 <div class="flex flex-wrap justify-center md:justify-start items-center gap-x-4 gap-y-1 text-slate-500 dark:text-slate-400 font-medium">
                     <span class="flex items-center gap-1.5">
                         <x-heroicon-s-hashtag class="w-4 h-4 text-orvian-orange" />
-                        ID: {{ $student->rnc ?? 'N/A' }}
+                        CED: {{ $student->rnc ?? 'N/A' }}
                     </span>
                     <span class="hidden md:block text-slate-300">|</span>
                     <span class="flex items-center gap-1.5">
@@ -52,6 +52,10 @@
     {{-- Grid de Stats Rápidas --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         @php
+            // Obtenemos el resumen de la propiedad computada del componente
+            $plantel = $this->plantelAttendanceSummary;
+            $asistenciaValue = $plantel['rate'] !== null ? $plantel['rate'] . '%' : '---';
+            
             $stats = [
                 [
                     'title' => 'Edad Actual', 
@@ -67,14 +71,14 @@
                 ],
                 [
                     'title' => 'Días en Plantel', 
-                    // Usamos (int) para forzar el número entero o floor()
                     'value' => (int) $student->created_at->diffInDays(now()) . ' d', 
                     'icon' => 'heroicon-o-clock', 
                     'color' => 'text-green-500'
                 ],
                 [
-                    'title' => 'Asistencia (30d)', 
-                    'value' => '96%', 
+                    // Hacemos el título dinámico para que coincida con el filtro seleccionado
+                    'title' => "Asistencia ({$attendancePeriod}d)", 
+                    'value' => $asistenciaValue, 
                     'icon' => 'heroicon-o-chart-bar', 
                     'color' => 'text-purple-500',
                 ],
@@ -124,6 +128,66 @@
                             <x-admin.info-item label="Género" :value="$student->gender === 'M' ? 'Masculino' : 'Femenino'" icon="heroicon-o-user-group" />
                             <x-admin.info-item label="Tipo de Sangre" :value="$student->blood_type" icon="heroicon-o-beaker" />
                             <x-admin.info-item label="Dirección" :value="$student->address ?? 'No especificada'" icon="heroicon-o-map-pin" />
+                        </div>
+                    </div>
+                    
+                    {{-- Sección: Información del Tutor --}}
+                    <div class="mt-8">
+                        <h4 class="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">
+                            Tutor / Responsable
+                        </h4>
+
+                        {{-- Grid: 1 columna en móvil (default), 2 columnas en sm+ --}}
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            
+                            {{-- Nombre del tutor --}}
+                            <div class="p-4 bg-slate-50 dark:bg-dark-card rounded-xl">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                    Nombre
+                                </p>
+                                <p class="text-sm font-semibold text-slate-700 dark:text-white">
+                                    {{ $student->tutor_name ?? '—' }}
+                                </p>
+                            </div>
+
+                            {{-- Teléfono del tutor --}}
+                            <div class="p-4 bg-slate-50 dark:bg-dark-card rounded-xl">
+                                <div class="flex items-center justify-between mb-2">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                        WhatsApp
+                                    </p>
+                                    @if($student->tutor_phone)
+                                        <x-ui.badge variant="success" size="sm">Activo para alertas</x-ui.badge>
+                                    @else
+                                        <x-ui.badge variant="warning" size="sm">Sin número</x-ui.badge>
+                                    @endif
+                                </div>
+
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-sm font-semibold text-slate-700 dark:text-white font-mono">
+                                        {{ $student->tutor_phone ?? 'No registrado' }}
+                                    </p>
+
+                                    @if($student->tutor_phone)
+                                        {{-- Botón para enviar mensaje --}}
+                                        <x-ui.button 
+                                            href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $student->tutor_phone) }}" 
+                                            target="_blank"
+                                            variant="success" 
+                                            size="sm" 
+                                            iconLeft="heroicon-s-chat-bubble-left-right"
+                                        >
+                                            Escribir
+                                        </x-ui.button>
+                                    @endif
+                                </div>
+
+                                @if(!$student->tutor_phone)
+                                    <p class="text-[10px] text-amber-600 dark:text-amber-400 mt-2">
+                                        ⚠ Sin número de tutor, las alertas automáticas de asistencia no se enviarán.
+                                    </p>
+                                @endif
+                            </div>
                         </div>
                     </div>
 
@@ -177,7 +241,7 @@
                                         type="solid" 
                                         variant="primary" 
                                         size="md" 
-                                        iconLeft="heroicon-o-user-minus"
+                                        iconLeft="heroicon-o-user-plus"
                                         wire:click="updateCredentials" {{-- Llamada directa en lugar de submit --}}
                                         wire:loading.attr="disabled"
                                     >
@@ -191,18 +255,114 @@
 
                 {{-- TAB: ASISTENCIA --}}
                 <div x-show="tab === 'asistencia'" x-transition class="bg-white dark:bg-dark-card rounded-3xl border border-slate-200 dark:border-dark-border p-6">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="font-bold text-slate-900 dark:text-white uppercase tracking-tight text-sm">Historial de Asistencia</h3>
-                        <x-ui.button variant="secondary" size="xs">Descargar Reporte</x-ui.button>
+
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <div class="flex items-center gap-2">
+                            <x-heroicon-o-chart-bar class="w-4 h-4 text-slate-400" />
+                            <h4 class="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                Asistencia Histórica
+                            </h4>
+                        </div>
+
+                        {{-- Selector de período (Segmented Control) --}}
+                        <div class="flex p-1 bg-slate-100 dark:bg-white/5 rounded-xl w-fit">
+                            @foreach(['7' => '7D', '30' => '30D', '90' => '90D'] as $val => $label)
+                                <button 
+                                    wire:click="$set('attendancePeriod', '{{ $val }}')"
+                                    class="px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all duration-200 
+                                        {{ $attendancePeriod === $val
+                                            ? 'bg-white dark:bg-white/10 text-orvian-orange shadow-sm ring-1 ring-black/5'
+                                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300' }}">
+                                    {{ $label }}
+                                </button>
+                            @endforeach
+                        </div>
                     </div>
-                    <div class="h-48 flex items-end gap-2 px-4 mb-4">
-                        {{-- Simulación de mini gráfico --}}
-                        @foreach(range(1, 15) as $i)
-                            <div class="flex-1 bg-orvian-orange/20 dark:bg-orvian-orange/10 rounded-t-sm hover:bg-orvian-orange transition-colors cursor-help" 
-                                 style="height: {{ rand(40, 100) }}%" title="Día {{ $i }}: Presente"></div>
-                        @endforeach
+
+                    <div class="grid grid-cols-1 gap-6">
+                        {{-- Resumen Plantel --}}
+                        @php $plantel = $this->plantelAttendanceSummary; @endphp
+                        <div class="p-5 bg-slate-50/50 dark:bg-dark-card/50 border border-slate-100 dark:border-white/5 rounded-2xl">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="p-1.5 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+                                        <x-heroicon-s-building-library class="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Entrada al Plantel</span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-lg font-black text-slate-900 dark:text-white">
+                                        {{ $plantel['rate'] !== null ? $plantel['rate'] . '%' : '---' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {{-- Barra de progreso --}}
+                            <div class="w-full h-2 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-700 ease-out
+                                    {{ ($plantel['rate'] ?? 0) >= 85 ? 'bg-green-500' : (($plantel['rate'] ?? 0) >= 70 ? 'bg-amber-400' : 'bg-red-500') }}"
+                                    style="width: {{ $plantel['rate'] ?? 0 }}%">
+                                </div>
+                            </div>
+
+                            {{-- Leyendas con Iconos --}}
+                            <div class="grid grid-cols-2 sm:flex sm:flex-wrap gap-y-3 gap-x-6 mt-4">
+                                <div class="flex items-center gap-1.5">
+                                    <x-heroicon-s-check-circle class="w-3.5 h-3.5 text-green-500" />
+                                    <span class="text-[10px] font-medium text-slate-500">{{ $plantel['present'] }} Presentes</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <x-heroicon-s-clock class="w-3.5 h-3.5 text-amber-500" />
+                                    <span class="text-[10px] font-medium text-slate-500">{{ $plantel['late'] }} Tardanzas</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <x-heroicon-s-x-circle class="w-3.5 h-3.5 text-red-500" />
+                                    <span class="text-[10px] font-medium text-slate-500">{{ $plantel['absent'] }} Ausencias</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <x-heroicon-s-document-text class="w-3.5 h-3.5 text-blue-500" />
+                                    <span class="text-[10px] font-medium text-slate-500">{{ $plantel['excused'] }} Justificadas</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Resumen Aula --}}
+                        @php $classroom = $this->classroomAttendanceSummary; @endphp
+                        <div class="p-5 bg-slate-50/50 dark:bg-dark-card/50 border border-slate-100 dark:border-white/5 rounded-2xl">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="p-1.5 bg-purple-50 dark:bg-purple-500/10 rounded-lg">
+                                        <x-heroicon-s-academic-cap class="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                    </div>
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Asistencia a Clases</span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-lg font-black text-slate-900 dark:text-white">
+                                        {{ $classroom['rate'] !== null ? $classroom['rate'] . '%' : '---' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="w-full h-2 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-700 ease-out
+                                    {{ ($classroom['rate'] ?? 0) >= 85 ? 'bg-purple-500' : (($classroom['rate'] ?? 0) >= 70 ? 'bg-amber-400' : 'bg-red-500') }}"
+                                    style="width: {{ $classroom['rate'] ?? 0 }}%">
+                                </div>
+                            </div>
+
+                            <div class="flex gap-6 mt-4">
+                                <div class="flex items-center gap-1.5">
+                                    <x-heroicon-s-check-circle class="w-3.5 h-3.5 text-purple-500" />
+                                    <span class="text-[10px] font-medium text-slate-500">{{ $classroom['present'] }} Presentes</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <x-heroicon-s-x-circle class="w-3.5 h-3.5 text-red-500" />
+                                    <span class="text-[10px] font-medium text-slate-500">{{ $classroom['absent'] }} Ausencias</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <p class="text-center text-xs text-slate-400">Asistencia diaria de los últimos 15 días lectivos</p>
+
                 </div>
 
                 {{-- TAB: MÉDICO --}}
@@ -245,6 +405,10 @@
                             ->margin(1)
                             ->generate($student->qr_code) !!}
                     </div>
+                    
+                    <x-ui.button variant="primary" type="ghost" size="md" iconLeft="heroicon-o-pencil-square"  href="{{ route('app.academic.students.print-manager', ['search' => $student->first_name]) }}" >
+                        Descargar QR
+                    </x-ui.button>
                 </div>
 
                 {{-- Card: Biometría --}}

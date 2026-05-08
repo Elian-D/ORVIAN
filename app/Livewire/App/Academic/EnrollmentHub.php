@@ -18,6 +18,7 @@ class EnrollmentHub extends Component
 
     // Panel izquierdo — filtros de la Sala de Espera
     public string $searchUnassigned    = '';
+    public string $searchSections = '';
     public string $filterSigerdSection = '';  // Filtrar por sigerd_section del metadata
 
     // Selección de estudiantes
@@ -77,6 +78,14 @@ class EnrollmentHub extends Component
             ->when($this->targetShiftId, fn ($q) => 
                 $q->where('school_shift_id', $this->targetShiftId)
             )
+            // Nueva lógica de búsqueda
+            ->when($this->searchSections, function($q) {
+                $q->where(function($sq) {
+                    $sq->where('label', 'like', "%{$this->searchSections}%")
+                    ->orWhereHas('grade', fn($g) => $g->where('name', 'like', "%{$this->searchSections}%"))
+                    ->orWhereHas('technicalTitle', fn($t) => $t->where('name', 'like', "%{$this->searchSections}%"));
+                });
+            })
             ->get()
             ->groupBy(fn ($s) => $s->grade->level->name);
     }
