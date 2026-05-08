@@ -145,6 +145,13 @@
                     @endif
                 </div>
 
+                {{-- NUEVO: Buscador de Secciones --}}
+                <x-ui.forms.input
+                    wire:model.live.debounce.300ms="searchSections"
+                    placeholder="Buscar sección (ej: 4TO A, Informática...)"
+                    iconLeft="heroicon-o-magnifying-glass"
+                    size="sm" />
+
                 {{-- Filtro por tanda --}}
                 <div class="flex flex-wrap gap-1.5">
                     <button wire:click="$set('targetShiftId', null)"
@@ -167,7 +174,7 @@
             </div>
 
             {{-- Árbol de secciones (selección por click) --}}
-            <div class="flex-1 overflow-y-auto p-4 lg:p-5 space-y-8 custom-scrollbar">
+            <div class="flex-1 overflow-y-auto p-4 lg:p-5 space-y-8 custom-scroll">
                 @foreach($this->sectionTree as $levelName => $sections)
                     <div>
                         {{-- Encabezado de Nivel --}}

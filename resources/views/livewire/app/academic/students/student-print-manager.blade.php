@@ -6,7 +6,8 @@
     >
     <x-slot:actions>
         <x-ui.button 
-            variant="secondary" 
+            variant="secondary"
+            type="ghost" 
             size="sm" 
             iconLeft="heroicon-s-arrow-left" 
             :href="route('app.academic.students.index')"
@@ -17,7 +18,7 @@
     @if($totalSelected > 0)
         <x-ui.button 
             variant="primary"
-            size="lg"
+            size="sm"
             iconLeft="heroicon-s-printer"
             wire:click="generatePrintSheet"
             wire:loading.attr="disabled"

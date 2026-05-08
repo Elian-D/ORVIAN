@@ -51,11 +51,12 @@ return [
         'module'      => 'Académico',
         'moduleIcon'  => 'academico',
         'moduleLinks' => [
+            ['label' => 'Maestros',  'route' => 'app.academic.teachers.index'], 
             ['label' => 'Estructura Académica', 'route' => 'app.academic.courses.index'],
             ['label' => 'Estudiantes', 'route' => 'app.academic.students.index'],
             ['label' => 'Matriculación', 'route' => 'app.academic.enrollment-hub'],
             ['label' => 'Registro Facial', 'route' => 'app.academic.biometric-kiosk'],
-            ['label' => 'Maestros',  'route' => 'app.academic.teachers.index'], 
+            ['label' => 'Gestión de Carnets', 'route' => 'app.academic.students.print-manager'],
         ],
     ],
 
