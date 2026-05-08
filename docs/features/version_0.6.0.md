@@ -2336,11 +2336,14 @@ Una interfaz dedicada para capturar y registrar el `face_encoding` de los estudi
 ```php
 // app/Livewire/App/Academic/BiometricKiosk.php
 
+<?php
+
 namespace App\Livewire\App\Academic;
 
 use App\Models\Tenant\Academic\SchoolSection;
-use App\Models\Tenant\Academic\Student;
+use App\Models\Tenant\Student;
 use App\Services\FacialRecognition\FaceEncodingManager;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -2364,7 +2367,7 @@ class BiometricKiosk extends Component
     public function sections(): \Illuminate\Database\Eloquent\Collection
     {
         return SchoolSection::with(['grade', 'shift'])
-            ->where('school_id', auth()->user()->school_id)
+            ->where('school_id', Auth::user()->school_id)
             ->where('is_active', true)
             ->get()
             ->sortBy(fn ($s) => $s->grade->name . $s->label);
@@ -2406,11 +2409,22 @@ class BiometricKiosk extends Component
         ];
     }
 
+    #[Computed]
+    public function enrollingStudent(): ?Student
+    {
+        if (! $this->enrollingStudentId) return null;
+        return Student::find($this->enrollingStudentId);
+    }
+
+    // BiometricKiosk.php
+
     public function openEnrollModal(int $studentId): void
     {
         $this->enrollingStudentId = $studentId;
         $this->capturedPhoto      = null;
         $this->enrollResult       = [];
+        // Emitir hacia el browser (JS), no hacia otros componentes Livewire
+        $this->dispatch('open-biometric-modal');
     }
 
     public function closeEnrollModal(): void
@@ -2418,6 +2432,7 @@ class BiometricKiosk extends Component
         $this->enrollingStudentId = null;
         $this->capturedPhoto      = null;
         $this->enrollResult       = [];
+        $this->dispatch('close-biometric-modal');
     }
 
     public function enroll(FaceEncodingManager $manager): void
@@ -2450,8 +2465,11 @@ class BiometricKiosk extends Component
 
     public function render()
     {
-        return view('livewire.app.academic.biometric-kiosk')
-            ->layout('layouts.app-module', config('modules.estudiantes'));
+
+        /** @var \Livewire\Features\SupportPageComponents\View $view */
+        $view = view('livewire.app.academic.biometric-kiosk');
+
+        return $view->layout('layouts.app-module', config('modules.academico'));
     }
 }
 ```
@@ -2692,15 +2710,23 @@ Route::get('/academic/biometric-kiosk', BiometricKiosk::class)
 
 ### 5.4 — Checklist de Completitud — Fase 5
 
-- [ ] Grid visual con indicador verde (con biometría) / ámbar (sin biometría)
-- [ ] Filtros por sección, estado biométrico y búsqueda
-- [ ] Stats en tiempo real (total / con biometría / sin biometría)
-- [ ] Modal de captura con webcam nativa vía Alpine.js
-- [ ] Guía de encuadre visual (elipse overlay)
-- [ ] Subida asíncrona del blob a Livewire vía `@this.upload`
-- [ ] Llamada a `FaceEncodingManager::enrollStudent()` con manejo de error
-- [ ] Auto-cierre del modal 1.5s después de enrolamiento exitoso
-- [ ] Actualización del grid sin recargar la página (unset computed)
+- [x] Grid visual con indicador verde (con biometría) / ámbar (sin biometría)
+- [x] Filtros por sección, estado biométrico y búsqueda
+- [x] Stats en tiempo real (total / con biometría / sin biometría)
+- [x] Modal de captura con webcam nativa vía Alpine.js
+- [x] Guía de encuadre visual (elipse overlay)
+- [x] Subida asíncrona del blob a Livewire vía `@this.upload`
+- [x] Llamada a `FaceEncodingManager::enrollStudent()` con manejo de error
+- [x] Auto-cierre del modal 1.5s después de enrolamiento exitoso
+- [x] Actualización del grid sin recargar la página (unset computed)
+- [x] Agregar ruta en config/modules.php
+
+
+### 5.4 — Extras:
+
+- [x] En `resources/views/livewire/app/academic/enrollment-hub.blade.php` se agrego un padding para mejorar el espaciado
+- [x] En `resources/views/livewire/app/attendance/attendance-dashboard.blade.php` se utilzo el componente de `ui.select` en la parte de tandas y secciones, porque se desbordaba.
+- [x] Agregar ruta app.academic.enrollment-hub en `resources/views/livewire/app/academic/course-show.blade.php` ya que no existia antes.
 
 ---
 
@@ -2890,220 +2916,25 @@ public function classroomAttendanceSummary(): array
 
 ### 6.2 — `StudentIndex` — Filtros Rápidos Visuales y Slide-Over Preview
 
-```php
-// app/Livewire/App/Students/StudentIndex.php — nuevas propiedades
-
-// Slide-over preview
-public ?int  $previewStudentId  = null;
-public bool  $showPreviewSlider = false;
-
-// Filtros rápidos visuales (chips)
-public string $quickFilter = '';  // '' | 'no_section' | 'no_biometric' | 'no_tutor_phone'
-
-#[Computed]
-public function previewStudent(): ?Student
-{
-    return $this->previewStudentId
-        ? Student::with(['section.grade.level', 'section.shift', 'user'])->find($this->previewStudentId)
-        : null;
-}
-
-public function openPreview(int $studentId): void
-{
-    $this->previewStudentId  = $studentId;
-    $this->showPreviewSlider = true;
-}
-
-public function closePreview(): void
-{
-    $this->showPreviewSlider = false;
-    $this->previewStudentId  = null;
-}
-
-// En el método de la query base, agregar filtros rápidos:
-protected function buildQuery()
-{
-    return Student::withIndexRelations()
-        ->when($this->quickFilter === 'no_section', fn ($q) =>
-            $q->whereNull('school_section_id')
-        )
-        ->when($this->quickFilter === 'no_biometric', fn ($q) =>
-            $q->whereNull('face_encoding')
-        )
-        ->when($this->quickFilter === 'no_tutor_phone', fn ($q) =>
-            $q->whereNull('tutor_phone')->orWhere('tutor_phone', '')
-        )
-        // ... filtros existentes
-    ;
-}
-```
-
-**Chips de filtro rápido en la vista** (agregar en la toolbar de StudentIndex):
-
-```html
-{{-- Chips de filtros rápidos visuales --}}
-<div class="flex flex-wrap gap-2 mb-4">
-    @foreach([
-        ''               => ['label' => 'Todos',              'icon' => 'heroicon-o-users'],
-        'no_section'     => ['label' => 'Sala de Espera',      'icon' => 'heroicon-o-clock'],
-        'no_biometric'   => ['label' => 'Sin Biometría',       'icon' => 'heroicon-o-eye-slash'],
-        'no_tutor_phone' => ['label' => 'Sin Tel. de Tutor',   'icon' => 'heroicon-o-phone-x-mark'],
-    ] as $value => $chip)
-        <button wire:click="$set('quickFilter', '{{ $value }}')"
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold
-                       transition-all border
-                       {{ $quickFilter === $value
-                           ? 'bg-orvian-orange text-white border-orvian-orange shadow-sm'
-                           : 'bg-white dark:bg-dark-card text-slate-500 border-slate-200
-                              dark:border-white/10 hover:border-slate-300' }}">
-            <x-dynamic-component :component="$chip['icon']" class="w-3.5 h-3.5" />
-            {{ $chip['label'] }}
-        </button>
-    @endforeach
-</div>
-```
-
-**Slide-Over Preview** (agregar al final del template):
-
-```html
-{{-- Slide-Over de Preview del Estudiante --}}
-@teleport('body')
-<div x-data="{ show: @entangle('showPreviewSlider') }"
-     x-show="show"
-     x-cloak
-     class="fixed inset-0 z-50 flex justify-end">
-
-    {{-- Overlay --}}
-    <div @click="$wire.closePreview()"
-         x-show="show"
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-
-    {{-- Panel --}}
-    <div x-show="show"
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="translate-x-full"
-         x-transition:enter-end="translate-x-0"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="translate-x-0"
-         x-transition:leave-end="translate-x-full"
-         class="relative w-80 bg-white dark:bg-dark-bg shadow-2xl flex flex-col h-full">
-
-        @if($this->previewStudent)
-            @php $s = $this->previewStudent; @endphp
-
-            {{-- Header --}}
-            <div class="p-5 border-b border-slate-200 dark:border-white/10">
-                <div class="flex items-center gap-3">
-                    <x-ui.student-avatar :student="$s" size="lg" />
-                    <div class="flex-1 min-w-0">
-                        <p class="font-bold text-slate-800 dark:text-white text-sm leading-snug">
-                            {{ $s->full_name }}
-                        </p>
-                        <p class="text-xs text-slate-400 mt-0.5">
-                            {{ $s->section?->fullLabel ?? 'Sin sección' }}
-                        </p>
-                    </div>
-                    <button wire:click="closePreview" class="text-slate-400 hover:text-slate-600">
-                        <x-heroicon-o-x-mark class="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
-
-            {{-- Datos rápidos --}}
-            <div class="flex-1 overflow-y-auto p-5 space-y-4">
-
-                {{-- RNC --}}
-                <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                        Cédula / RNC
-                    </p>
-                    <p class="text-sm font-mono text-slate-700 dark:text-white">
-                        {{ $s->rnc ?? '—' }}
-                    </p>
-                </div>
-
-                {{-- Tanda --}}
-                <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                        Tanda
-                    </p>
-                    <p class="text-sm text-slate-700 dark:text-white">
-                        {{ $s->section?->shift?->name ?? '—' }}
-                    </p>
-                </div>
-
-                {{-- Tutor --}}
-                <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                        Tutor
-                    </p>
-                    <p class="text-sm text-slate-700 dark:text-white">
-                        {{ $s->tutor_name ?? '—' }}
-                    </p>
-                    @if($s->tutor_phone)
-                        <p class="text-xs text-slate-500 font-mono mt-0.5">{{ $s->tutor_phone }}</p>
-                    @else
-                        <p class="text-xs text-amber-500 mt-0.5">Sin teléfono de tutor</p>
-                    @endif
-                </div>
-
-                {{-- Estado biométrico --}}
-                <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                        Biometría
-                    </p>
-                    @if($s->face_encoding)
-                        <x-ui.badge variant="success" size="sm">Enrolado</x-ui.badge>
-                    @else
-                        <x-ui.badge variant="warning" size="sm">Sin biometría</x-ui.badge>
-                    @endif
-                </div>
-
-                {{-- Estado sala de espera (si aplica) --}}
-                @if(isset($s->metadata['sigerd_section']) && is_null($s->school_section_id))
-                    <div class="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border
-                                border-amber-200 dark:border-amber-700/50">
-                        <p class="text-xs font-bold text-amber-700 dark:text-amber-300 mb-1">
-                            ⏳ En Sala de Espera
-                        </p>
-                        <p class="text-xs text-amber-600 dark:text-amber-400">
-                            Curso SIGERD: "{{ $s->metadata['sigerd_section'] }}"
-                        </p>
-                    </div>
-                @endif
-            </div>
-
-            {{-- Acciones --}}
-            <div class="p-5 border-t border-slate-200 dark:border-white/10 space-y-2">
-                <x-ui.button :href="route('app.academic.students.show', $s)" variant="primary"
-                    :fullWidth="true" size="sm">
-                    Ver Perfil Completo
-                </x-ui.button>
-                <x-ui.button :href="route('app.academic.students.edit', $s)" variant="ghost"
-                    :fullWidth="true" size="sm">
-                    Editar
-                </x-ui.button>
-            </div>
-        @endif
-    </div>
-</div>
-@endteleport
-```
+* **Badge de "Sala de Espera":** Un chip sutil al lado del nombre si el estudiante aún no ha sido admitido definitivamente.
+    - Agregar if en al parte de seccioens en el `resources/views/livewire/app/academic/students/index.blade.php`.
+* **Acceso Rápido al Tutor:** En la columna del tutor, incluir el icono de WhatsApp que hicimos antes. Así, el admin puede escribirle al padre directamente desde la lista sin navegar.
+    - Modificar `app/Tables/App/Academic/StudentTableConfig.php` para que se muestre esa columna
 
 ### 6.3 — Checklist de Completitud — Fase 6
 
-- [ ] `StudentShow` tiene sección de Tutor (nombre + teléfono + badge de alertas activas)
-- [ ] `StudentShow` tiene resumen de asistencia con barras Plantel vs Aula
-- [ ] Selector de período (7d / 30d / 90d) actualiza las barras reactivamente
-- [ ] `plantelAttendanceSummary` y `classroomAttendanceSummary` como `#[Computed]`
-- [ ] `StudentIndex` tiene chips de filtro rápido visual (todos / sala de espera / sin biometría / sin tel.)
-- [ ] `quickFilter` integrado en el `buildQuery()` del index
-- [ ] Slide-Over preview implementado con `@teleport('body')`
-- [ ] Preview muestra: nombre, sección, tanda, tutor, estado biométrico, sala de espera
-- [ ] Slide-Over incluye botones de "Ver Perfil" y "Editar"
+- [x] `StudentShow` tiene sección de Tutor (nombre + teléfono + badge de alertas activas)
+- [x] `StudentShow` tiene resumen de asistencia con barras Plantel vs Aula
+- [x] Selector de período (7d / 30d / 90d) actualiza las barras reactivamente
+- [x] `plantelAttendanceSummary` y `classroomAttendanceSummary` como `#[Computed]`
+
+
+### 6.3 — Extras
+
+- [x] Agregar ruta de `app.academic.students.print-manager` a config/modules.php
+- [x] Corregir el tamaño de los botone en `resources/views/livewire/app/academic/students/student-print-manager.blade.php`
+- [x] Agregar el custom-scroll dentro del panel de las seciones en `resources/views/livewire/app/academic/enrollment-hub.blade.php`
+- [x] Agregar un buscador de seciones en `resources/views/livewire/app/academic/enrollment-hub.blade.php` agregar consulta y variable a `app/Livewire/App/Academic/EnrollmentHub.php`
 
 ---
 
@@ -3473,18 +3304,16 @@ class TeacherAssignments extends Component
 - [x] `metadata` actualizada tras asignación exitosa
 
 ### Fase 5 — Kiosko Biométrico
-- [ ] Grid visual con indicadores de estado biométrico
-- [ ] Filtros por sección, estado y búsqueda
-- [ ] Modal de captura con webcam nativa
-- [ ] Guía de encuadre (elipse overlay)
-- [ ] Integración con `FaceEncodingManager::enrollStudent()`
-- [ ] Auto-cierre tras éxito
+- [x] Grid visual con indicadores de estado biométrico
+- [x] Filtros por sección, estado y búsqueda
+- [x] Modal de captura con webcam nativa
+- [x] Guía de encuadre (elipse overlay)
+- [x] Integración con `FaceEncodingManager::enrollStudent()`
+- [x] Auto-cierre tras éxito
 
 ### Fase 6 — UI Estudiantil Mejorada
-- [ ] `StudentShow` tiene sección de Tutor con alert de alertas WhatsApp
-- [ ] Barras de asistencia Plantel vs Aula con selector de período
-- [ ] `StudentIndex` tiene chips de filtro rápido
-- [ ] Slide-Over preview implementado
+- [x] `StudentShow` tiene sección de Tutor con alert de alertas WhatsApp
+- [x] Barras de asistencia Plantel vs Aula con selector de período
 
 ### Fase 7 — TeacherAssignments Rediseñado
 - [ ] Doble select eliminado, reemplazado por paneles
