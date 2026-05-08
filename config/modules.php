@@ -53,6 +53,7 @@ return [
         'moduleLinks' => [
             ['label' => 'Estructura Académica', 'route' => 'app.academic.courses.index'],
             ['label' => 'Estudiantes', 'route' => 'app.academic.students.index'],
+            ['label' => 'Matriculación', 'route' => 'app.academic.enrollment-hub'],
             ['label' => 'Maestros',  'route' => 'app.academic.teachers.index'], 
         ],
     ],

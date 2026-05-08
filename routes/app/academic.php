@@ -15,6 +15,7 @@ use App\Livewire\App\Academic\Teachers\TeacherAssignments;
 use App\Livewire\App\Academic\CourseIndex;
 use App\Livewire\App\Academic\CourseForm;
 use App\Livewire\App\Academic\CourseShow;
+use App\Livewire\App\Academic\EnrollmentHub;
 
 /*
 |--------------------------------------------------------------------------
@@ -89,6 +90,14 @@ Route::prefix('academic')->name('academic.')->group(function () {
         Route::get('/courses/create',   CourseForm::class)->name('courses.create');
         Route::get('/courses/{section}',CourseShow::class)->name('courses.show');
     });
+
+    // -------------------------------------------------------------------------
+    //     // Hub de Matriculación (Sala de Espera)
+    // -------------------------------------------------------------------------
+
+    Route::get('/enrollment-hub', EnrollmentHub::class)
+    ->middleware('can:students.edit')
+    ->name('enrollment-hub');
 
 
 });
