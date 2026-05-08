@@ -1550,6 +1550,7 @@ Route::prefix('academic')->name('academic.')->group(function () {
 - [x] Ruta antigua `AcademicBuilder` redirige a `courses.index`
 - [x] Permisos `can:configuracion.academic_structure` aplicados
 
+---
 
 ## Fase 3 — Evolución del Importador SIGERD
 **Rama:** `feature/sigerd-importer-v2`
@@ -1849,16 +1850,42 @@ event(new StudentImportCompleted(
 
 ### 3.6 — Checklist de Completitud — Fase 3
 
-- [ ] `StudentImportWizard` incluye `tutor_name` y `tutor_phone` en `$mappableFields`
-- [ ] `tutor_name` y `tutor_phone` opcionales en validación del paso de mapeo
-- [ ] Paso 3 del wizard incluye toggle de sección por defecto
-- [ ] `resolveSection()` implementa lógica tolerante en 4 niveles
-- [ ] `normalizePhone()` convierte a formato E.164
-- [ ] Estudiantes sin sección se crean con `school_section_id = null`
-- [ ] `metadata->sigerd_section` almacena el nombre crudo del curso de SIGERD
-- [ ] `metadata->section_resolved` almacena boolean de si se resolvió automáticamente
-- [ ] Cache de secciones en memoria durante el procesamiento del Job (evitar N+1)
-- [ ] Reporte post-importación incluye conteo de `waiting_room` y agrupación por `sigerd_section`
+- [x] `StudentImportWizard` incluye `tutor_name` y `tutor_phone` en `$mappableFields`
+- [x] `tutor_name` y `tutor_phone` opcionales en validación del paso de mapeo
+- [x] Paso 3 del wizard incluye toggle de sección por defecto
+- [x] `resolveSection()` implementa lógica tolerante en 4 niveles
+- [x] `normalizePhone()` convierte a formato E.164
+- [x] Estudiantes sin sección se crean con `school_section_id = null`
+- [x] `metadata->sigerd_section` almacena el nombre crudo del curso de SIGERD
+- [x] `metadata->section_resolved` almacena boolean de si se resolvió automáticamente
+- [x] Cache de secciones en memoria durante el procesamiento del Job (evitar N+1)
+- [x] Reporte post-importación incluye conteo de `waiting_room` y agrupación por `sigerd_section`
+
+### 3.7 — Extras
+
+- [x] Eliminar archivos obsoletos:
+
+D app/Livewire/App/Students/StudentForm.php
+D app/Livewire/App/Students/StudentImportWizard.php
+D app/Livewire/App/Students/StudentIndex.php
+D app/Livewire/App/Students/StudentPrintManager.php
+D app/Livewire/App/Students/StudentShow.php
+D app/Livewire/App/Teachers/TeacherAssignments.php
+D app/Livewire/App/Teachers/TeacherForm.php
+D app/Livewire/App/Teachers/TeacherIndex.php
+D app/Livewire/App/Teachers/TeacherShow.php
+
+- [x] Fix
+
+El fix en StudentObserver::created():
+
+1. Eliminé la dependencia del estado global (setPermissionsTeamId) para encontrar el rol
+2. Uso Role::withoutGlobalScopes()->where('school_id', $student->school_id) para obtener el rol del tenant directamente por
+school_id — determinístico, sin ambigüedad
+3. Uso $user->roles()->attach($roleId, ['school_id' => $school_id]) para insertar en el pivot con el school_id correcto hardcodeado
+— no depende de ningún estado global
+4. Llama forgetCachedPermissions() para limpiar el cache de Spatie después de la asignación
+5. Log de warning si el rol del tenant no existe (centro sin roles configurados)
 
 ---
 
