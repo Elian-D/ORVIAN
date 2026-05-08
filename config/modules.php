@@ -54,6 +54,7 @@ return [
             ['label' => 'Estructura Académica', 'route' => 'app.academic.courses.index'],
             ['label' => 'Estudiantes', 'route' => 'app.academic.students.index'],
             ['label' => 'Matriculación', 'route' => 'app.academic.enrollment-hub'],
+            ['label' => 'Registro Facial', 'route' => 'app.academic.biometric-kiosk'],
             ['label' => 'Maestros',  'route' => 'app.academic.teachers.index'], 
         ],
     ],
