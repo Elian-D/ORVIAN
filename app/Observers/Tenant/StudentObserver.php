@@ -2,12 +2,14 @@
 
 namespace App\Observers\Tenant;
 
+use App\Models\Role;
 use App\Models\Tenant\Student;
 use App\Models\User;
 use App\Services\Academic\Students\StudentService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\PermissionRegistrar;
 
 class StudentObserver
 {
@@ -30,14 +32,30 @@ class StudentObserver
         $user = User::create([
             'name'       => $student->full_name,
             'email'      => $email,
-            'password'   => Hash::make('12345678'), // Contraseña por defecto, se recomienda cambiarla en el primer login
+            'password'   => Hash::make('12345678'),
             'school_id'  => $student->school_id,
             'status'     => 'inactive',
         ]);
 
-        // Asignar rol Student en scope del tenant
-        setPermissionsTeamId($student->school_id);
-        $user->assignRole('Student');
+        // Buscar el rol Student del tenant explícitamente por school_id,
+        // sin depender del estado global de setPermissionsTeamId() que puede
+        // estar corrupto en contextos de queue worker (jobs anteriores lo resetean).
+        $tenantRole = Role::withoutGlobalScopes()
+            ->where('name', 'Student')
+            ->where('guard_name', 'web')
+            ->where('school_id', $student->school_id)
+            ->first();
+
+        if ($tenantRole) {
+            // Insertar directamente en el pivot con el school_id correcto,
+            // evitando por completo la dependencia en getPermissionsTeamId().
+            $user->roles()->attach($tenantRole->id, [
+                config('permission.column_names.team_foreign_key') => $student->school_id,
+            ]);
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+        } else {
+            Log::warning("Rol 'Student' no encontrado para school_id={$student->school_id}. El usuario {$user->id} no tiene rol asignado.");
+        }
 
         // Vincular el user_id al estudiante
         $student->updateQuietly(['user_id' => $user->id]);
