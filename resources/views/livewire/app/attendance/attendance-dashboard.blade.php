@@ -100,22 +100,26 @@
                 </div>
 
                 {{-- Filtro: Tanda --}}
-                <select wire:model.live="selectedShift"
-                    class="h-9 px-3 text-sm rounded-xl border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-card text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/40">
-                    <option value="">Todas las tandas</option>
+                <x-ui.forms.select
+                    name="selectedShift"
+                    wire:model.live="selectedShift"
+                    class="w-48 lg:w-56"
+                    placeholder="Todas las tandas">
                     @foreach($shifts as $shift)
                         <option value="{{ $shift->id }}">{{ $shift->type }}</option>
                     @endforeach
-                </select>
+                </x-ui.forms.select>
 
-                {{-- Filtro: Sección --}}
-                <select wire:model.live="selectedSection"
-                    class="h-9 px-3 text-sm rounded-xl border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-card text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/40">
-                    <option value="">Todas las secciones</option>
+                {{-- Selector de sección --}}
+                <x-ui.forms.select
+                    name="selectedSection"
+                    wire:model.live="selectedSection"
+                    class="w-48 lg:w-56"
+                    placeholder="Todas las secciones">
                     @foreach($sections as $section)
                         <option value="{{ $section->id }}">{{ $section->full_label }}</option>
                     @endforeach
-                </select>
+                </x-ui.forms.select>
             </div>
         </x-slot:actions>
     </x-ui.page-header>
