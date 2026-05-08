@@ -134,20 +134,30 @@
 
                 {{-- Sección --}}
                 <x-data-table.cell column="section" :visible="$visibleColumns">
-                    <x-ui.badge 
-                        variant="info" 
-                        size="sm" 
-                        {{-- 
-                        max-w-[200px]: Limita el ancho (ajusta el valor a tu gusto)
-                        truncate: Añade los "..." automáticamente
-                        block: Asegura que el ancho máximo se respete
-                        --}}
-                        class="max-w-[180px] truncate block"
-                        {{-- Opcional: añade un title para que al poner el mouse encima se vea el nombre completo --}}
-                        title="{{ $student->full_section_name }}"
-                    >
-                        {{ $student->full_section_name }}
-                    </x-ui.badge>
+                    @if($student->school_section_id)
+                        <x-ui.badge 
+                            variant="info" 
+                            size="sm" 
+                            class="max-w-[180px] truncate block"
+                            title="{{ $student->full_section_name }}"
+                        >
+                            {{ $student->full_section_name }}
+                        </x-ui.badge>
+                    @else
+                        {{-- Estado: Sala de Espera --}}
+                        <x-ui.badge 
+                            hex="#f59e0b" {{-- Amber 500 para representar espera/atención --}}
+                            size="sm" 
+                            class="max-w-[180px] truncate block font-bold"
+                            title="Estudiante pendiente de asignación de grado y sección"
+                            :dot="false"
+                        >
+                            <span class="flex items-center gap-1">
+                                <x-heroicon-s-clock class="w-3 h-3" />
+                                Sala de Espera
+                            </span>
+                        </x-ui.badge>
+                    @endif
                 </x-data-table.cell>
 
                 {{-- Género --}}
@@ -160,6 +170,27 @@
                     <span class="text-sm text-slate-600">{{ $student->date_of_birth?->age ?? '--' }} años</span>
                 </x-data-table.cell>
 
+                {{-- Tutor - Nombre + número clicleable hacia Whatsapp --}}
+                <x-data-table.cell column="tutor" :visible="$visibleColumns">
+                    <div class="flex flex-col">
+                        <span class="text-sm font-medium text-slate-700 dark:text-slate-200 leading-tight">
+                            {{ $student->tutor_name ?? 'Sin asignar' }}
+                        </span>
+                        
+                        @if($student->tutor_phone)
+                            <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $student->tutor_phone) }}?text={{ urlencode('Saludos, le escribimos desde el centro educativo en relación al estudiante ' . $student->full_name) }}" 
+                            target="_blank"
+                            class="text-[11px] text-green-600 dark:text-green-500 hover:text-green-700 font-bold flex items-center gap-1 group mt-0.5"
+                            title="Enviar mensaje de WhatsApp">
+                                <x-heroicon-s-phone class="w-3 h-3 transition-transform group-hover:scale-110" />
+                                {{ $student->tutor_phone }}
+                            </a>
+                        @else
+                            <span class="text-[10px] text-slate-400 italic">Sin teléfono</span>
+                        @endif
+                    </div>
+                </x-data-table.cell>
+                
                 {{-- Estado --}}
                 <x-data-table.cell column="status" :visible="$visibleColumns">
                     <x-ui.badge :variant="$student->is_active ? 'success' : 'error'" size="sm" dot>

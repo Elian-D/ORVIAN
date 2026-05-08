@@ -21,6 +21,7 @@ class StudentTableConfig implements TableConfig
             'section'           => 'Sección',
             'gender'            => 'Género',
             'age'               => 'Edad',
+            'tutor'             => 'Tutor',
             'status'            => 'Estado',
             'has_face_encoding' => 'Biometría',
         ];
@@ -38,6 +39,7 @@ class StudentTableConfig implements TableConfig
             'section', 
             'gender', 
             'age', 
+            'tutor',
             'status'
         ];
     }
