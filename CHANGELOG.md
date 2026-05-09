@@ -7,6 +7,65 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [0.6.0] - 2026-05-08
+
+### Added
+
+#### Fase 1 — Refactorización de Namespaces Académicos
+- Modelos `Student` y `Teacher` movidos a `App\Models\Tenant\Academic` para consolidación del dominio educativo.
+- Observers y Factories de estudiantes y maestros reubicados en sus respectivos namespaces `Tenant\Academic`.
+- Registro de aliases de backward-compatibility en `AppServiceProvider` vía `class_alias()` para evitar rupturas de código legacy.
+
+#### Fase 2 — Gestión de Cursos (Estructura Multivista)
+- **Migración:** Soporte para `is_active` y `SoftDeletes` en `school_sections`.
+- **`CourseIndex`:** Nueva vista de índice con cards agrupadas por nivel, separación visual de secciones técnicas mediante badges de color y conteo de estudiantes en tiempo real.
+- **`CourseForm`:** Wizard de creación de 4 pasos con lógica condicional para modalidades técnicas. Incluye barra de progreso reactiva y guard de duplicidad de paralelos.
+- **`CourseShow`:** Vista de detalle con edición inline de metadatos, toggle de estado operativo y listado de estudiantes vinculado al Hub de Matriculación.
+
+#### Fase 3 — Evolución del Importador SIGERD
+- Integración de `tutor_name` y `tutor_phone` en el mapeo de importación para soporte de alertas de WhatsApp.
+- Lógica de `resolveSection()` con 4 niveles de tolerancia: match exacto, fuzzy match, sección por defecto o Sala de Espera automática.
+- Almacenamiento de metadatos de origen (`sigerd_section`) y normalización E.164 para teléfonos de tutores.
+
+#### Fase 4 — Hub de Matriculación y Asignación Masiva
+- `EnrollmentHub`: Interfaz de doble panel para gestión de estudiantes en Sala de Espera (`school_section_id = null`).
+- Funcionalidad `selectBySigerdSection()` para selección inteligente basada en el curso de origen de SIGERD.
+- Ejecución de asignación masiva mediante `JSON_SET` para mantener trazabilidad en los metadatos del estudiante.
+
+#### Fase 5 — Kiosko de Enrolamiento Biométrico
+- `BiometricKiosk`: Panel visual de estado de enrolamiento con filtros por sección y búsqueda fonética.
+- Modal de captura con soporte nativo para `facingMode` (móvil/desktop) y guía de encuadre visual mediante SVG.
+- Procesamiento asíncrono de frames con corrección de espejo e integración directa con `FaceEncodingManager`.
+- Gestión de ciclo de vida de hardware: apagado automático de cámara mediante listeners globales de cierre de modal.
+
+#### Fase 6 — Evolución de UI Estudiantil
+- Perfil del estudiante (`StudentShow`) con nueva sección de datos de Tutor y badges de estado de comunicación.
+- Widget de asistencia histórica con barras comparativas (Plantel vs Aula) y selector de periodos reactivo (`#[Computed]`).
+- `StudentIndex` optimizado con chips de filtrado rápido y Slide-Over de previsualización mediante `@teleport('body')`.
+
+#### Fase 7 — Rediseño UX de Asignación de Materias
+- `TeacherAssignments`: Nueva interfaz de dos paneles con scroll interno independiente (`custom-scroll`).
+- Buscadores integrados por sección y por asignatura para manejo de grandes volúmenes de datos.
+- Sistema de asignación "One-Click" con feedback visual inmediato basado en los colores institucionales de las materias.
+
+### Changed
+- `AcademicBuilder` refactorizado: la visualización ahora reside en `CourseIndex` y la lógica de creación en `CourseForm`.
+- `ProcessStudentImport` Job: Ahora es tolerante a fallos de sección, delegando los estudiantes sin match a la "Sala de Espera".
+- `TeacherAssignments`: Se elimina la interfaz de doble select en favor de un layout tipo Dashboard con toggles reactivos.
+
+### Fixed
+- Corregida sincronización de Livewire en el Wizard de cursos mediante `wire:model.live` en selectores dependientes.
+- Solucionado bug de validación en `Step3` del Wizard cuando el grado era académico y el título técnico era nulo.
+- Corregido leak de hardware en el Kiosko Biométrico; la cámara ahora se libera correctamente al cerrar el modal por cualquier vía (Esc, Overlay o Botón).
+- Ajustada la emisión de eventos Livewire para asegurar compatibilidad con componentes Alpine externos mediante `CustomEvent`.
+
+### Notes
+- **Webcam:** El Kiosko Biométrico requiere HTTPS en producción por restricciones de `getUserMedia()`.
+- **Rendimiento:** Se recomienda indexar columnas generadas para `metadata->sigerd_section` si la Sala de Espera excede los 500 registros.
+
+---
+
+
 ## [0.5.0] - 2026-04-25
 
 ### Added

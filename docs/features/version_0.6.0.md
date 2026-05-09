@@ -3259,15 +3259,15 @@ class TeacherAssignments extends Component
 
 ### 7.3 — Checklist de Completitud — Fase 7
 
-- [ ] Panel izquierdo muestra secciones agrupadas por nivel con conteo de materias asignadas
-- [ ] Panel derecho carga materias dinámicamente al seleccionar sección
-- [ ] Botones de materias actúan como toggles de 1 clic (asignar/desasignar)
-- [ ] Materias asignadas muestran fondo de color (`$subject->color`) + check icon
-- [ ] Materias no asignadas muestran dot de color + borde neutro
-- [ ] Módulos técnicos separados visualmente (sección aparte con borde dashed)
-- [ ] `toggleSubject()` usa `#[Computed]` con invalidación (`unset`) para re-renderizar sin AJAX manual
-- [ ] Guard de unique constraint al asignar
-- [ ] `TeacherAssignmentService::remove()` desactiva si tiene registros de asistencia, elimina si no
+- [x] Panel izquierdo muestra secciones agrupadas por nivel con conteo de materias asignadas
+- [x] Panel derecho carga materias dinámicamente al seleccionar sección
+- [x] Botones de materias actúan como toggles de 1 clic (asignar/desasignar)
+- [x] Materias asignadas muestran fondo de color (`$subject->color`) + check icon
+- [x] Materias no asignadas muestran dot de color + borde neutro
+- [x] Módulos técnicos separados visualmente (sección aparte con borde dashed)
+- [x] `toggleSubject()` usa `#[Computed]` con invalidación (`unset`) para re-renderizar sin AJAX manual
+- [x] Guard de unique constraint al asignar
+- [x] `TeacherAssignmentService::remove()` desactiva si tiene registros de asistencia, elimina si no
 
 ---
 
@@ -3316,10 +3316,12 @@ class TeacherAssignments extends Component
 - [x] Barras de asistencia Plantel vs Aula con selector de período
 
 ### Fase 7 — TeacherAssignments Rediseñado
-- [ ] Doble select eliminado, reemplazado por paneles
-- [ ] Grid de materias coloreadas como toggles
-- [ ] Asignación/desasignación en 1 clic
-- [ ] Separación visual Básicas vs Técnicas
+- [x] Doble select eliminado, reemplazado por paneles
+- [x] Grid de materias coloreadas como toggles
+- [x] Asignación/desasignación en 1 clic
+- [x] Separación visual Básicas vs Técnicas
+
+- [x] Actualizar dashboard.php para activar el modulo acádemico.
 
 ---
 

@@ -3,107 +3,141 @@
 namespace App\Livewire\App\Academic\Teachers;
 
 use App\Models\Tenant\Academic\SchoolSection;
+use App\Models\Tenant\Academic\SchoolShift;
+use App\Models\Tenant\Academic\Subject;
 use App\Models\Tenant\Academic\TeacherSubjectSection;
+use App\Models\Tenant\Academic\AcademicYear;
 use App\Models\Tenant\Teacher;
 use App\Services\Academic\Teachers\TeacherAssignmentService;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 class TeacherAssignments extends Component
 {
-    use AuthorizesRequests;
-
     public Teacher $teacher;
+    public ?int    $activeSectionId = null;
+    public ?int    $filterShiftId   = null;
 
-    // Formulario de nueva asignación
-    public int    $selectedSubjectId = 0;
-    public int    $selectedSectionId = 0;
-    public int $assignmentToDelete = 0;
+    public string  $searchSection = '';
+    public string  $searchSubject = '';
 
     public function mount(Teacher $teacher): void
     {
         $this->teacher = $teacher->load(['assignments.subject', 'assignments.section.grade']);
+
+        // Pre-seleccionar la primera sección del maestro si tiene asignaciones
+        $this->activeSectionId = $this->teacher->assignments->first()?->school_section_id;
     }
 
-    /**
-     * Secciones disponibles en la escuela para el selector.
-     */
     #[Computed]
-    public function sections()
+    public function shifts(): \Illuminate\Database\Eloquent\Collection
     {
-        return SchoolSection::with(['grade', 'shift', 'technicalTitle'])
+        return SchoolShift::where('school_id', $this->teacher->school_id)->get();
+    }
+
+    #[Computed]
+    public function sections(): \Illuminate\Database\Eloquent\Collection
+    {
+        return SchoolSection::with(['grade.level', 'shift', 'technicalTitle'])
             ->where('school_id', $this->teacher->school_id)
-            ->get();
-    }
-
-    /**
-     * Materias disponibles en función de la sección seleccionada.
-     * Se recalcula reactivamente cuando $selectedSectionId cambia.
-     */
-    #[Computed]
-    public function availableSubjects()
-    {
-        if (! $this->selectedSectionId) return collect();
-
-        return app(TeacherAssignmentService::class)
-            ->getAvailableSubjects($this->teacher, $this->selectedSectionId);
-    }
-
-    /**
-     * Asignaciones actuales agrupadas por sección para el panel izquierdo.
-     */
-    #[Computed]
-    public function currentAssignments()
-    {
-        return TeacherSubjectSection::with(['subject', 'section.grade'])
-            ->where('teacher_id', $this->teacher->id)
             ->where('is_active', true)
+            ->when($this->filterShiftId, fn ($q) => $q->where('school_shift_id', $this->filterShiftId))
+            ->when($this->searchSection, function($q) {
+                $q->where(function($query) {
+                    $query->where('label', 'like', "%{$this->searchSection}%")
+                          ->orWhereHas('grade', fn($g) => $g->where('name', 'like', "%{$this->searchSection}%"))
+                          ->orWhereHas('technicalTitle', fn($t) => $t->where('name', 'like', "%{$this->searchSection}%"));
+                });
+            })
             ->get()
-            ->groupBy('school_section_id');
+            ->sortBy(fn ($s) => $s->grade->name . $s->label);
     }
 
-    public function removeConfirmed(TeacherAssignmentService $service): void
-{
-    if (!$this->assignmentToDelete) return;
-
-    // Reutilizamos tu lógica de eliminación
-    $this->remove($this->assignmentToDelete, $service);
-
-    // Reseteamos y cerramos el modal disparando un evento al navegador
-    $this->assignmentToDelete = 0;
-    $this->dispatch('close-modal', 'confirm-assignment-deletion');
-}
-
-    public function assign(TeacherAssignmentService $service): void
+    /**
+     * Todas las materias disponibles para la escuela, filtradas por búsqueda y 
+     * con indicador de si están asignadas al maestro en la sección activa.
+     */
+    #[Computed]
+    public function subjectsForActiveSection(): array
     {
-        $this->authorize('teachers.assign_subjects');
-
-        $this->validate([
-            'selectedSubjectId' => 'required|integer|exists:subjects,id',
-            'selectedSectionId' => 'required|integer|exists:school_sections,id',
-        ]);
-
-        try {
-            $service->assign($this->teacher, $this->selectedSubjectId, $this->selectedSectionId);
-            $this->reset(['selectedSubjectId', 'selectedSectionId']);
-            unset($this->currentAssignments, $this->availableSubjects);
-            $this->dispatch('notify', type: 'success', message: 'Asignación creada correctamente.');
-        } catch (\Illuminate\Database\QueryException $e) {
-            // Violación del unique constraint
-            $this->dispatch('notify', type: 'error', message: 'Esta asignación ya existe para el año activo.');
+        if (! $this->activeSectionId) {
+            return ['basic' => collect(), 'technical' => collect()];
         }
+
+        $year = AcademicYear::where('school_id', $this->teacher->school_id)
+            ->where('is_active', true)
+            ->first();
+
+        $assignedSubjectIds = TeacherSubjectSection::where('teacher_id', $this->teacher->id)
+            ->where('school_section_id', $this->activeSectionId)
+            ->where('academic_year_id', $year?->id)
+            ->where('is_active', true)
+            ->pluck('subject_id')
+            ->toArray();
+
+        $allSubjects = Subject::availableForSchool($this->teacher->school_id)
+            ->active()
+            ->when($this->searchSubject, function($q) {
+                $q->where(function($query) {
+                    $query->where('name', 'like', "%{$this->searchSubject}%")
+                          ->orWhere('code', 'like', "%{$this->searchSubject}%");
+                });
+            })
+            ->get()
+            ->map(fn ($s) => [
+                'id'         => $s->id,
+                'name'       => $s->name,
+                'code'       => $s->code,
+                'color'      => $s->color,
+                'type'       => $s->type,
+                'is_assigned'=> in_array($s->id, $assignedSubjectIds),
+            ]);
+
+        return [
+            'basic'     => $allSubjects->where('type', Subject::TYPE_BASIC)->values(),
+            'technical' => $allSubjects->where('type', Subject::TYPE_TECHNICAL)->values(),
+        ];
     }
 
-    public function remove(int $assignmentId, TeacherAssignmentService $service): void
+    /**
+     * Toggle de asignación: asigna si no está asignada, desasigna si ya está.
+     * Un solo clic — sin confirmación (la UI muestra el estado claramente).
+     */
+    public function toggleSubject(int $subjectId): void
     {
         $this->authorize('teachers.assign_subjects');
 
-        $assignment = TeacherSubjectSection::findOrFail($assignmentId);
-        $service->remove($assignment);
+        $year = AcademicYear::where('school_id', $this->teacher->school_id)
+            ->where('is_active', true)
+            ->firstOrFail();
 
-        unset($this->currentAssignments);
-        $this->dispatch('notify', type: 'info', message: 'Asignación eliminada.');
+        $existing = TeacherSubjectSection::where('teacher_id', $this->teacher->id)
+            ->where('subject_id', $subjectId)
+            ->where('school_section_id', $this->activeSectionId)
+            ->where('academic_year_id', $year->id)
+            ->first();
+
+        if ($existing) {
+            // Desasignar
+            app(TeacherAssignmentService::class)->remove($existing);
+            $this->dispatch('notify', type: 'info', message: 'Materia desasignada.');
+        } else {
+            // Asignar
+            try {
+                app(TeacherAssignmentService::class)->assign(
+                    $this->teacher,
+                    $subjectId,
+                    $this->activeSectionId
+                );
+                $this->dispatch('notify', type: 'success', message: 'Materia asignada.');
+            } catch (\Illuminate\Database\QueryException) {
+                $this->dispatch('notify', type: 'error', message: 'Esta asignación ya existe.');
+            }
+        }
+
+        // Invalidar computed para re-renderizar el grid
+        unset($this->subjectsForActiveSection);
+        $this->teacher->refresh();
     }
 
     public function render()
