@@ -1,17 +1,22 @@
 <?php
 
 use App\Http\Controllers\App\Students\StudentPrintController;
+use App\Livewire\App\Academic\AcademicBuilder;
+use App\Livewire\App\Academic\BiometricKiosk;
 use Illuminate\Support\Facades\Route;
-use App\Livewire\App\Students\StudentIndex;
-use App\Livewire\App\Students\StudentShow;
-use App\Livewire\App\Students\StudentForm;
-use App\Livewire\App\Students\StudentPrintManager;
-use App\Livewire\App\Students\StudentImportWizard;
-
-use App\Livewire\App\Teachers\TeacherIndex;
-use App\Livewire\App\Teachers\TeacherShow;
-use App\Livewire\App\Teachers\TeacherForm;
-use App\Livewire\App\Teachers\TeacherAssignments;
+use App\Livewire\App\Academic\Students\StudentIndex;
+use App\Livewire\App\Academic\Students\StudentShow;
+use App\Livewire\App\Academic\Students\StudentForm;
+use App\Livewire\App\Academic\Students\StudentPrintManager;
+use App\Livewire\App\Academic\Students\StudentImportWizard;
+use App\Livewire\App\Academic\Teachers\TeacherIndex;
+use App\Livewire\App\Academic\Teachers\TeacherShow;
+use App\Livewire\App\Academic\Teachers\TeacherForm;
+use App\Livewire\App\Academic\Teachers\TeacherAssignments;
+use App\Livewire\App\Academic\CourseIndex;
+use App\Livewire\App\Academic\CourseForm;
+use App\Livewire\App\Academic\CourseShow;
+use App\Livewire\App\Academic\EnrollmentHub;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,6 +27,11 @@ use App\Livewire\App\Teachers\TeacherAssignments;
 */
 
 Route::prefix('academic')->name('academic.')->group(function () {
+
+    // -------------------------------------------------------------------------
+    // RUTAS DE GESTIÓN DE ESTUDIANTES 
+    // -------------------------------------------------------------------------
+
     Route::middleware('can:students.view')->group(function () {
         Route::get('/students', StudentIndex::class)->name('students.index');
         
@@ -45,6 +55,11 @@ Route::prefix('academic')->name('academic.')->group(function () {
         Route::get('/students/{student}', StudentShow::class)->name('students.show');
     });
 
+    // -------------------------------------------------------------------------
+    // RUTAS DE GESTIÓN DE DOCENTES
+    // -------------------------------------------------------------------------
+
+
     Route::middleware('can:teachers.view')->group(function () {
         Route::get('/teachers', TeacherIndex::class)->name('teachers.index');
 
@@ -65,4 +80,34 @@ Route::prefix('academic')->name('academic.')->group(function () {
         Route::get('/teachers/{teacher}', TeacherShow::class)
             ->name('teachers.show');
     });
+
+    // -------------------------------------------------------------------------
+    // RUTAS DE GESTIÓN DE SECCIONES, TURNOS Y GRADOS (Estructura Académica)
+    // -------------------------------------------------------------------------
+
+    // Gestión de cursos / secciones
+    Route::middleware('can:settings.view, settings.update')->group(function () {
+        Route::get('/courses',          CourseIndex::class)->name('courses.index');
+        Route::get('/courses/create',   CourseForm::class)->name('courses.create');
+        Route::get('/courses/{section}',CourseShow::class)->name('courses.show');
+    });
+
+    // -------------------------------------------------------------------------
+    // Hub de Matriculación (Sala de Espera) 
+    // -------------------------------------------------------------------------
+
+    Route::get('/enrollment-hub', EnrollmentHub::class)
+    ->middleware('can:students.edit')
+    ->name('enrollment-hub');
+
+    
+    // -------------------------------------------------------------------------
+    // Kiosko Biométrico (Enrolamiento Facial)
+    // -------------------------------------------------------------------------
+
+    Route::get('biometric-kiosk', BiometricKiosk::class)
+    ->middleware('can:students.edit')
+    ->name('biometric-kiosk');
+
+
 });

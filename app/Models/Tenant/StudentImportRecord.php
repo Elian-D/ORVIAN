@@ -9,7 +9,7 @@ class StudentImportRecord extends Model
 {
     protected $fillable = [
         'school_id', 'created_by', 'status',
-        'total_rows', 'processed_rows', 'success_rows', 'failed_rows',
+        'total_rows', 'processed_rows', 'success_rows', 'failed_rows', 'waiting_room_rows',
         'file_path', 'mapping', 'default_section_id', 'errors',
     ];
 
