@@ -73,7 +73,7 @@
                 subtitle="Chatwoot"
                 {{-- Aquí la URL de tu VPS --}}
                 url="https://chat.orvian.com.do" 
-                :comingSoon="false" />
+                />
         </div>
 
         {{-- Académico - Basado en academic_grades --}}
@@ -83,7 +83,8 @@
                 title="Académico"
                 subtitle="Gestión"
                 :active="in_array('academic_grades', $activeModules)"
-                comingSoon="true" />
+                url="{{ route('app.academic.courses.index') }}"
+                />
         </div>
 
         {{-- Notas - Dependiente de academic_grades (Mismo permiso) --}}
