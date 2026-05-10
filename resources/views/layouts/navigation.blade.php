@@ -1,100 +1,121 @@
-<nav x-data="{ open: false }" class="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-    <!-- Primary Navigation Menu -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-            <div class="flex">
-                <!-- Logo -->
-                <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}">
-                        <x-application-logo class="block h-9 w-auto fill-current text-gray-800 dark:text-gray-200" />
+@php
+    $isLanding = request()->routeIs('landing');
+    $navLinks = [
+        ['id' => 'inicio', 'label' => 'Inicio'],
+        ['id' => 'modulos', 'label' => 'Módulos'],
+        ['id' => 'por-que', 'label' => '¿Por qué?'],
+        ['id' => 'precios', 'label' => 'Precios'],
+        ['id' => 'faq', 'label' => 'FAQ'],
+    ];
+    $waMessage = urlencode("Solicito el sistema o Cómo puedo conseguir el sistema");
+@endphp
+
+<nav
+    x-data="{ 
+        scrolled: false, 
+        mobileOpen: false 
+    }"
+    @scroll.window="scrolled = window.scrollY > 20"
+    class="fixed left-0 right-0 z-50 transition-all duration-500 flex justify-center"
+    :class="scrolled ? 'top-4' : 'top-0'"
+>
+    <div 
+        :class="scrolled 
+            ? 'w-[95%] max-w-5xl bg-white/80 dark:bg-dark-bg/80 shadow-xl backdrop-blur-md border border-slate-200/50 dark:border-white/10 py-3 rounded-full' 
+            : 'w-full max-w-6xl bg-transparent py-5 border-transparent'"
+        class="px-6 transition-all duration-500"
+    >
+        <div class="flex items-center justify-between">
+
+            {{-- Wordmark --}}
+            <a href="{{ route('landing') }}" class="group flex items-center">
+                <span class="font-etna text-2xl tracking-tighter" style="color:#f78904; font-weight:900;">
+                    ORVIAN
+                </span>
+            </a>
+
+            @if($isLanding)
+                {{-- Desktop links --}}
+                <div class="hidden md:flex items-center bg-slate-100/50 dark:bg-white/5 px-2 py-1.5 rounded-full border border-slate-200/50 dark:border-white/5 backdrop-blur-md">
+                    <div class="flex items-center gap-1">
+                        @foreach($navLinks as $link)
+                            <a href="#{{ $link['id'] }}"
+                               class="px-4 py-1.5 text-sm font-bold text-slate-600 dark:text-slate-400 rounded-full hover:bg-white dark:hover:bg-white/10 hover:text-orvian-orange transition-all duration-300"
+                            >
+                                {{ $link['label'] }}
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Desktop CTAs --}}
+                <div class="hidden md:flex items-center gap-3">
+                    @auth
+                        <x-ui.button variant="secondary" type="ghost" href="{{ auth()->user()->school_id ? route('app.dashboard') : route('admin.hub') }}" size="sm">
+                            Panel
+                        </x-ui.button>
+                    @else
+                        <x-ui.button variant="secondary" type="ghost" href="{{ route('login') }}" size="sm" class="font-bold">
+                            Entrar
+                        </x-ui.button>
+                    @endauth
+                    <x-ui.button variant="primary" href="https://wa.me/18296257463?text={{ $waMessage }}" target="_blank" size="sm" class="px-6 shadow-lg shadow-orvian-orange/10">
+                        Probar Gratis
+                    </x-ui.button>
+                </div>
+            @else
+                {{-- Navbar Simple (Fuera de la landing) --}}
+                <div class="flex items-center gap-4">
+                    <x-ui.button variant="secondary" type="ghost" href="{{ route('landing') }}" iconLeft="heroicon-o-arrow-left" size="sm">
+                        Volver al inicio
+                    </x-ui.button>
+                </div>
+            @endif
+
+            {{-- Mobile Toggle --}}
+            @if($isLanding)
+            <button @click="mobileOpen = !mobileOpen" 
+                    class="md:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300">
+                <svg x-show="!mobileOpen" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16m-7 6h7" /></svg>
+                <svg x-show="mobileOpen" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            @endif
+        </div>
+    </div>
+
+    {{-- Mobile Menu --}}
+    @if($isLanding)
+    <div x-show="mobileOpen" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-4"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-cloak
+         class="absolute top-full left-0 right-0 p-4 md:hidden">
+        <div class="bg-white dark:bg-dark-card border border-slate-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-6 space-y-4">
+            <div class="flex flex-col gap-1">
+                @foreach($navLinks as $link)
+                    <a href="#{{ $link['id'] }}" 
+                       @click="mobileOpen = false"
+                       class="p-4 rounded-2xl text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                        {{ $link['label'] }}
                     </a>
-                </div>
-
-                <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                        {{ __('Dashboard') }}
-                    </x-nav-link>
-                </div>
+                @endforeach
             </div>
-
-            <!-- Settings Dropdown -->
-            <div class="hidden sm:flex sm:items-center sm:ms-6">
-                <x-dropdown align="right" width="48">
-                    <x-slot name="trigger">
-                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none transition ease-in-out duration-150">
-                            <div>{{ Auth::user()->name }}</div>
-
-                            <div class="ms-1">
-                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                        </button>
-                    </x-slot>
-
-                    <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
-                        </x-dropdown-link>
-
-                        <!-- Authentication -->
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-
-                            <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault();
-                                                this.closest('form').submit();">
-                                {{ __('Log Out') }}
-                            </x-dropdown-link>
-                        </form>
-                    </x-slot>
-                </x-dropdown>
-            </div>
-
-            <!-- Hamburger -->
-            <div class="-me-2 flex items-center sm:hidden">
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-900 focus:text-gray-500 dark:focus:text-gray-400 transition duration-150 ease-in-out">
-                    <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                        <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                        <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+            <div class="pt-4 border-t border-slate-100 dark:border-white/5 grid grid-cols-2 gap-3">
+                @auth
+                    <x-ui.button variant="secondary" type="ghost" href="{{ auth()->user()->school_id ? route('app.dashboard') : route('admin.hub') }}" size="sm">
+                        Panel
+                    </x-ui.button>
+                @else
+                    <x-ui.button variant="secondary" type="ghost" href="{{ route('login') }}" size="sm" class="font-bold">
+                        Entrar
+                    </x-ui.button>
+                @endauth
+                <x-ui.button variant="primary" href="https://wa.me/18296257463?text={{ $waMessage }}" class="rounded-2xl py-4 font-bold shadow-lg shadow-orvian-orange/20">
+                    WhatsApp
+                </x-ui.button>
             </div>
         </div>
     </div>
-
-    <!-- Responsive Navigation Menu -->
-    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
-        <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                {{ __('Dashboard') }}
-            </x-responsive-nav-link>
-        </div>
-
-        <!-- Responsive Settings Options -->
-        <div class="pt-4 pb-1 border-t border-gray-200 dark:border-gray-600">
-            <div class="px-4">
-                <div class="font-medium text-base text-gray-800 dark:text-gray-200">{{ Auth::user()->name }}</div>
-                <div class="font-medium text-sm text-gray-500">{{ Auth::user()->email }}</div>
-            </div>
-
-            <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile.edit')">
-                    {{ __('Profile') }}
-                </x-responsive-nav-link>
-
-                <!-- Authentication -->
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-
-                    <x-responsive-nav-link :href="route('logout')"
-                            onclick="event.preventDefault();
-                                        this.closest('form').submit();">
-                        {{ __('Log Out') }}
-                    </x-responsive-nav-link>
-                </form>
-            </div>
-        </div>
-    </div>
+    @endif
 </nav>
