@@ -21,8 +21,8 @@
 >
     <div 
         :class="scrolled 
-            ? 'w-[95%] max-w-5xl bg-white/80 dark:bg-dark-bg/80 shadow-xl backdrop-blur-md border border-slate-200/50 dark:border-white/10 py-3 rounded-full' 
-            : 'w-full max-w-6xl bg-transparent py-5 border-transparent'"
+            ? 'w-[95%] max-w-6xl bg-white/80 dark:bg-dark-bg/80 shadow-xl backdrop-blur-md border border-slate-200/50 dark:border-white/10 py-3 rounded-full' 
+            : 'w-full max-w-7xl bg-transparent py-5 border-transparent'"
         class="px-6 transition-all duration-500"
     >
         <div class="flex items-center justify-between">
@@ -45,6 +45,13 @@
                                 {{ $link['label'] }}
                             </a>
                         @endforeach
+                        
+                        {{-- Link a Nosotros (Ruta externa a los anclajes) --}}
+                        <a href="{{ route('about') }}"
+                           class="px-4 py-1.5 text-sm font-bold text-slate-600 dark:text-slate-400 rounded-full hover:bg-white dark:hover:bg-white/10 hover:text-orvian-orange transition-all duration-300"
+                        >
+                            Nosotros
+                        </a>
                     </div>
                 </div>
 
@@ -100,6 +107,11 @@
                         {{ $link['label'] }}
                     </a>
                 @endforeach
+                {{-- Link móvil a Nosotros --}}
+                <a href="{{ route('about') }}" 
+                   class="p-4 rounded-2xl text-orvian-orange font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                    Sobre Nosotros
+                </a>
             </div>
             <div class="pt-4 border-t border-slate-100 dark:border-white/5 grid grid-cols-2 gap-3">
                 @auth
