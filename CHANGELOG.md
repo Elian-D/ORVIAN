@@ -7,6 +7,58 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [0.7.0] - 2026-05-09
+
+### Added
+
+#### Fase 1 — Infraestructura de Routing y Auth
+- `welcome.blade.php` renombrado a `landing.blade.php`; ruta `/` registrada con nombre `landing` en `routes/web.php`.
+- `Authenticate.php` actualizado: `redirectTo` apunta a `route('landing')` en lugar de `/login`. Usuarios no autenticados que accedan a rutas protegidas son redirigidos a la raíz pública.
+- Toast de bienvenida post-login: `AuthenticatedSessionController@store` despacha `session()->flash('success', ...)` con el nombre del usuario antes del redirect diferenciado por `school_id` (lógica existente desde v0.4.1).
+- Redirección post-logout a `/` validada y confirmada en `AuthenticatedSessionController@destroy`.
+
+#### Fase 2 — Layout Público y Componentes de Estructura
+- **`layouts/public.blade.php`:** Layout base para todas las páginas públicas. Incluye `x-ui.theme-init` (sin flash de tema), favicons diferenciados por `prefers-color-scheme` (`logo-icon-light.svg` / `logo-icon-dark.svg`), `x-ui.toasts` y stack de scripts.
+- **`layouts/navigation.blade.php`:** Navbar pública modular con Alpine.js. Efecto de scroll: fondo transparente en reposo, `backdrop-blur` con borde al hacer scroll (`window.scrollY > 20`). Incluye hamburger menu para mobile con `x-show` animado.
+- **`layouts/footer.blade.php`:** Footer público modular con 4 columnas responsivas. Muestra badge de versión `v{{ $appVersion }}` vía `View::share` (disponible desde v0.4.1). Link "Sobre Nosotros" apunta a `route('about')`; demás links apuntan a `#` pendientes de implementación.
+
+#### Fase 3 — Landing Page (`landing.blade.php`)
+- **Hero editorial:** Headline principal, subheadline, dos CTAs (`x-ui.button` con variantes `primary` y `ghost`) y mockup 3D del dashboard con tarjetas flotantes animadas (Face ID y notificación WhatsApp). Efectos de perspectiva CSS (`rotateX/Y/Z`) con transición al hover.
+- **Stats animados:** Cuatro métricas institucionales con conteo numérico progresivo vía Alpine.js (`x-intersect.once`) al entrar al viewport.
+- **Sección Módulos con toggle interactivo:** Grid de 9 módulos usando exclusivamente `x-ui.app-tile` (6 activos + 3 `comingSoon`: Web, Classroom, Horarios). Toggle Alpine "Con ORVIAN / Sin ORVIAN" que alterna entre el grid de tiles y 6 cards de problemas sin la plataforma. Animación de entrada `landing-tile-in` activada por `IntersectionObserver` con delay escalonado (`i * 60ms`); se reinicia al cambiar el toggle vía `$nextTick`.
+- **Sección "¿Por qué ORVIAN?":** 6 cards de diferenciadores con Heroicons (Outline), fondos alternados y animación `tile-animate` por `x-intersect`.
+- **Sección de Precios:** Grid dinámico de planes desde base de datos vía `$planes` (1, 2, 3 o 4+ columnas según `$planes->count()`). Usa `x-ui.plan-card` y `x-ui.button`. Card adicional "Incluido en todos los planes" con 4 features destacadas.
+- **Comparativa ORVIAN vs. Tradicional:** Tabla responsive con métricas de eficiencia (tiempo, errores, disponibilidad) comparando gestión manual versus ORVIAN.
+- **FAQ accordion:** Preguntas frecuentes con Alpine.js (`x-collapse`) y `x-cloak`. Animación de chevron al expandir.
+- **CTA final:** Sección con dos botones — WhatsApp y "Ver Planes" — con enlace a `wa.me/18296257463`.
+- **SEO técnico completo en `layouts/public.blade.php`:** Etiquetas `<title>` y `<meta name="description">` optimizadas para keywords dominicanas. Open Graph completo (`og:title`, `og:description`, `og:image`, `og:url`, `og:type`, `og:site_name`, `og:locale`, dimensiones de imagen). Twitter Cards (`summary_large_image`). JSON-LD `SoftwareApplication` con `applicationCategory: "EducationApplication"`, `operatingSystem: "All"`, `featureList`, `aggregateRating` y `publisher`. `<link rel="canonical">`. Meta `geo.region: DO`.
+- **Botón flotante de WhatsApp:** Aparece tras 400px de scroll (`@scroll.window`). Animación de entrada con `x-transition` (scale + translate). Anillo de pulso `animate-ping` con `pointer-events-none`. SVG oficial de WhatsApp. Mensaje pre-escrito en la URL con `?text=` codificado.
+
+#### Fase 4 — Página "Sobre Nosotros" (`about.blade.php`)
+- **Hero editorial:** Tipografía huge (`clamp(3rem, 9vw, 7.5rem)`) con número decorativo de fondo en `font-etna`. Composición asimétrica con imagen panorámica `aspect-[21/9]` y caja flotante "Ingeniería de Impacto" en `orvian-navy` con Heroicon `cpu-chip`. Blueprint pattern via CSS (`background-image` con grid de líneas sutiles con variante `dark:`).
+- **Timeline de Misión / Visión / Valores:** Flujo vertical alternado (izquierda/derecha en desktop, lineal en mobile). Línea central con `linear-gradient` que se desvanece en extremos. Puntos de anclaje con `border` del color de fondo para efecto de agujero sin `mix-blend-mode`. Números decorativos `01`/`02`/`03` en `font-etna` con transición de opacidad en hover. Valores representados como badges `flex-wrap` dentro de la card.
+- **Sección de equipo "Arquitectos de la Revolución Digital":** Líder (Elian David) con foto `aspect-[4/5]` en tarjeta `rounded-[2.5rem]` y overlay con cita al hover. Resto del equipo en grid 2×2 con fotos circulares, offset vertical por miembro (`md:pt-12`) para composición escalonada. Jeremía Meléndez centrado debajo del grid. Fallback `onerror` con doble guardia (`this.onerror=null`) en todas las imágenes.
+- **Cards de valores:** Grid `md:grid-cols-3` con Heroicons `heart`, `shield-check` y `light-bulb`. Renderizado dinámico desde array `$valores` con `x-dynamic-component`.
+- **CTA final:** Card `orvian-navy` con acento diagonal decorativo, línea naranja superior y botón `x-ui.button` apuntando a `wa.me/18296257463?text=Solicito+una+auditoría+del+sistema`.
+- Ruta pública `/sobre-nosotros` registrada con nombre `about` en `routes/web.php`.
+- Assets de equipo en `public/img/team/` con convención de nombres slug. `placeholder.svg` como fallback universal.
+
+### Changed
+- `app/Http/Middleware/Authenticate.php`: `redirectTo` cambiado de `/login` a `route('landing')`.
+- `AuthenticatedSessionController@store`: agregado `session()->flash('success', ...)` post-autenticación antes del redirect diferenciado.
+- `routes/web.php`: ruta `/` actualizada de `welcome` a `landing`; ruta `/sobre-nosotros` agregada apuntando a `about`.
+- `layouts/public.blade.php`: reemplazado por versión con SEO técnico completo, Open Graph, Twitter Cards y JSON-LD. Bug corregido: `{{ $appVersion }}` dentro del bloque `<script type="application/ld+json">` reemplazado por `<?php echo e($ldVersion); ?>` para evitar conflicto entre llaves JSON y el parser de Blade (`ErrorException: Undefined array key 0`).
+
+### Fixed
+- `ErrorException: Undefined array key 0` en `layouts/public.blade.php` línea 64 — causado por Blade intentando parsear las llaves del JSON-LD como array PHP al encontrar `{{ }}` dentro del bloque `<script type="application/ld+json">`. Resuelto extrayendo la variable a `@php $ldVersion = $appVersion ?? '1.0'; @endphp` y usando `<?php echo e($ldVersion); ?>` dentro del script.
+
+### Notes
+- **Sin dependencias nuevas:** Esta versión no agrega paquetes npm ni composer. Todo se construye sobre el stack existente (Tailwind, Alpine.js, Blade, componentes `x-ui.*`).
+- **Performance pública:** `landing.blade.php` y `about.blade.php` no realizan consultas a la base de datos a excepción de `landing` que carga `$planes` desde el controlador. `x-ui.theme-init` en contexto no autenticado lee `prefers-color-scheme` directamente sin hit a BD.
+- **Normativa `x-ui.app-tile`:** Establecida como estándar obligatorio. Prohibido crear tarjetas custom que dupliquen su funcionalidad en cualquier vista pública o privada del sistema.
+
+---
+
 ## [0.6.0] - 2026-05-08
 
 ### Added

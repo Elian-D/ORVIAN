@@ -17,6 +17,7 @@ use App\Observers\UserObserver;
 use App\Services\Communications\ChatwootService;
 use App\Services\Communications\WhatsAppService;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
@@ -41,6 +42,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // --- Layouts como componentes anónimos ---
+        Blade::anonymousComponentPath(resource_path('views/layouts'), 'layouts');
+
         // --- Observers ---
         School::observe(SchoolObserver::class);
         User::observe(UserObserver::class);
