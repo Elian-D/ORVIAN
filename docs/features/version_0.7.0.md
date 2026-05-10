@@ -486,7 +486,7 @@ public/img/team/kimberly-marte.jpg
 public/img/team/meredyth-ferreira.jpg
 public/img/team/jhostin-morales.jpg
 public/img/team/justin-francisco.jpg
-public/img/team/jeremia-melendez.jpg
+public/img/team/jeremias-melendez.jpg
 public/img/team/placeholder.svg        ← fallback si la foto no existe
 ```
 

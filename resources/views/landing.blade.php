@@ -3,7 +3,21 @@
     {{-- ═══════════════════════════════════════════════════════════════ --}}
     {{-- §3.2 HERO                                                       --}}
     {{-- ═══════════════════════════════════════════════════════════════ --}}
-    <section id="inicio" class="relative overflow-hidden pt-28 pb-20 px-4 sm:pt-36 sm:pb-28">
+    <style>
+        .about-blueprint {
+            background-image:
+                linear-gradient(to right, rgba(var(--orvian-navy-rgb, 15, 23, 42), 0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(var(--orvian-navy-rgb, 15, 23, 42), 0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        .dark .about-blueprint {
+            background-image:
+                linear-gradient(to right, rgba(255,255,255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255, 0.03) 1px, transparent 1px);
+        }
+
+    </style>
+    <section id="inicio" class="relative overflow-hidden pt-28 pb-20 px-4 sm:pt-36 sm:pb-28 about-blueprint">
 
         {{-- Gradientes decorativos de fondo --}}
         <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
