@@ -9,6 +9,10 @@ Route::get('/', function () {
     return view('landing');
 })->name('landing');
 
+Route::get('/sobre-nosotros', function () {
+    return view('about');
+})->name('about');
+
 
 /**
  * 🧙 Wizard para Usuarios de Escuela (Públicos)
