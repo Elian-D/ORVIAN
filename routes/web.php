@@ -6,9 +6,12 @@ use App\Livewire\Tenant\SchoolWizard;
 use App\Livewire\Tenant\TenantSetupWizard;
 
 Route::get('/', function () {
-    return view('welcome');
-});
+    return view('landing');
+})->name('landing');
 
+Route::get('/sobre-nosotros', function () {
+    return view('about');
+})->name('about');
 
 
 /**

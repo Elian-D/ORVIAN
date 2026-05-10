@@ -57,6 +57,9 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
         $request->session()->regenerate();
 
+        // Toast de bienvenida — detectado automáticamente por x-ui.toasts
+        session()->flash('success', '¡Bienvenido de nuevo, ' . Auth::user()->name . '!');
+
         return redirect()->intended(
             is_null(Auth::user()->school_id)
                 ? route('admin.hub')
@@ -73,7 +76,7 @@ class AuthenticatedSessionController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login')
+        return redirect('/')
             ->with('success', 'Has cerrado sesión. ¡Vuelve pronto!');
     }
 }
