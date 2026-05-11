@@ -69,10 +69,63 @@
             <x-heroicon-s-magnifying-glass class="w-5 h-5" />
         </button>
 
-        <button class="p-2.5 rounded-xl bg-gray-100 dark:bg-dark-bg text-gray-500 dark:text-gray-400 hover:text-orvian-orange transition relative">
-            <x-heroicon-s-bell class="w-5 h-5" />
-            <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-orvian-orange rounded-full border-2 border-white dark:border-dark-bg"></span>
-        </button>
+        <div
+            x-data="{
+                isFullscreen: false,
+                
+                toggle() {
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen()
+                            .then(() => localStorage.setItem('orvian_fullscreen', 'true'))
+                            .catch(() => {});
+                    } else {
+                        document.exitFullscreen()
+                            .then(() => localStorage.setItem('orvian_fullscreen', 'false'))
+                            .catch(() => {});
+                    }
+                },
+
+                init() {
+                    // 1. Escuchar cambios nativos (incluye Esc o cambios por sistema)
+                    document.addEventListener('fullscreenchange', () => {
+                        this.isFullscreen = !!document.fullscreenElement;
+                    });
+
+                    // 2. Persistencia: Si estaba en modo full y navegó, intentar volver
+                    // Nota: El navegador bloquea el auto-fullscreen sin interacción previa.
+                    // Esto funcionará en cuanto el usuario haga clic en cualquier parte.
+                    if (localStorage.getItem('orvian_fullscreen') === 'true' && !document.fullscreenElement) {
+                        const restore = () => {
+                            document.documentElement.requestFullscreen().catch(() => {});
+                            window.removeEventListener('click', restore);
+                        };
+                        window.addEventListener('click', restore);
+                    }
+
+                    // 3. Soporte para Tecla F11 y compatibilidad
+                    window.addEventListener('keydown', (e) => {
+                        if (e.key === 'F11') {
+                            // Evitamos el comportamiento por defecto para manejarlo nosotros
+                            // y que el icono del botón se sincronice correctamente.
+                            e.preventDefault();
+                            this.toggle();
+                        }
+                    });
+                }
+            }"
+        >
+            <button
+                @click="toggle()"
+                :title="isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'"
+                class="relative w-8 h-8 flex items-center justify-center rounded-lg
+                    text-slate-400 dark:text-slate-500
+                    hover:text-slate-700 dark:hover:text-slate-200
+                    hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+            >
+                <x-heroicon-o-arrows-pointing-out x-show="!isFullscreen" class="w-4 h-4" />
+                <x-heroicon-o-arrows-pointing-in  x-show="isFullscreen"  class="w-4 h-4" x-cloak />
+            </button>
+        </div>
     </div>
 </nav>
 
