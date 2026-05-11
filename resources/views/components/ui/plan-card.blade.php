@@ -58,8 +58,15 @@
             <div class="space-y-4">
                 @foreach($plan->features as $feature)
                     <div class="flex items-center gap-4 group/item">
-                        <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-slate-50 dark:bg-white/5 flex items-center justify-center transition-colors group-hover/item:bg-white group-hover/item:shadow-sm">
-                            <x-dynamic-component :component="$feature->getIcon()" class="w-4 h-4 text-slate-400 dark:text-slate-500 group-hover/item:text-orvian-blue transition-colors" />
+                        {{-- Antes: x-dynamic-component con heroicon-* --}}
+                        {{-- Ahora: x-ui.module-icon con el slug del módulo --}}
+                        <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-slate-50 dark:bg-white/5
+                                    flex items-center justify-center
+                                    transition-colors group-hover/item:bg-white group-hover/item:shadow-sm">
+                            <x-ui.module-icon
+                                :name="$feature->getIcon()"
+                                class="w-5 h-5 opacity-60 group-hover/item:opacity-100 transition-opacity"
+                            />
                         </div>
                         <div class="flex flex-col">
                             <span class="text-sm font-bold text-slate-600 dark:text-slate-300">{{ $feature->name }}</span>

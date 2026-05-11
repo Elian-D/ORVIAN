@@ -14,18 +14,19 @@ class Feature extends Model
     }
 
     /**
-     * Obtiene el icono asociado al slug del módulo.
+     * Retorna el slug del módulo para ser usado con x-ui.module-icon.
+     * Los SVGs viven en public/assets/icons/modules/{slug}.svg
      */
     public function getIcon(): string
     {
         return match ($this->slug) {
-            'attendance_qr'           => 'heroicon-o-qr-code',
-            'attendance_facial'       => 'heroicon-o-user-circle',
-            'academic_grades'         => 'heroicon-o-clipboard-document-check',
-            'academic_excel_import'   => 'heroicon-o-table-cells',
-            'classroom_internal'      => 'heroicon-o-academic-cap',
-            'reports_advanced'        => 'heroicon-o-chart-bar-square',
-            default                   => 'heroicon-o-check-circle',
+            'attendance_qr',
+            'attendance_facial'     => 'asistencia',
+            'academic_grades',
+            'academic_excel_import' => 'notas',
+            'classroom_internal'    => 'classroom',
+            'reports_advanced'      => 'reportes',
+            default                 => 'administracion',
         };
     }
 }
