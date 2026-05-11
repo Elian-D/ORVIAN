@@ -184,6 +184,8 @@ class AttendanceScanner extends Component
 
             if (!$result) {
                 $this->showFlash('error', 'Rostro no reconocido. Intenta de nuevo.');
+                // Disparar envento de audio error.
+                $this->dispatch('attendance-facial-error');
                 $this->reset('capturedPhoto');
                 $this->isProcessing = false;
                 return;
@@ -246,6 +248,9 @@ class AttendanceScanner extends Component
         // Actualizar UI
         $this->addToRecentScans($student, $record);
         $this->showFlash('success', "{$student->full_name} registrado correctamente");
+
+        // Disparar evento de audio success
+        $this->dispatch('attendance-recorded-success');
 
         // Notificar éxito
         $this->dispatch('attendance-recorded', [
