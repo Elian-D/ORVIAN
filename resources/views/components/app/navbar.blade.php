@@ -115,13 +115,36 @@
 
         {{-- DERECHA --}}
         <div class="flex items-center gap-1 flex-shrink-0">
-            <button class="relative w-8 h-8 flex items-center justify-center rounded-lg
-                           text-slate-400 dark:text-slate-500
-                           hover:text-slate-700 dark:hover:text-slate-200
-                           hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
-                <x-heroicon-o-bell class="w-4 h-4" />
-                <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-orvian-orange ring-1 ring-white dark:ring-[#080e1a]"></span>
-            </button>
+            {{-- Botón de pantalla completa — agregar antes del separador | --}}
+            <div
+                x-data="{
+                    isFullscreen: false,
+                    toggle() {
+                        if (!document.fullscreenElement) {
+                            document.documentElement.requestFullscreen().catch(() => {});
+                        } else {
+                            document.exitFullscreen().catch(() => {});
+                        }
+                    },
+                    init() {
+                        document.addEventListener('fullscreenchange', () => {
+                            this.isFullscreen = !!document.fullscreenElement;
+                        });
+                    }
+                }"
+            >
+                <button
+                    @click="toggle()"
+                    :title="isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'"
+                    class="relative w-8 h-8 flex items-center justify-center rounded-lg
+                        text-slate-400 dark:text-slate-500
+                        hover:text-slate-700 dark:hover:text-slate-200
+                        hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                >
+                    <x-heroicon-o-arrows-pointing-out x-show="!isFullscreen" class="w-4 h-4" />
+                    <x-heroicon-o-arrows-pointing-in  x-show="isFullscreen"  class="w-4 h-4" x-cloak />
+                </button>
+            </div>
 
             <div class="h-4 w-px bg-slate-200 dark:bg-white/10 mx-1"></div>
 
