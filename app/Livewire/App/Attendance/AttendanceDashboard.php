@@ -199,8 +199,15 @@ class AttendanceDashboard extends Component
             $query->whereHas('assignment', fn ($q) => $q->where('school_section_id', $this->selectedSection));
         }
 
-        $counts = $query
-            ->selectRaw('status, count(*) as total')
+        $counts = $query->select('status')
+            ->whereIn('id', function($q) use ($schoolId, $date) {
+                $q->selectRaw('MIN(id)')
+                    ->from('classroom_attendance_records')
+                    ->where('school_id', $schoolId)
+                    ->whereDate('date', $date)
+                    ->groupBy('student_id');
+            })
+            ->selectRaw('count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
 
@@ -231,7 +238,7 @@ class AttendanceDashboard extends Component
                     'student_name'   => data_get($item, 'student.full_name', '—'),
                     'photo'          => data_get($item, 'student.photo_path'),
                     'plantel_status' => data_get($item, 'plantel_status', '—'),
-                    'absent_classes' => data_get($item, 'absent_classes', 0),
+                    'absent_classes' => data_get($item, 'classes_absent', 0),
                 ])->values()->toArray();
         } catch (\Exception $e) {
             $this->discrepancies = [];
