@@ -98,7 +98,8 @@
          x-transition:enter-end="opacity-100 translate-y-0"
          x-cloak
          class="absolute top-full left-0 right-0 p-4 md:hidden">
-        <div class="bg-white dark:bg-dark-card border border-slate-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-6 space-y-4">
+        <div class="bg-white dark:bg-dark-card border border-slate-200 dark:border-white/10 rounded-[2rem] shadow-2xl p-6 space-y-4
+            overflow-y-auto max-h-[85vh] custom-scroll">
             <div class="flex flex-col gap-1">
                 @foreach($navLinks as $link)
                     <a href="#{{ $link['id'] }}" 
