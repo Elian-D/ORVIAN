@@ -7,6 +7,63 @@ y el proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+Tengo todo lo que necesito.
+
+---
+
+## [0.8.0] - 2026-05-10
+
+### Added
+
+#### Fase 1 — face-api.js Local (Estabilidad Kiosko)
+- `face-api.min.js` (~650KB) descargado y servido desde `public/vendor/face-api/face-api.min.js`, eliminando la dependencia del CDN de `cdn.jsdelivr.net` bloqueado por Fortinet en la red de la escuela.
+- Modelos `tiny_face_detector` copiados desde `node_modules/@vladmandic/face-api/model/` a `public/vendor/face-api/models/` y commiteados al repositorio para disponibilidad offline total.
+- `scanner-visor.blade.php`: `<script>` actualizado de CDN externo a `{{ asset('vendor/face-api/face-api.min.js') }}`; constante `MODEL_URL` cambiada a `/vendor/face-api/models`. Sin cambios en la lógica Alpine del detector (dwell time, loop, `captureFace()`, cleanup).
+
+#### Fase 2 — Feedback de Audio
+- Archivos `success.wav` y `error.wav` servidos desde `public/assets/sounds/`. Éxito: 1 beep positivo. Error: doble beep grave (solo en reconocimiento facial — el QR no dispara sonido de error por diseño).
+- Preferencia `audio_feedback` (booleano, default `true`) añadida al JSON `preferences` del modelo `User` y persistida desde `ProfileModal@savePreferences`.
+- Toggle visual en pestaña *Preferencias* del `ProfileModal` con botón "Probar sonido" que reproduce `success.wav` inline desde Alpine.
+- Componente Alpine global `audioFeedback` incluido en `layouts/app-module.blade.php`: escucha eventos Livewire `attendance-recorded-success` y `attendance-facial-error`; respeta la preferencia del usuario leída desde `<meta name="audio-feedback">` inyectada por PHP en el `<head>`.
+
+#### Fase 3 — Botón de Pantalla Completa
+- Botón de fullscreen añadido en `resources/views/components/app/navbar.blade.php` (navbar tenant) y `resources/views/components/navbar/layout.blade.php` (navbar admin). Usa Alpine.js con `document.documentElement.requestFullscreen()` y listener `fullscreenchange` para sincronizar el ícono (`arrows-pointing-out` / `arrows-pointing-in`). Maneja la salida por F11 nativo correctamente.
+
+#### Fase 4 — Gráfico de Asistencia Dinámico
+- `AttendanceDashboard@loadWeeklyStats()` refactorizado: usa `$this->selectedDate` como fecha ancla en lugar de `today()`. El rango de 7 días se calcula hacia atrás desde la fecha seleccionada en el calendario, no desde hoy.
+- El gráfico de línea `attendanceLineChart` en `attendance-charts.js` no requirió cambios — ya escuchaba `weekly-stats-updated` con las categorías del eje X desde el backend.
+
+#### Fase 6 — Iconos de Módulo Reales en Planes
+- `Feature@getIcon()` actualizado para retornar slugs de módulo (`asistencia`, `academico`, `reportes`, etc.) en lugar de strings `heroicon-*`. Múltiples slugs de feature mapean al mismo ícono de módulo (`attendance_qr` y `attendance_facial` → `asistencia`).
+- `plan-card.blade.php`: `<x-dynamic-component>` reemplazado por `<x-ui.module-icon :name="$feature->getIcon()" />`, usando los SVGs reales de `public/assets/icons/modules/` en lugar de Heroicons genéricos.
+
+#### Fase 7 — Fix Scroll Menú Móvil Landing
+- `layouts/navigation.blade.php`: contenedor interno del menú móvil actualizado con `overflow-y-auto max-h-[85vh] custom-scroll`. En dispositivos con pantalla corta (< 700px de alto) los botones de acción del footer del menú ya no quedan cortados.
+
+#### Fase 8 — Seeder Maestro de Demo (`orvian:seed-demo`)
+- Nuevo comando `app/Console/Commands/SeedDemoSchoolData.php` con firma `orvian:seed-demo --school_id= --students=75 --days=30 --fresh`.
+- **Paso 1 — Estudiantes:** Crea hasta 150 estudiantes distribuidos equitativamente entre las secciones activas de la escuela. Guard contra duplicados: si ya existen estudiantes se omite la creación. Nombres y apellidos en español dominicano. El `StudentObserver` existente genera el `qr_code` automáticamente.
+- **Paso 2 — Profesores:** Crea 3 profesores de demo (`María González`, `Carlos Reyes`, `Ana Castillo`) con `firstOrCreate`. Skippea si ya existen ≥ 3.
+- **Paso 3 — Materias y Asignaciones:** Crea o reutiliza las 3 materias base (`Lengua Española`, `Matemáticas`, `Ciencias Sociales`) con `firstOrCreate` por `code`. Genera un `TeacherSubjectSection` por cada combinación maestro × sección × año académico activo — cada maestro cubre su materia en todas las secciones.
+- **Paso 4 — Asistencia Plantel + Aula:** Genera `DailyAttendanceSession` y `PlantelAttendanceRecord` para cada día hábil (lunes-viernes) del rango. Distribución plantel: 80% presente, 10% tardanza, 5% ausente, 5% excusado. Para cada sección genera `ClassroomAttendanceRecord` por materia: los estudiantes ausentes/excusados en plantel mantienen ese estado en aula; los presentes en plantel tienen distribución aula (75/10/10/5) generando pasilleo detectable por el dashboard de discrepancias. Insert masivo en chunks de 200 filas para rendimiento.
+- **Paso 5 — Excusas:** Crea 3 `AttendanceExcuse` aprobadas sobre estudiantes aleatorios de la escuela. Skippea si ya existen ≥ 3.
+- Flag `--fresh` elimina todos los registros de asistencia del `school_id` antes de regenerar. Advertencia explícita en consola. **No usar en escuelas con datos reales.**
+
+### Changed
+- `app/Livewire/App/Attendance/AttendanceDashboard.php`: `loadWeeklyStats()` — `today()->subDays(6)` reemplazado por `Carbon::parse($this->selectedDate)->subDays(6)`.
+- `app/Models/Tenant/Feature.php`: `getIcon()` retorna slugs de módulo en lugar de `heroicon-*`.
+- `resources/views/components/ui/plan-card.blade.php`: icono de feature renderizado con `x-ui.module-icon` en lugar de `x-dynamic-component`.
+- `resources/views/livewire/shared/profile-modal.blade.php`: nueva sección de preferencia `audio_feedback` en pestaña Preferencias.
+- `app/Livewire/Shared/ProfileModal.php`: propiedad `$audioFeedback` añadida; persistida en `preferences['audio_feedback']` vía `savePreferences()`.
+
+### Notes
+- **Fase 5 omitida:** El rediseño del carnet QR (`qr-sheet.blade.php`) no fue implementado en esta versión. Queda pendiente para v0.9.0.
+- **face-api.js vs MediaPipe:** Se evaluó migrar a `@mediapipe/tasks-vision` pero el modelo `blaze_face_short_range` no procesa correctamente frames de elementos con `display:none` al cambiar de modo con Alpine.js `x-show`. face-api.js local es la solución estable definitiva.
+- **Seeder — `insert()` masivo:** Los registros de asistencia se crean con `Model::insert()` que no dispara Observers ni Events de Eloquent. Los QR codes de los estudiantes ya existen desde el `StudentObserver` que se ejecuta en el `create()` del Paso 1.
+- **Seeder — fines de semana:** El comando detecta y omite sábados y domingos. El gráfico de asistencia refleja correctamente esta ausencia de datos.
+
+---
+
 ## [0.7.0] - 2026-05-09
 
 ### Added
