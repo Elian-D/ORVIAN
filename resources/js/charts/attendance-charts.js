@@ -106,6 +106,8 @@ document.addEventListener('alpine:init', () => {
             // Actualizar cuando Livewire re-emita datos
             Livewire.on('weekly-stats-updated', ({ stats }) => {
                 this.chart.updateOptions({
+                    // Las fechas del eje X ahora reflejan los 7 días previos
+                    // a la fecha seleccionada en el calendario, no necesariamente hoy.
                     xaxis: { categories: stats.map((d) => d.date) },
                 });
                 this.chart.updateSeries([{
