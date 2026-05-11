@@ -199,6 +199,59 @@
                         </div>
                     </div>
 
+                    
+                        {{-- Separador --}}
+                        <div class="border-t border-slate-100 dark:border-white/5 pt-5 mt-5">
+
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                        Sonidos de feedback
+                                    </p>
+                                    <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                                        Reproduce un sonido al registrar asistencia
+                                    </p>
+                                </div>
+
+                                {{-- Toggle reutilizando el mismo patrón visual del sistema --}}
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    :aria-checked="$wire.audioFeedback.toString()"
+                                    @click="$wire.audioFeedback = !$wire.audioFeedback"
+                                    :class="$wire.audioFeedback
+                                        ? 'bg-orvian-orange shadow-sm shadow-orvian-orange/30'
+                                        : 'bg-slate-200 dark:bg-slate-700'"
+                                    class="relative inline-flex h-6 w-11 items-center rounded-full
+                                        transition-colors duration-200 focus:outline-none
+                                        focus:ring-2 focus:ring-orvian-orange focus:ring-offset-2
+                                        dark:focus:ring-offset-[#080e1a]"
+                                >
+                                    <span
+                                        :class="$wire.audioFeedback ? 'translate-x-6' : 'translate-x-1'"
+                                        class="inline-block h-4 w-4 transform rounded-full bg-white
+                                            shadow-sm transition-transform duration-200"
+                                    ></span>
+                                </button>
+                            </div>
+
+                            {{-- Botón de prueba --}}
+                            <button
+                                type="button"
+                                @click="
+                                    const audio = new Audio('/assets/sounds/success.wav');
+                                    audio.volume = 0.5;
+                                    audio.play().catch(() => {});
+                                "
+                                class="mt-3 flex items-center gap-2 text-xs font-semibold
+                                    text-slate-400 hover:text-orvian-orange transition-colors"
+                            >
+                                <x-heroicon-o-speaker-wave class="w-4 h-4" />
+                                Probar sonido
+                            </button>
+                        </div>
+
+
                     <div class="mt-8 pt-8 border-t border-slate-100 dark:border-white/5">
                         <label class="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-5">
                             Selecciona tu Interfaz de Acceso

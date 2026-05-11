@@ -35,6 +35,7 @@ class ProfileModal extends Component
     public string $roleName = '';
     public string $roleColor = '#64748b'; // Color por defecto (slate-500)
     public string $loginVersion = 'v2';
+    public bool $audioFeedback = true;
 
     protected $listeners = ['open-profile-modal' => 'loadUserData'];
 
@@ -60,6 +61,7 @@ class ProfileModal extends Component
         $this->position = $user->position ?? '';
         $this->theme    = $user->preference('theme', 'system');
         $this->loginVersion = $user->preference('login_version', 'v2');
+        $this->audioFeedback = (bool) $user->preference('audio_feedback', true);
         
         // Obtener el primer rol y su color
         $role = $user->roles->first();
@@ -167,6 +169,7 @@ class ProfileModal extends Component
         
         $preferences['theme'] = $this->theme;
         $preferences['login_version'] = $this->loginVersion; // Nuevo
+        $preferences['audio_feedback'] = $this->audioFeedback;
 
         $user->update(['preferences' => $preferences]);
 
