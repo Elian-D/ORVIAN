@@ -264,22 +264,25 @@ class AttendanceDashboard extends Component
 
     public function loadWeeklyStats(): void
     {
-        $schoolId = Auth::user()->school_id;
+        $schoolId   = Auth::user()->school_id;
+        // Cambio clave: usar $this->selectedDate en lugar de today()
+        $anchorDate = Carbon::parse($this->selectedDate);
 
         $records = PlantelAttendanceRecord::where('school_id', $schoolId)
-            ->whereDate('date', '>=', today()->subDays(6))
+            ->whereDate('date', '>=', $anchorDate->copy()->subDays(6)->toDateString())
+            ->whereDate('date', '<=', $anchorDate->toDateString())
             ->selectRaw('date, status, count(*) as total')
             ->groupBy('date', 'status')
             ->get();
 
         $byDate = $records->groupBy(fn ($r) => Carbon::parse($r->date)->toDateString());
 
-        $stats = collect(range(6, 0))->map(function ($daysAgo) use ($byDate) {
-            $date    = today()->subDays($daysAgo);
+        $stats = collect(range(6, 0))->map(function ($daysAgo) use ($byDate, $anchorDate) {
+            $date    = $anchorDate->copy()->subDays($daysAgo);
             $dayMap  = $byDate->get($date->toDateString(), collect())->pluck('total', 'status');
 
             $present = ((int) ($dayMap[PlantelAttendanceRecord::STATUS_PRESENT] ?? 0))
-                     + ((int) ($dayMap[PlantelAttendanceRecord::STATUS_LATE]    ?? 0));
+                    + ((int) ($dayMap[PlantelAttendanceRecord::STATUS_LATE]    ?? 0));
             $total   = (int) $dayMap->sum();
             $rate    = $total > 0 ? round(($present / $total) * 100, 1) : 0.0;
 
