@@ -41,12 +41,7 @@
         </div>
     </div>
 
-    {{--
-        wire:ignore solo en el viewport de cámara:
-        evita que Livewire destruya #qr-reader al re-renderizar (lo que invalida la instancia
-        Html5Qrcode y deja el scanner muerto tras el primer escaneo).
-        El toggle de arriba queda fuera y sigue actualizándose normalmente.
-    --}}
+    {{-- Viewport de cámara con wire:ignore --}}
     <div
         wire:ignore
         x-data="attendanceScanner(@entangle('mode'), @entangle('isProcessing'), '{{ $activeSession ? 'active' : 'inactive' }}')"
@@ -60,21 +55,22 @@
         </div>
 
         {{-- Visor Facial --}}
-        <div x-show="$wire.mode === 'facial'" x-cloak class="relative w-full h-full">
-            <video id="facial-video" autoplay playsinline class="w-full h-full object-cover"></video>
+        <div x-show="$wire.mode === 'facial'" x-cloak class="relative w-full h-full overflow-hidden">
+            {{-- La clase transform scale-x-[-1] hace el efecto espejo. Se aplica condicionalmente desde JS --}}
+            <video id="facial-video" autoplay playsinline class="w-full h-full object-cover transition-transform duration-300"></video>
             <canvas id="facial-canvas" class="absolute inset-0 w-full h-full"></canvas>
         </div>
 
-        {{-- Flash Overlay --}}
+        {{-- Flash Overlay (Movido arriba: top-4) --}}
         <div
             x-show="showFlash"
             x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="opacity-0 translate-y-1"
+            x-transition:enter-start="opacity-0 -translate-y-2"
             x-transition:enter-end="opacity-100 translate-y-0"
             x-transition:leave="transition ease-in duration-150"
             x-transition:leave-start="opacity-100 translate-y-0"
-            x-transition:leave-end="opacity-0 translate-y-1"
-            class="absolute bottom-4 inset-x-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-950/90 backdrop-blur-sm border border-white/10 shadow-lg"
+            x-transition:leave-end="opacity-0 -translate-y-2"
+            class="absolute top-4 inset-x-4 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-gray-950/90 backdrop-blur-sm border border-white/10 shadow-lg"
             style="display: none;">
 
             <div x-show="flashType === 'success'" class="flex-shrink-0 text-emerald-400">
@@ -89,7 +85,7 @@
             <p class="flex-1 text-sm text-white truncate" x-text="flashMessage"></p>
         </div>
 
-        {{-- Loading Overlay (isProcessing entangled, no wire:loading) --}}
+        {{-- Loading Overlay --}}
         <div
             x-show="isProcessing"
             class="absolute inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm"
@@ -107,7 +103,7 @@
 
 @push('scripts')
 {{-- face-api.js: detección real de rostros en browser, ~2MB modelos --}}
-<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script defer src="{{ asset('vendor/face-api/face-api.min.js') }}"></script>
 
 <script>
 document.addEventListener('alpine:init', () => {
@@ -116,19 +112,23 @@ document.addEventListener('alpine:init', () => {
         isProcessing: isProcessing,
         sessionStatus: sessionStatus,
 
+        // ── Control de concurrencia ──────────────────────────────
+        isSwitching: false,
+
         // ── QR ───────────────────────────────────────────────────
         qrScanner: null,
 
         // ── Facial ───────────────────────────────────────────────
         videoStream: null,
-        animationFrameId: null,   // requestAnimationFrame (no setInterval)
+        animationFrameId: null,
         faceApiReady: false,
+        isUsingFrontCamera: false,
 
         // ── Dwell Time ───────────────────────────────────────────
-        dwellStart: null,         // timestamp cuando se detectó la cara
-        dwellRequired: 1200,      // ms que debe permanecer (ajustable)
+        dwellStart: null,
+        dwellRequired: 1200,
         cooldownActive: false,
-        faceBox: null,            // { x, y, w, h } del último frame
+        faceBox: null,
 
         // ── Flash ────────────────────────────────────────────────
         showFlash: false,
@@ -136,12 +136,20 @@ document.addEventListener('alpine:init', () => {
         flashMessage: '',
         flashTimer: null,
 
-        // ────────────────────────────────────────────────────────
-
         init() {
-            this.$wire.on('mode-changed', ({ mode }) => this.switchMode(mode));
+            this.$wire.on('mode-changed', ({ mode }) => {
+                if (this.mode !== mode) {
+                    this.mode = mode;
+                    this.switchMode(mode);
+                }
+            });
             this.$wire.on('flash-shown', ({ type, message }) => this.triggerFlash(type, message));
-            this.$nextTick(() => this.switchMode(this.mode));
+            
+            this.$nextTick(() => {
+                if (this.sessionStatus !== 'inactive') {
+                    this.switchMode(this.mode);
+                }
+            });
         },
 
         triggerFlash(type, message) {
@@ -153,44 +161,92 @@ document.addEventListener('alpine:init', () => {
         },
 
         async switchMode(newMode) {
-            await this.cleanup();
-            if (this.sessionStatus === 'inactive') return;
-            await this.$nextTick();
-            newMode === 'qr' ? this.initQrScanner() : await this.initFacialScanner();
+            // Semáforo para evitar que múltiples clicks crasheen la cámara
+            if (this.isSwitching) return;
+            this.isSwitching = true;
+
+            try {
+                await this.cleanup();
+                if (this.sessionStatus === 'inactive') return;
+                
+                await this.$nextTick(); // Esperar que x-show renderice el DOM
+                
+                if (newMode === 'qr') {
+                    await this.initQrScanner();
+                } else {
+                    await this.initFacialScanner();
+                }
+            } finally {
+                this.isSwitching = false;
+            }
         },
 
-        // ── QR (sin cambios) ─────────────────────────────────────
-        initQrScanner() {
-            this.qrScanner = new Html5Qrcode("qr-reader");
-            this.qrScanner.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 300, height: 300 }, aspectRatio: 4/3 },
-                (decodedText) => {
-                    this.qrScanner.pause(true);
-                    Livewire.dispatch('qrCodeScanned', { code: decodedText });
-                    setTimeout(() => {
-                        if (this.qrScanner && this.mode === 'qr') this.qrScanner.resume();
-                    }, 2500);
-                },
-                () => {}
-            ).catch(() => this.triggerFlash('error', 'No se pudo iniciar la cámara.'));
+        async initQrScanner() {
+            try {
+                this.qrScanner = new Html5Qrcode("qr-reader");
+                await this.qrScanner.start(
+                    { facingMode: "environment" }, // Para QR siempre es mejor la trasera
+                    { fps: 10, qrbox: { width: 300, height: 300 }, aspectRatio: 4/3 },
+                    (decodedText) => {
+                        if (this.isProcessing) return;
+                        this.qrScanner.pause(true);
+                        Livewire.dispatch('qrCodeScanned', { code: decodedText });
+                        setTimeout(() => {
+                            if (this.qrScanner && this.mode === 'qr') this.qrScanner.resume();
+                        }, 2500);
+                    },
+                    () => {}
+                );
+            } catch (err) {
+                console.warn("[QR] Error al iniciar cámara:", err);
+                this.triggerFlash('error', 'No se pudo iniciar la cámara QR.');
+            }
         },
 
-        // ── Facial ───────────────────────────────────────────────
         async initFacialScanner() {
             const video  = document.getElementById('facial-video');
             const canvas = document.getElementById('facial-canvas');
+            if (!video || !canvas) return;
 
             try {
-                this.videoStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
-                });
+                // Primero intentamos explícitamente usar la cámara trasera
+                let constraints = {
+                    video: { 
+                        facingMode: { ideal: 'environment' }, 
+                        width: { ideal: 1280 }, 
+                        height: { ideal: 720 } 
+                    }
+                };
+
+                try {
+                    this.videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (fallbackErr) {
+                    // Si falla (ej. laptop sin cámara trasera), caemos al default
+                    console.warn("No se pudo usar cámara environment, probando default...", fallbackErr);
+                    this.videoStream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+                    });
+                }
+
                 video.srcObject = this.videoStream;
 
-                // Cargar modelos face-api.js (solo la primera vez)
+                // Determinar si estamos usando la cámara frontal para aplicar efecto espejo
+                const track = this.videoStream.getVideoTracks()[0];
+                const settings = track.getSettings();
+                // Si reporta user o no reporta nada (suele ser webcam de PC), asumimos frontal
+                this.isUsingFrontCamera = settings.facingMode === 'user' || !settings.facingMode;
+                
+                if (this.isUsingFrontCamera) {
+                    video.classList.add('scale-x-[-1]');
+                    canvas.classList.add('scale-x-[-1]'); // Espejar también los recuadros
+                } else {
+                    video.classList.remove('scale-x-[-1]');
+                    canvas.classList.remove('scale-x-[-1]');
+                }
+
+                // Cargar modelos face-api.js
                 if (!this.faceApiReady) {
-                    // Usamos CDN de los modelos — tiny_face_detector es el más ligero (~190KB)
-                    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+                    const MODEL_URL = '/vendor/face-api/models';
                     await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                     this.faceApiReady = true;
                 }
@@ -207,95 +263,113 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // Loop con requestAnimationFrame — mucho más eficiente que setInterval
         runDetectionLoop(video, canvas) {
             const ctx     = canvas.getContext('2d');
-            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
 
             const loop = async () => {
-                // Si nos limpiaron, salir
-                if (!this.videoStream) return;
+                if (!this.videoStream || this.mode !== 'facial') return;
 
-                // No procesar si ya estamos enviando
                 if (!this.cooldownActive && !this.isProcessing && video.readyState === 4) {
                     const detections = await faceapi.detectAllFaces(video, options);
 
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                     if (detections.length === 1) {
-                        // ── Hay exactamente UNA cara ──────────────────────
                         const box = detections[0].box;
                         this.faceBox = { x: box.x, y: box.y, w: box.width, h: box.height };
 
                         const now = Date.now();
-
-                        if (!this.dwellStart) {
-                            // Primera detección — empezar dwell
-                            this.dwellStart = now;
-                        }
+                        if (!this.dwellStart) this.dwellStart = now;
 
                         const elapsed  = now - this.dwellStart;
-                        const progress = Math.min(elapsed / this.dwellRequired, 1); // 0..1
+                        const progress = Math.min(elapsed / this.dwellRequired, 1);
 
                         if (progress >= 1) {
-                            // ✅ Dwell completo — capturar y enviar
-                            this.drawFaceBox(ctx, this.faceBox, '#10b981', 1); // verde sólido
+                            // Captura completada
+                            this.drawFaceBox(ctx, this.faceBox, '#10b981', 1);
                             this.dwellStart = null;
                             this.captureFace(canvas);
                         } else {
-                            // ⏳ Acumulando dwell — bounding box amarillo + barra de progreso
+                            // En proceso (Amarillo)
                             this.drawFaceBox(ctx, this.faceBox, '#f59e0b', progress);
                         }
 
                     } else {
-                        // Sin cara o múltiples — resetear dwell silenciosamente
                         this.dwellStart = null;
                         this.faceBox    = null;
 
                         if (detections.length > 1) {
-                            // Feedback sutil: texto en canvas
-                            ctx.fillStyle = 'rgba(239,68,68,0.7)';
+                            // Si el canvas está espejado, revertimos temporalmente para escribir el texto
+                            if (this.isUsingFrontCamera) {
+                                ctx.save();
+                                ctx.scale(-1, 1);
+                                ctx.translate(-canvas.width, 0);
+                            }
+                            
+                            ctx.fillStyle = 'rgba(239,68,68,0.8)';
                             ctx.font      = 'bold 18px sans-serif';
                             ctx.textAlign = 'center';
-                            ctx.fillText('Un solo rostro a la vez', canvas.width / 2, 30);
+                            ctx.fillText('Un solo rostro a la vez', canvas.width / 2, 40);
+                            
+                            if (this.isUsingFrontCamera) {
+                                ctx.restore();
+                            }
                         }
                     }
                 }
-
                 this.animationFrameId = requestAnimationFrame(loop);
             };
 
             this.animationFrameId = requestAnimationFrame(loop);
         },
 
-        // Dibuja bounding box + barra de progreso en el canvas
+        // ── DISEÑO ELEGANTE DEL CUADRO ─────────────────────────────────
         drawFaceBox(ctx, box, color, progress) {
             const { x, y, w, h } = box;
-            const pad = 12; // padding alrededor de la cara
+            const pad = 15;
+            const lineLen = 25; // Largo de las esquinas
+            
+            const bx = x - pad;
+            const by = y - pad;
+            const bw = w + pad * 2;
+            const bh = h + pad * 2;
 
-            // Box
             ctx.strokeStyle = color;
-            ctx.lineWidth   = 3;
+            ctx.lineWidth   = 4;
+            ctx.lineCap     = 'round';
+            ctx.lineJoin    = 'round';
             ctx.shadowColor = color;
-            ctx.shadowBlur  = 8;
-            ctx.strokeRect(x - pad, y - pad, w + pad * 2, h + pad * 2);
-            ctx.shadowBlur  = 0;
+            ctx.shadowBlur  = 10;
 
-            // Barra de progreso debajo del box
-            const barY = y + h + pad + 10;
-            const barW = w + pad * 2;
-            const barX = x - pad;
-
-            // Fondo
-            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            // Dibujar las 4 esquinas (tipo Viewfinder)
             ctx.beginPath();
-            ctx.roundRect(barX, barY, barW, 6, 3);
+            // Arriba Izquierda
+            ctx.moveTo(bx, by + lineLen); ctx.lineTo(bx, by); ctx.lineTo(bx + lineLen, by);
+            // Arriba Derecha
+            ctx.moveTo(bx + bw - lineLen, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + lineLen);
+            // Abajo Derecha
+            ctx.moveTo(bx + bw, by + bh - lineLen); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw - lineLen, by + bh);
+            // Abajo Izquierda
+            ctx.moveTo(bx + lineLen, by + bh); ctx.lineTo(bx, by + bh); ctx.lineTo(bx, by + bh - lineLen);
+            ctx.stroke();
+
+            ctx.shadowBlur = 0; // Quitar sombra para la barra de progreso
+
+            // Barra de progreso delgada de alta tecnología flotando debajo
+            const barY = by + bh + 15;
+            const barW = bw;
+
+            // Fondo de la barra
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            ctx.beginPath();
+            ctx.roundRect(bx, barY, barW, 4, 2);
             ctx.fill();
 
-            // Progreso
+            // Relleno de la barra
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.roundRect(barX, barY, barW * progress, 6, 3);
+            ctx.roundRect(bx, barY, barW * progress, 4, 2);
             ctx.fill();
         },
 
@@ -303,38 +377,56 @@ document.addEventListener('alpine:init', () => {
             this.cooldownActive = true;
             this.dwellStart     = null;
 
-            // Capturar el frame real del video, no el canvas de overlays
             const video = document.getElementById('facial-video');
             const captureCanvas = document.createElement('canvas');
             captureCanvas.width  = canvas.width;
             captureCanvas.height = canvas.height;
-            captureCanvas.getContext('2d').drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+            const ctx = captureCanvas.getContext('2d');
+            
+            // Si la cámara estaba espejada, revertir el dibujo para guardar la foto correcta
+            if (this.isUsingFrontCamera) {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            
+            ctx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
 
             captureCanvas.toBlob((blob) => {
                 const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
                 @this.upload('capturedPhoto', file, () => {
                     Livewire.dispatch('facialCaptureReady');
-                    // Cooldown: no volver a detectar hasta que Livewire responda + margen
                     setTimeout(() => { this.cooldownActive = false; }, 3500);
                 });
             }, 'image/jpeg', 0.92);
         },
 
         async cleanup() {
-            if (this.qrScanner) {
-                await this.qrScanner.stop().catch(() => {});
-                this.qrScanner.clear();
-                this.qrScanner = null;
-            }
             if (this.animationFrameId) {
                 cancelAnimationFrame(this.animationFrameId);
                 this.animationFrameId = null;
             }
+
+            if (this.qrScanner) {
+                try {
+                    // Html5Qrcode state: 2 = SCANNING. Previene error de "not running"
+                    if (this.qrScanner.getState() === 2) {
+                        await this.qrScanner.stop();
+                    }
+                } catch (e) {
+                    console.warn("[QR] Cleanup warning:", e);
+                }
+                this.qrScanner.clear();
+                this.qrScanner = null;
+            }
+
             if (this.videoStream) {
                 this.videoStream.getTracks().forEach(t => t.stop());
                 this.videoStream = null;
             }
-            // Limpiar estado dwell
+
+            const video = document.getElementById('facial-video');
+            if (video) video.srcObject = null;
+
             this.dwellStart     = null;
             this.cooldownActive = false;
             this.faceBox        = null;
