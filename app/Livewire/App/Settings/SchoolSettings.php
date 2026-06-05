@@ -194,6 +194,47 @@ class SchoolSettings extends Component
         }
     }
 
+    // ── Gestión del Kiosko API (Sanctum) ───────────────────────────
+
+    /**
+     * Genera un nuevo token de acceso exclusivo para el Fat Client Kiosko/Tótem.
+     * Revoca tokens previos con el mismo alcance para mantener la integridad.
+     */
+    public function generateKioskToken(): void
+    {
+        $this->authorize('settings.update');
+
+        try {
+            $school = Auth::user()->school;
+
+            // Revocar token anterior si existe
+            $school->tokens()->where('name', 'kiosk')->delete();
+
+            // Crear el nuevo token plano con habilidades limitadas al kiosko
+            $token = $school->createToken('kiosk', ['kiosk'])->plainTextToken;
+
+            // El token se muestra una sola vez en la UI para copiarlo al dispositivo
+            $this->dispatch('kiosk-token-generated', token: $token);
+
+            $this->dispatch('notify', 
+                type: 'success',
+                title: 'Token de Kiosko generado',
+                message: 'El nuevo token de acceso se ha generado con éxito. Cópielo ahora; no se volverá a mostrar.'
+            );
+        } catch (\Exception $e) {
+            Log::error('Error al generar token de kiosko para la escuela', [
+                'error' => $e->getMessage(),
+                'school_id' => $this->school->id
+            ]);
+
+            $this->dispatch('notify', 
+                type: 'error',
+                title: 'Error de autenticación',
+                message: 'No se pudo generar el token del Kiosko. Intente de nuevo.'
+            );
+        }
+    }
+
     public function save()
     {
         $data = $this->validate();

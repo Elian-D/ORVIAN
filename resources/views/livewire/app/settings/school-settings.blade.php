@@ -287,6 +287,7 @@
                     </div>
                 </div>
             </div>
+            
             {{-- SECCIÓN: Control de Operaciones --}}
             <div class="border-t border-slate-100 dark:border-dark-border bg-slate-50/30 dark:bg-slate-800/10 p-6 xl:p-8">
                 <div class="px-6 py-4">
@@ -294,29 +295,101 @@
                         Control de Operaciones
                     </h2>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Parámetros críticos del ciclo escolar actual.
+                        Parámetros críticos del ciclo escolar y conexiones periféricas de ORVIAN.
                     </p>
                 </div>
                 
                 <div class="p-6">
-                    <div class="max-w-md">
-                        <x-ui.forms.input 
-                            label="Año Escolar Activo" 
-                            name="current_academic_year"
-                            wire:model="current_academic_year"
-                            iconLeft="heroicon-o-calendar"
-                            readonly
-                            hint="Para cambiar el ciclo, debe iniciar el proceso de 'Cierre de Año' en el módulo académico."
-                            class="bg-slate-100/50 dark:bg-slate-800/50 cursor-not-allowed"
-                        />
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                         
-                        <div class="mt-4 p-4 rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50/50 dark:bg-blue-500/5 flex gap-3">
-                            <x-heroicon-s-information-circle class="w-5 h-5 text-blue-500 shrink-0" />
-                            <div class="space-y-1">
-                                <p class="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-tight">Nota de Seguridad</p>
-                                <p class="text-[11px] leading-relaxed text-blue-600/80 dark:text-blue-400/80">
-                                    El año escolar es un parámetro estructural. Su modificación está restringida para prevenir inconsistencias en actas, calificaciones y registros de asistencia ya generados.
-                                </p>
+                        {{-- Columna Izquierda: Año Escolar Activo --}}
+                        <div class="space-y-4">
+                            <x-ui.forms.input 
+                                label="Año Escolar Activo" 
+                                name="current_academic_year"
+                                wire:model="current_academic_year"
+                                iconLeft="heroicon-o-calendar"
+                                readonly
+                                hint="Para cambiar el ciclo, debe iniciar el proceso de 'Cierre de Año' en el módulo académico."
+                                class="bg-slate-100/50 dark:bg-slate-800/50 cursor-not-allowed"
+                            />
+                            
+                            <div class="p-4 rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50/50 dark:bg-blue-500/5 flex gap-3">
+                                <x-heroicon-s-information-circle class="w-5 h-5 text-blue-500 shrink-0" />
+                                <div class="space-y-1">
+                                    <p class="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-tight">Nota de Seguridad</p>
+                                    <p class="text-[11px] leading-relaxed text-blue-600/80 dark:text-blue-400/80">
+                                        El año escolar es un parámetro estructural. Su modificación está restringida para prevenir inconsistencias en actas, calificaciones y registros de asistencia ya generados.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Columna Derecha: Conexión de Dispositivo Kiosko (Sanctum Token) --}}
+                        <div class="space-y-4 p-5 rounded-xl border border-slate-200 dark:border-dark-border bg-white dark:bg-dark-card shadow-sm"
+                             x-data="{ 
+                                 token: '', 
+                                 copied: false,
+                                 copyToken() {
+                                     navigator.clipboard.writeText(this.token);
+                                     this.copied = true;
+                                     setTimeout(() => this.copied = false, 3000);
+                                 }
+                             }"
+                             x-on:kiosk-token-generated.window="token = $event.detail.token">
+                            
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-xs font-bold text-orvian-navy dark:text-white uppercase tracking-wider">
+                                        Dispositivo de Asistencia (Kiosko / Tótem)
+                                    </h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                        Vincula la aplicación física de reconocimiento facial de tu centro.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {{-- Estado Alternativo: Mostrar el token generado una única vez --}}
+                            <div x-show="token" x-transition class="space-y-3" style="display: none;">
+                                <div class="p-3 bg-green-50 dark:bg-green-500/5 border border-green-200 dark:border-green-500/20 rounded-xl">
+                                    <label class="block text-[10px] font-bold text-green-700 dark:text-green-400 uppercase mb-1">
+                                        ¡Llave de seguridad generada con éxito!
+                                    </label>
+                                    <div class="flex gap-2">
+                                        <input type="text" readonly x-bind:value="token" 
+                                               class="w-full font-mono text-xs p-2 rounded-lg bg-white dark:bg-slate-900 border border-green-300 dark:border-green-500/30 text-slate-800 dark:text-slate-200 focus:outline-none select-all" />
+                                        
+                                        <button type="button" x-on:click="copyToken()"
+                                                class="px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shrink-0">
+                                            <x-heroicon-o-clipboard x-show="!copied" class="w-4 h-4" />
+                                            <x-heroicon-o-check x-show="copied" class="w-4 h-4" />
+                                            <span x-text="copied ? 'Copiado' : 'Copiar'"></span>
+                                        </button>
+                                    </div>
+                                    <p class="text-[10px] text-green-600/80 dark:text-green-400/80 mt-1.5 leading-tight font-medium">
+                                        <x-heroicon-s-exclamation-triangle class="w-3 h-3 inline mr-0.5" />
+                                        Por seguridad, esta llave solo se mostrará **esta vez**. Cópiala e introdúcela en el software del Kiosko.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {{-- Estado Base / Botón Generador --}}
+                            <div class="flex items-center gap-4 pt-2">
+                                <x-ui.button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    iconLeft="heroicon-o-key"
+                                    x-on:click="$dispatch('open-modal', 'confirm-kiosk-token')"
+                                    class="!py-2 border border-slate-200 dark:border-dark-border shrink-0 text-xs font-bold text-slate-600"
+                                >
+                                    Generar Nueva Llave
+                                </x-ui.button>
+                                
+                                <div class="text-[11px] leading-snug text-slate-400 dark:text-slate-500">
+                                    <span class="font-bold text-slate-600 dark:text-slate-300 block mb-0.5">¿Qué es esto?</span>
+                                    Es un código de autenticación exclusivo que permite que la cámara del Kiosko se comunique de forma segura con ORVIAN.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -370,6 +443,42 @@
             </div>
         </div>
     </form>
+
+    {{-- Modal: Confirmar Generación de Token Kiosko --}}
+    <x-modal name="confirm-kiosk-token" focusable>
+        <div class="p-6">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <x-heroicon-o-exclamation-triangle class="w-6 h-6 text-red-500" />
+                ¿Generar nueva llave de seguridad?
+            </h2>
+
+            <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                Al generar una nueva llave, <strong class="text-gray-900 dark:text-gray-200">cualquier terminal o Kiosko que esté funcionando actualmente en la escuela se desconectará de inmediato</strong>. Tendrás que ingresar esta nueva llave en los dispositivos físicos para restaurar la conexión.
+            </p>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <x-ui.button 
+                    variant="secondary" 
+                    x-on:click="$dispatch('close')"
+                >
+                    Cancelar
+                </x-ui.button>
+
+                <x-ui.button
+                    variant="error"
+                    iconLeft="heroicon-s-key"
+                    wire:click="generateKioskToken"
+                    x-on:click="$dispatch('close')"
+                    wire:loading.attr="disabled"
+                    wire:target="generateKioskToken"
+                >
+                    <span wire:loading.remove wire:target="generateKioskToken">Sí, generar llave</span>
+                    <span wire:loading wire:target="generateKioskToken">Generando...</span>
+                </x-ui.button>
+            </div>
+        </div>
+    </x-modal>
+
     {{-- 2. El Componente Modal --}}
     <x-modal name="confirm-school-update" focusable>
         <div class="p-6">

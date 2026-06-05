@@ -13,10 +13,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\DB;
+use Laravel\Sanctum\HasApiTokens;
 
 class School extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens;
 
     /** @var string REGIMEN_CONSTANTS */
     const REGIMEN_PUBLIC      = 'Público';
