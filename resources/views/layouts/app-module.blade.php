@@ -4,7 +4,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="audio-feedback" content="{{ auth()->user()?->preference('audio_feedback', true) ? 'true' : 'false' }}">
     <title>{{ $title ?? 'App' }} | {{ config('app.name') }}</title>
 
     <x-ui.theme-init />
@@ -40,53 +39,6 @@
     </main>
 
     <x-ui.toasts />
-
-    {{-- 1. Cambia el div: quitamos x-init y el () de x-data --}}
-    {{-- Agregamos los listeners directamente aquí para que sean 100% confiables --}}
-    <div
-        x-data="audioFeedback"
-        @attendance-recorded-success.window="play('success')"
-        @attendance-facial-error.window="play('error')"
-        style="display:none;"
-        aria-hidden="true"
-    ></div>
-
-    @push('scripts')
-    <script>
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('audioFeedback', () => ({
-            enabled: document.querySelector('meta[name="audio-feedback"]')?.content !== 'false',
-
-            // 2. Usar las rutas correctas inyectadas por Laravel
-            sounds: {
-                success: new Audio("{{ asset('assets/sounds/success.wav') }}"),
-                error:   new Audio("{{ asset('assets/sounds/error.wav') }}"),
-            },
-
-            init() {
-                // Pre-cargar audios
-                Object.values(this.sounds).forEach(s => {
-                    s.volume = 0.5;
-                    s.load();
-                });
-                
-                // Ya no necesitamos Livewire.on aquí porque usamos los atributos @event.window arriba
-            },
-
-            play(type) {
-                if (!this.enabled) return;
-                const sound = this.sounds[type];
-                if (!sound) return;
-
-                sound.currentTime = 0;
-                sound.play().catch(e => {
-                    console.warn("[Audio] Bloqueado por el navegador:", e);
-                });
-            },
-        }));
-    });
-    </script>
-    @endpush
 
     @livewire('shared.profile-modal')
     @livewireScripts

@@ -11,7 +11,6 @@ use App\Livewire\App\Attendance\ExcuseIndex;
 use App\Livewire\App\Attendance\ManualAttendance;
 use App\Livewire\App\Attendance\PlantelAttendanceIndex;
 use Illuminate\Support\Facades\Route;
-use App\Livewire\App\Attendance\AttendanceScanner;
 
 /*
 |--------------------------------------------------------------------------
@@ -34,19 +33,10 @@ Route::prefix('attendance')->name('attendance.')->group(function () {
         ->middleware('can:attendance_plantel.reports')
         ->name('reports');
 
-
-    Route::middleware('can:attendance_plantel.record')->group(function () {
-        Route::get('/scanner', AttendanceScanner::class)
-            ->name('scanner');
-    });
-
-
     // --- Hub de Gestión de Sesiones (Nueva ruta) ---
     Route::get('/hub', AttendanceSessionHub::class)
         ->middleware('can:attendance_plantel.view')
         ->name('hub');
-
-    // Agregar dentro del grupo Route::prefix('attendance')->name('attendance.')
 
     Route::get('/audit/{sessionId}', AttendanceAudit::class)
         ->middleware('can:attendance_plantel.verify')

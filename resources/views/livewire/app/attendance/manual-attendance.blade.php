@@ -27,17 +27,6 @@
                             <span class="hidden sm:inline">Cerrar Sesión</span>
                             <span class="sm:hidden">Cerrar</span>
                         </x-ui.button>
-
-                        <x-ui.button
-                            variant="secondary"
-                            type="outline"
-                            size="sm"
-                            iconLeft="heroicon-s-cpu-chip"
-                            :href="route('app.attendance.scanner')"
-                        >
-                            <span class="hidden sm:inline">Ir a Escáner</span>
-                            <span class="sm:hidden">Escáner</span>
-                        </x-ui.button>
                     @else
                         {{-- Botón cuando no hay sesión activa --}}
                         <x-ui.button
