@@ -424,10 +424,6 @@
                     <p class="text-xs text-slate-400">Últimas 15 entradas al plantel</p>
                 </div>
             </div>
-            <a href="{{ route('app.attendance.scanner') }}"
-                class="text-xs font-semibold text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
-                Ir al Escáner →
-            </a>
         </div>
 
         {{-- Lista --}}

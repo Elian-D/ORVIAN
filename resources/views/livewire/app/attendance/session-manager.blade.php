@@ -185,7 +185,7 @@
                         @if($isOpen)
                             {{-- Botón Principal: Pase de Lista (Polimorfismo <a>) --}}
                             <x-ui.button 
-                                href="{{ route('app.attendance.scanner') }}" 
+                                href="{{ route('app.attendance.manual') }}" 
                                 variant="primary" 
                                 size="md"
                                 fullWidth

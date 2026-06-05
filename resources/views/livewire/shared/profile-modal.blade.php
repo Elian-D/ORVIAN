@@ -199,136 +199,86 @@
                         </div>
                     </div>
 
-                    
-                        {{-- Separador --}}
-                        <div class="border-t border-slate-100 dark:border-white/5 pt-5 mt-5">
 
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                        Sonidos de feedback
-                                    </p>
-                                    <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                        Reproduce un sonido al registrar asistencia
-                                    </p>
-                                </div>
+                    @if(false) {{-- SECCIÓN DESACTIVADA TEMPORALMENTE --}}
+                        <div class="mt-8 pt-8 border-t border-slate-100 dark:border-white/5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-5">
+                                Selecciona tu Interfaz de Acceso
+                            </label>
+                            
+                            {{-- Contenedor principal de opciones en columna --}}
+                            <div class="flex flex-col gap-6">
+                                @foreach(['v2' => 'Arquitectónico (Nuevo)', 'v1' => 'Clásico (Legado)'] as $val => $label)
+                                    <button wire:click="$set('loginVersion', '{{ $val }}')"
+                                        @class([
+                                            "group relative flex flex-col p-3 rounded-2xl border transition-all duration-300 text-left overflow-hidden",
+                                            "border-orvian-orange bg-orvian-orange/[0.02] ring-2 ring-orvian-orange shadow-lg shadow-orvian-orange/10" => $loginVersion === $val,
+                                            "border-slate-100 dark:border-white/10 bg-white dark:bg-dark-card hover:border-orvian-orange/30 hover:shadow-md" => $loginVersion !== $val
+                                        ])>
+                                        
+                                        {{-- Vista previa visual de la interfaz (Proporción 16:9) --}}
+                                        <div class="aspect-video w-full rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 relative bg-slate-50 dark:bg-black/20">
+                                            <img src="{{ asset('img/auth-preview/' . $val . '.png') }}" 
+                                                alt="{{ $label }}"
+                                                @class([
+                                                    "w-full h-full object-cover transition-transform duration-700 group-hover:scale-105",
+                                                    "grayscale-0" => $loginVersion === $val,
+                                                    "grayscale group-hover:grayscale-0" => $loginVersion !== $val
+                                                ])>
+                                            
+                                            {{-- Indicador de selección activa sobre la imagen --}}
+                                            @if($loginVersion === $val)
+                                                <div class="absolute inset-0 bg-orvian-orange/5 flex items-center justify-center">
+                                                    {{-- Check de confirmación centrado --}}
+                                                    <div class="bg-orvian-orange text-white rounded-full p-2 shadow-2xl scale-110">
+                                                        <x-heroicon-s-check class="w-6 h-6" />
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        </div>
 
-                                {{-- Toggle reutilizando el mismo patrón visual del sistema --}}
-                                <button
-                                    type="button"
-                                    role="switch"
-                                    :aria-checked="$wire.audioFeedback.toString()"
-                                    @click="$wire.audioFeedback = !$wire.audioFeedback"
-                                    :class="$wire.audioFeedback
-                                        ? 'bg-orvian-orange shadow-sm shadow-orvian-orange/30'
-                                        : 'bg-slate-200 dark:bg-slate-700'"
-                                    class="relative inline-flex h-6 w-11 items-center rounded-full
-                                        transition-colors duration-200 focus:outline-none
-                                        focus:ring-2 focus:ring-orvian-orange focus:ring-offset-2
-                                        dark:focus:ring-offset-[#080e1a]"
-                                >
-                                    <span
-                                        :class="$wire.audioFeedback ? 'translate-x-6' : 'translate-x-1'"
-                                        class="inline-block h-4 w-4 transform rounded-full bg-white
-                                            shadow-sm transition-transform duration-200"
-                                    ></span>
-                                </button>
+                                        {{-- Textos descriptivos e información de la versión --}}
+                                        <div class="mt-4 px-1 flex items-center justify-between">
+                                            <div>
+                                                <span @class([
+                                                    "text-[11px] font-black uppercase tracking-wider",
+                                                    "text-orvian-orange" => $loginVersion === $val,
+                                                    "text-slate-500 dark:text-slate-400" => $loginVersion !== $val
+                                                ])>
+                                                    {{ $val === 'v2' ? 'Versión 2.0' : 'Versión 1.0' }}
+                                                </span>
+                                                <p class="text-[13px] font-semibold text-slate-800 dark:text-white mt-0.5">
+                                                    {{ $label }}
+                                                </p>
+                                            </div>
+
+                                            {{-- Elemento visual interactivo (Radio Button Simulado) --}}
+                                            <div @class([
+                                                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0",
+                                                "border-orvian-orange" => $loginVersion === $val,
+                                                "border-slate-300 dark:border-white/20" => $loginVersion !== $val
+                                            ])>
+                                                <div @class([
+                                                    "w-2.5 h-2.5 rounded-full transition-all",
+                                                    "bg-orvian-orange scale-100" => $loginVersion === $val,
+                                                    "bg-transparent scale-0" => $loginVersion !== $val
+                                                ])></div>
+                                            </div>
+                                        </div>
+                                    </button>
+                                @endforeach
                             </div>
 
-                            {{-- Botón de prueba --}}
-                            <button
-                                type="button"
-                                @click="
-                                    const audio = new Audio('/assets/sounds/success.wav');
-                                    audio.volume = 0.5;
-                                    audio.play().catch(() => {});
-                                "
-                                class="mt-3 flex items-center gap-2 text-xs font-semibold
-                                    text-slate-400 hover:text-orvian-orange transition-colors"
-                            >
-                                <x-heroicon-o-speaker-wave class="w-4 h-4" />
-                                Probar sonido
-                            </button>
+                            {{-- Bloque Informativo sobre el almacenamiento local de la preferencia --}}
+                            <div class="mt-6 flex items-start gap-2.5 bg-slate-50 dark:bg-white/[0.03] p-4 rounded-xl border border-slate-100 dark:border-white/5">
+                                <x-heroicon-s-information-circle class="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                                    <span class="font-bold dark:text-white">Nota de sesión:</span> Esta preferencia se guarda en tu navegador y es específica para este dispositivo. Al cerrar sesión, el portal recordará automáticamente qué interfaz mostrarte la próxima vez que intentes acceder.
+                                </p>
+                            </div>
                         </div>
+                    @endif
 
-
-                    <div class="mt-8 pt-8 border-t border-slate-100 dark:border-white/5">
-                        <label class="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-5">
-                            Selecciona tu Interfaz de Acceso
-                        </label>
-                        
-                        {{-- Contenedor en Columna con GAP mayor --}}
-                        <div class="flex flex-col gap-6">
-                            @foreach(['v2' => 'Arquitectónico (Nuevo)', 'v1' => 'Clásico (Legado)'] as $val => $label)
-                                <button wire:click="$set('loginVersion', '{{ $val }}')"
-                                    @class([
-                                        "group relative flex flex-col p-3 rounded-2xl border transition-all duration-300 text-left overflow-hidden",
-                                        "border-orvian-orange bg-orvian-orange/[0.02] ring-2 ring-orvian-orange shadow-lg shadow-orvian-orange/10" => $loginVersion === $val,
-                                        "border-slate-100 dark:border-white/10 bg-white dark:bg-dark-card hover:border-orvian-orange/30 hover:shadow-md" => $loginVersion !== $val
-                                    ])>
-                                    
-                                    {{-- Contenedor de Imagen GRANDE (Proporción Panorámica) --}}
-                                    {{-- Usamos aspect-video (16:9) para que las capturas de pantalla de la web encajen perfecto --}}
-                                    <div class="aspect-video w-full rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 relative bg-slate-50 dark:bg-black/20">
-                                        <img src="{{ asset('img/auth-preview/' . $val . '.png') }}" 
-                                            alt="{{ $label }}"
-                                            @class([
-                                                "w-full h-full object-cover transition-transform duration-700 group-hover:scale-105",
-                                                "grayscale-0" => $loginVersion === $val,
-                                                "grayscale group-hover:grayscale-0" => $loginVersion !== $val
-                                            ])>
-                                        
-                                        {{-- Overlay de selección sobre la imagen --}}
-                                        @if($loginVersion === $val)
-                                            <div class="absolute inset-0 bg-orvian-orange/5 flex items-center justify-center">
-                                                {{-- Check gigante en el centro de la imagen --}}
-                                                <div class="bg-orvian-orange text-white rounded-full p-2 shadow-2xl scale-110">
-                                                    <x-heroicon-s-check class="w-6 h-6" />
-                                                </div>
-                                            </div>
-                                        @endif
-                                    </div>
-
-                                    {{-- Pie de Tarjeta (Label) --}}
-                                    <div class="mt-4 px-1 flex items-center justify-between">
-                                        <div>
-                                            <span @class([
-                                                "text-[11px] font-black uppercase tracking-wider",
-                                                "text-orvian-orange" => $loginVersion === $val,
-                                                "text-slate-500 dark:text-slate-400" => $loginVersion !== $val
-                                            ])>
-                                                {{ $val === 'v2' ? 'Versión 2.0' : 'Versión 1.0' }}
-                                            </span>
-                                            <p class="text-[13px] font-semibold text-slate-800 dark:text-white mt-0.5">
-                                                {{ $label }}
-                                            </p>
-                                        </div>
-
-                                        {{-- Radio button simulado lateral --}}
-                                        <div @class([
-                                            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0",
-                                            "border-orvian-orange" => $loginVersion === $val,
-                                            "border-slate-300 dark:border-white/20" => $loginVersion !== $val
-                                        ])>
-                                            <div @class([
-                                                "w-2.5 h-2.5 rounded-full transition-all",
-                                                "bg-orvian-orange scale-100" => $loginVersion === $val,
-                                                "bg-transparent scale-0" => $loginVersion !== $val
-                                            ])></div>
-                                        </div>
-                                    </div>
-                                </button>
-                            @endforeach
-                        </div>
-
-                        {{-- Nota Aclaratoria Profesional --}}
-                        <div class="mt-6 flex items-start gap-2.5 bg-slate-50 dark:bg-white/[0.03] p-4 rounded-xl border border-slate-100 dark:border-white/5">
-                            <x-heroicon-s-information-circle class="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
-                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                                <span class="font-bold dark:text-white">Nota de sesión:</span> Esta preferencia se guarda en tu navegador y es específica para este dispositivo. Al cerrar sesión, el portal recordará automáticamente qué interfaz mostrarte la próxima vez que intentes acceder.
-                            </p>
-                        </div>
-                    </div>
                 @endif
             </div>
 

@@ -40,7 +40,6 @@ return [
         'moduleLinks' => [
             ['label' => 'Dashboard',          'route' => 'app.attendance.dashboard'],
             ['label' => 'Sesión del Día',     'route' => 'app.attendance.session'],
-            ['label' => 'Scanner',            'route' => 'app.attendance.scanner'],
             ['label' => 'Pase de Lista',      'route' => 'app.attendance.classroom.live'],
             ['label' => 'Reportes',           'route' => 'app.attendance.reports'],
             ['label' => 'Excusas',            'route' => 'app.attendance.excuses.index'],
