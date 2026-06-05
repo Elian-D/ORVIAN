@@ -37,7 +37,7 @@
 
 | ID | Fase | Área | Descripción | Prioridad | Estado |
 | :-- | :-- | :-- | :-- | :-- | :-- |
-| REQ-01 | 1 | Asistencia Biométrica | API Gateway para el Kiosko: rutas `/api/v1/kiosk/` protegidas por Sanctum | Alta | Pendiente |
+| REQ-01 | 1 | Asistencia Biométrica | API Gateway para el Kiosko: rutas `/api/v1/kiosk/` protegidas por Sanctum | Alta | Completado |
 | REQ-02 | 2 | Asistencia Biométrica | Arquitectura del `orvian-desktop-scanner`: app Python nativa con OpenCV + MediaPipe | Alta | Pendiente |
 | REQ-03 | 3 | Configuración | Ventanas horarias configurables por tanda (entrada, tardanza, cierre) | Alta | Pendiente |
 | REQ-04 | 4 | UI / Componentes | Selector Universal de Cursos — componente Livewire reutilizable | Alta | Pendiente |
@@ -137,6 +137,11 @@ School (school_id)
 
 El token se emite sobre el modelo `School` (tokenable de tipo School), no sobre un `User`. Esto permite que el dispositivo esté vinculado a la institución sin representar a ningún usuario en particular.
 
+#### Instalación de Sanctum
+
+```bash
+  sail composer require laravel/sanctum
+```
 #### Migración
 
 ```php

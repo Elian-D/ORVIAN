@@ -9,11 +9,15 @@ use App\Models\Tenant\Academic\SchoolShift;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB; // <--- Necesario para transacciones
+use App\Services\FacialRecognition\FaceEncodingManager; // <--- Usar el Manager
+use Illuminate\Http\UploadedFile;
 
 class PlantelAttendanceService
 {
     public function __construct(
-        protected ExcuseService $excuseService
+        protected ExcuseService $excuseService,
+        protected FaceEncodingManager $faceManager,
     ) {}
 
     // ── Gestión de Sesión ─────────────────────────────────────────
@@ -219,5 +223,88 @@ class PlantelAttendanceService
             ->first();
 
         return $record && $record->isPresent();
+    }
+
+
+    // ── Métodos nuevos (agregar al final del servicio) ────────────────
+
+    /**
+     * Identifica al estudiante por código QR y registra su asistencia.
+     * Usado por el API Gateway del Kiosko (KioskQrRecordController).
+     */
+    public function recordByQr(int $schoolId, int $sessionId, string $qrCode): AttendanceResult
+    {
+        return DB::transaction(function () use ($schoolId, $sessionId, $qrCode) {
+            $session = DailyAttendanceSession::where('id', $sessionId)
+                ->where('school_id', $schoolId)
+                ->active()
+                ->first();
+
+            if (! $session) return AttendanceResult::fail('SESSION_CLOSED', 'Sesión no abierta.');
+
+            $student = Student::where('school_id', $schoolId)->where('qr_code', $qrCode)->active()->first();
+            if (! $student) return AttendanceResult::fail('NOT_FOUND', 'Estudiante no encontrado.');
+
+            $alreadyRecorded = PlantelAttendanceRecord::where('student_id', $student->id)
+                ->where('daily_attendance_session_id', $session->id)->exists();
+
+            if ($alreadyRecorded) return AttendanceResult::fail('ALREADY_RECORDED', 'Ya registrado hoy.');
+
+            $now = now();
+            $record = $this->recordAttendance([
+                'school_id' => $schoolId,
+                'student_id' => $student->id,
+                'school_shift_id' => $session->school_shift_id,
+                'date' => $session->date,
+                'time' => $now->format('H:i:s'),
+                'method' => PlantelAttendanceRecord::METHOD_QR,
+            ]);
+
+            return AttendanceResult::ok($student, $record->status, $now);
+        });
+    }
+
+    public function recordByFacial(int $schoolId, int $sessionId, UploadedFile $photo): AttendanceResult
+    {
+        return DB::transaction(function () use ($schoolId, $sessionId, $photo) {
+            $session = DailyAttendanceSession::where('id', $sessionId)
+                ->where('school_id', $schoolId)
+                ->active()
+                ->first();
+
+            if (! $session) return AttendanceResult::fail('SESSION_CLOSED', 'Sesión no abierta.');
+
+            // Usamos el Manager que SÍ existe
+            $match = $this->faceManager->identifyStudent($schoolId, $photo);
+
+            if (!$match) {
+                return AttendanceResult::fail('NO_MATCH', 'No se pudo identificar el rostro.');
+            }
+
+            $student = Student::where('id', $match['student_id'])
+                ->where('school_id', $schoolId)
+                ->active()
+                ->first();
+
+            if (! $student) return AttendanceResult::fail('NOT_FOUND', 'Estudiante no encontrado.');
+
+            $alreadyRecorded = PlantelAttendanceRecord::where('student_id', $student->id)
+                ->where('daily_attendance_session_id', $session->id)->exists();
+
+            if ($alreadyRecorded) return AttendanceResult::fail('ALREADY_RECORDED', 'Ya registrado hoy.');
+
+            $now = now();
+            $record = $this->recordAttendance([
+                'school_id' => $schoolId,
+                'student_id' => $student->id,
+                'school_shift_id' => $session->school_shift_id,
+                'date' => $session->date,
+                'time' => $now->format('H:i:s'),
+                'method' => PlantelAttendanceRecord::METHOD_FACIAL,
+                'metadata' => ['confidence' => $match['confidence'] ?? null],
+            ]);
+
+            return AttendanceResult::ok($student, $record->status, $now, $match['confidence'] ?? null);
+        });
     }
 }
