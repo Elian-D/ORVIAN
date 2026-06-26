@@ -38,7 +38,7 @@
 | ID | Fase | Área | Descripción | Prioridad | Estado |
 | :-- | :-- | :-- | :-- | :-- | :-- |
 | REQ-01 | 1 | Asistencia Biométrica | API Gateway para el Kiosko: rutas `/api/v1/kiosk/` protegidas por Sanctum | Alta | Completado |
-| REQ-02 | 2 | Asistencia Biométrica | Arquitectura del `orvian-desktop-scanner`: app Python nativa con OpenCV + MediaPipe | Alta | Pendiente |
+| REQ-02 | 2 | Asistencia Biométrica | Arquitectura de `orvian-kiosk-electron`: app de escritorio con Electron + MediaPipe Tasks-Vision for Web (WASM local), sin lógica de QR | Alta | Pendiente |
 | REQ-03 | 3 | Configuración | Ventanas horarias configurables por tanda (entrada, tardanza, cierre) | Alta | Pendiente |
 | REQ-04 | 4 | UI / Componentes | Selector Universal de Cursos — componente Livewire reutilizable | Alta | Pendiente |
 | REQ-05 | 5 | Asistencia Aula | Rediseño completo del pase de lista con gestos de deslizamiento | Alta | Pendiente |
@@ -452,45 +452,38 @@ public function rules(): array
 
 ---
 
-## Fase 2 — Arquitectura del `orvian-desktop-scanner` (REQ-02)
+## Fase 2 (revisada) — Arquitectura del Cliente de Escritorio Electron (REQ-02)
 
-**Repositorio:** `orvian-desktop-scanner` (independiente de `orvian`)
+**Repositorio:** `orvian-kiosk-electron` (independiente de `orvian`, reemplaza al repositorio Python que no llegó a completarse)
 
 **Rama inicial:** `main`
 
 ### 2.1 — Visión General
 
-`orvian-desktop-scanner` es una aplicación de escritorio nativa para Windows (con posible extensión a Linux/macOS en el futuro) que reemplaza completamente al kiosko web. Se instala en el dispositivo físico de portería como una aplicación independiente. Al iniciarse, se conecta al servidor ORVIAN mediante el Token de Kiosko configurado y opera de forma autónoma.
+Electron empaqueta dos procesos dentro de un mismo ejecutable: un **proceso principal** (Node.js, sin interfaz, con acceso a sistema de archivos y hardware) y un **proceso de renderizado** (la ventana visible, que es Chromium real ejecutando HTML/CSS/JS locales, no remotos). La cámara, MediaPipe y la UI corren en el renderer; el token, la configuración persistente y el futuro acceso a lectores de hardware (huella) viven en el proceso principal.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│             orvian-desktop-scanner (Python)              │
-│                                                          │
-│  ┌──────────────┐    ┌──────────────┐   ┌────────────┐  │
-│  │  Camera      │    │  Strategy    │   │  UI Layer  │  │
-│  │  Manager     │───▶│  Context     │──▶│ (CTk)      │  │
-│  │  (OpenCV)    │    │              │   │            │  │
-│  └──────────────┘    └──────┬───────┘   └────────────┘  │
-│                             │                            │
-│              ┌──────────────┼──────────────┐             │
-│              ▼              ▼              ▼             │
-│     ┌──────────────┐ ┌──────────┐ ┌──────────────┐      │
-│     │ FacialStrategy│ │QrStrategy│ │(FutureStrategy│     │
-│     │(MediaPipe)   │ │(pyzbar)  │ │ Fingerprint) │      │
-│     └──────────────┘ └──────────┘ └──────────────┘      │
-│                             │                            │
-│                    ┌────────▼───────┐                    │
-│                    │ ApiClient      │                    │
-│                    │ (httpx/requests│                    │
-│                    │  + Sanctum)    │                    │
-│                    └────────────────┘                    │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                  orvian-kiosk-electron                        │
+│                                                                │
+│  ┌────────────────────────┐      ┌─────────────────────────┐ │
+│  │   Proceso Principal     │      │   Proceso de Renderizado │ │
+│  │   (Node.js)              │      │   (Chromium local)       │ │
+│  │                          │      │                          │ │
+│  │  • config-store.js       │◀────▶│  • index.html             │ │
+│  │    (token, server_url)   │ IPC  │  • camera.js (getUserMedia│ │
+│  │  • preload.js (bridge)   │      │    + MediaPipe Tasks-     │ │
+│  │  • (futuro) huella.js    │      │    Vision, WASM local)    │ │
+│  │    via node-hid/serialport│      │  • api-client.js (fetch  │ │
+│  │                          │      │    + Bearer token)        │ │
+│  └────────────────────────┘      └─────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
                              │
                     HTTPS + Bearer Token
                              │
                     ┌────────▼───────┐
                     │  Laravel API   │
-                    │  /api/v1/kiosk/│
+                    │  /api/v1/kiosk/│   (sin cambios — Fase 1)
                     └────────────────┘
 ```
 
@@ -498,39 +491,43 @@ public function rules(): array
 
 | Componente | Librería | Justificación |
 | :--- | :--- | :--- |
-| Captura de cámara | `opencv-python` | Control total sobre el stream, FPS y resolución; sin restricciones de browser |
-| Detección facial | `mediapipe` (Python nativo) | Rendimiento superior al WASM; acceso a GPU si disponible |
-| Lectura QR | `pyzbar` + `python-zxing` (fallback) | `pyzbar` envuelve `zbar`, la librería C más rápida para QR; procesamiento directo sobre `numpy array` del frame |
-| UI / Ventana | `customtkinter` | Widgets modernos sobre Tkinter; sin dependencias de Electron o navegador |
-| HTTP Client | `httpx` (async) | Soporte nativo async/await; multipart para envío de imágenes |
-| Audio | `pygame.mixer` | Reproducción de WAV sin overhead; ya distribuido en la mayoría de entornos Python |
-| Empaquetado | `PyInstaller` | Genera `.exe` standalone para Windows sin requerir Python instalado |
-| Auto-update | Script `launcher.py` personalizado | Ver sección 2.8 |
+| Runtime de escritorio | `electron` | Empaqueta Chromium + Node.js en un único ejecutable; assets locales, sin dependencia de CDN |
+| Captura de cámara | `getUserMedia` (Web API nativa) | Misma API que ya usabas en el navegador; no requiere librería adicional |
+| Detección facial | `@mediapipe/tasks-vision` | La misma librería que falló por CDN en el navegador — aquí los `.wasm` y `.tflite` se sirven desde disco local, dentro del propio paquete |
+| Estilos | `tailwindcss` (build standalone) | Reutiliza el mismo lenguaje de utilidades que ya usas en Laravel, en un pipeline de build independiente |
+| HTTP Client | `fetch` nativo de Chromium | No requiere librería adicional para llamar a `/api/v1/kiosk/` |
+| Persistencia de configuración | `electron-store` | Equivalente directo al `config.json` planeado para Python; guarda token, URL del servidor y preferencias en disco |
+| Empaquetado | `electron-builder` | Genera instalador `.exe` (NSIS) standalone para Windows; equivalente a `PyInstaller` |
+| Auto-update | `electron-updater` | Librería estándar del ecosistema Electron; sustituye al `launcher.py` personalizado planeado para Python |
+| (Futuro) Lector de huella | `node-hid` o `serialport` (proceso principal) | Acceso a dispositivos USB/Serial desde Node.js, expuesto al renderer vía IPC |
 
 ### 2.3 — Estructura del Repositorio
 
 ```
-orvian-desktop-scanner/
-├── launcher.py                 # Script de arranque con verificación de versión
-├── main.py                     # Punto de entrada de la aplicación
-├── config.py                   # Carga de configuración desde config.json
-├── config.json                 # Token, URL del servidor, preferencias locales
+orvian-kiosk-electron/
+├── package.json
+├── electron-builder.yml          # Configuración de empaquetado (.exe)
 │
-├── core/
-│   ├── api_client.py           # Cliente HTTP para /api/v1/kiosk/
-│   ├── camera_manager.py       # Gestión del stream OpenCV
-│   └── audio_manager.py        # Reproducción de feedback de audio
+├── main/
+│   ├── main.js                   # Punto de entrada del proceso principal
+│   ├── config-store.js           # Wrapper sobre electron-store (token, server_url)
+│   ├── preload.js                # Bridge seguro entre main y renderer (contextBridge)
+│   └── hardware/
+│       └── fingerprint.js        # Placeholder — futuro lector de huella vía node-hid
 │
-├── strategies/
-│   ├── base_strategy.py        # Clase abstracta ScannerStrategy
-│   ├── facial_strategy.py      # Implementación con MediaPipe
-│   └── qr_strategy.py          # Implementación con pyzbar
+├── renderer/
+│   ├── index.html                # Ventana única del kiosko
+│   ├── styles.css                # Salida del build de Tailwind
+│   ├── camera.js                 # Captura de video + bucle de detección MediaPipe
+│   ├── api-client.js             # Wrapper de fetch() con Bearer token
+│   ├── ui-states.js              # Manejo de los 4 estados visuales del kiosko
+│   └── setup-screen.js           # Pantalla de configuración inicial (pegar token)
 │
-├── ui/
-│   ├── kiosk_window.py         # Ventana principal CustomTkinter
-│   └── widgets/
-│       ├── camera_feed.py      # Widget de preview de cámara
-│       └── result_overlay.py   # Overlay de resultado (nombre + estado)
+├── vendor/
+│   └── mediapipe/
+│       ├── wasm/                 # Runtime WASM de MediaPipe, copiado localmente
+│       └── models/
+│           └── blaze_face_short_range.tflite
 │
 ├── assets/
 │   ├── sounds/
@@ -539,418 +536,180 @@ orvian-desktop-scanner/
 │   └── icons/
 │       └── orvian.ico
 │
-├── build/
-│   └── orvian-scanner.spec     # Configuración PyInstaller
-│
-├── requirements.txt
-└── README.md
+└── tailwind.config.js
 ```
 
-### 2.4 — Patrón Strategy para Módulos de Escaneo
-
-El escáner se diseña bajo el **Patrón Strategy** (GoF). El `ScannerContext` delega el procesamiento de cada frame a una estrategia concreta intercambiable, sin conocer los detalles de implementación. Esto garantiza que agregar un módulo futuro (ej. Lector de Huella Digital con `pyfingerprint`) no requiera modificar el núcleo de la aplicación.
-
-#### Clase Abstracta Base
-
-```python
-# strategies/base_strategy.py
-
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Optional
-import numpy as np
-
-@dataclass
-class ScanResult:
-    """Resultado normalizado de cualquier estrategia de escaneo."""
-    detected: bool
-    payload: Optional[str] = None    # QR code string o encoding facial serializado
-    confidence: Optional[float] = None
-    frame_annotated: Optional[np.ndarray] = None  # Frame con overlays visuales
-
-
-class ScannerStrategy(ABC):
-    """
-    Interfaz común para todos los módulos de escaneo.
-    Cada estrategia procesa un frame de OpenCV y retorna un ScanResult.
-    """
-
-    @abstractmethod
-    def process_frame(self, frame: np.ndarray) -> ScanResult:
-        """
-        Analiza el frame y retorna el resultado del intento de detección.
-        Debe ser no bloqueante. El estado de dwell-time o cooldown
-        se gestiona internamente por cada estrategia.
-        """
-        ...
-
-    @abstractmethod
-    def reset(self) -> None:
-        """Reinicia el estado interno (dwell timer, cooldown, etc.)."""
-        ...
-
-    @abstractmethod
-    def release(self) -> None:
-        """Libera recursos de hardware o modelos cargados en memoria."""
-        ...
-```
-
-#### Contexto del Escáner
-
-```python
-# core/scanner_context.py
-
-from strategies.base_strategy import ScannerStrategy, ScanResult
-import numpy as np
-
-
-class ScannerContext:
-    """
-    Mantiene una referencia a la estrategia activa y delega el procesamiento.
-    La UI nunca instancia estrategias directamente.
-    """
-
-    def __init__(self, strategy: ScannerStrategy) -> None:
-        self._strategy = strategy
-
-    def set_strategy(self, strategy: ScannerStrategy) -> None:
-        self._strategy.release()
-        self._strategy = strategy
-        self._strategy.reset()
-
-    def process_frame(self, frame: np.ndarray) -> ScanResult:
-        return self._strategy.process_frame(frame)
-
-    def reset(self) -> None:
-        self._strategy.reset()
-```
-
-#### Estrategia Facial (MediaPipe)
-
-```python
-# strategies/facial_strategy.py
-
-import time
-import numpy as np
-import mediapipe as mp
-from mediapipe.tasks import python as mp_python
-from mediapipe.tasks.python import vision as mp_vision
-
-from .base_strategy import ScannerStrategy, ScanResult
-
-DWELL_REQUIRED_MS = 1200   # ms de cara estable antes de capturar
-MIN_DETECTION_CONFIDENCE = 0.6
-
-
-class FacialStrategy(ScannerStrategy):
-
-    def __init__(self, model_path: str) -> None:
-        options = mp_vision.FaceDetectorOptions(
-            base_options=mp_python.BaseOptions(model_asset_path=model_path),
-            running_mode=mp_vision.RunningMode.IMAGE,
-            min_detection_confidence=MIN_DETECTION_CONFIDENCE,
-        )
-        self._detector = mp_vision.FaceDetector.create_from_options(options)
-        self._dwell_start: Optional[float] = None
-
-    def process_frame(self, frame: np.ndarray) -> ScanResult:
-        rgb = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-        result = self._detector.detect(rgb)
-
-        annotated = frame.copy()
-
-        if len(result.detections) != 1:
-            self._dwell_start = None
-            return ScanResult(detected=False, frame_annotated=annotated)
-
-        detection = result.detections[0]
-        bbox = detection.bounding_box
-
-        # Dibujar bounding box en el frame
-        self._draw_bbox(annotated, bbox)
-
-        now = time.time() * 1000  # ms
-        if self._dwell_start is None:
-            self._dwell_start = now
-
-        elapsed = now - self._dwell_start
-        progress = min(elapsed / DWELL_REQUIRED_MS, 1.0)
-
-        if progress >= 1.0:
-            self._dwell_start = None
-            return ScanResult(
-                detected=True,
-                payload=None,   # El payload es la imagen completa, enviada por el caller
-                confidence=detection.categories[0].score if detection.categories else None,
-                frame_annotated=annotated,
-            )
-
-        return ScanResult(detected=False, frame_annotated=annotated)
-
-    def _draw_bbox(self, frame: np.ndarray, bbox) -> None:
-        import cv2
-        color = (16, 185, 129)  # Esmeralda ORVIAN
-        cv2.rectangle(
-            frame,
-            (bbox.origin_x, bbox.origin_y),
-            (bbox.origin_x + bbox.width, bbox.origin_y + bbox.height),
-            color, 2
-        )
-
-    def reset(self) -> None:
-        self._dwell_start = None
-
-    def release(self) -> None:
-        self._detector.close()
-```
-
-#### Estrategia QR (pyzbar)
-
-```python
-# strategies/qr_strategy.py
-
-import time
-import numpy as np
-from pyzbar.pyzbar import decode as pyzbar_decode
-
-from .base_strategy import ScannerStrategy, ScanResult
-
-COOLDOWN_MS = 3000  # ms de cooldown tras detección exitosa
-
-
-class QrStrategy(ScannerStrategy):
-
-    def __init__(self) -> None:
-        self._last_detection_time: Optional[float] = None
-
-    def process_frame(self, frame: np.ndarray) -> ScanResult:
-        now = time.time() * 1000
-
-        if self._last_detection_time and (now - self._last_detection_time) < COOLDOWN_MS:
-            return ScanResult(detected=False)
-
-        codes = pyzbar_decode(frame)
-        if not codes:
-            return ScanResult(detected=False)
-
-        code = codes[0]
-        data = code.data.decode('utf-8')
-
-        self._last_detection_time = now
-
-        return ScanResult(detected=True, payload=data)
-
-    def reset(self) -> None:
-        self._last_detection_time = None
-
-    def release(self) -> None:
-        pass  # pyzbar no mantiene recursos persistentes
-```
-
-### 2.5 — Cliente HTTP (`ApiClient`)
-
-```python
-# core/api_client.py
-
-import httpx
-from pathlib import Path
-from typing import Optional
-import numpy as np
-import cv2
-
-
-class ApiClient:
-
-    def __init__(self, base_url: str, token: str) -> None:
-        self._base = base_url.rstrip('/') + '/api/v1/kiosk'
-        self._headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/json'}
-
-    def get_status(self) -> dict:
-        with httpx.Client(headers=self._headers, timeout=5.0) as client:
-            resp = client.get(f'{self._base}/status')
-            resp.raise_for_status()
-            return resp.json()
-
-    def record_qr(self, session_id: int, qr_code: str) -> dict:
-        with httpx.Client(headers=self._headers, timeout=10.0) as client:
-            resp = client.post(
-                f'{self._base}/record/qr',
-                json={'session_id': session_id, 'qr_code': qr_code},
-            )
-            return resp.json()
-
-    def record_facial(self, session_id: int, frame: np.ndarray) -> dict:
-        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
-        image_bytes = buffer.tobytes()
-
-        with httpx.Client(headers=self._headers, timeout=15.0) as client:
-            resp = client.post(
-                f'{self._base}/record/facial',
-                data={'session_id': session_id},
-                files={'photo': ('capture.jpg', image_bytes, 'image/jpeg')},
-            )
-            return resp.json()
-```
-
-### 2.6 — UX/UI del Kiosko (CustomTkinter)
-
-La interfaz opera en modo pantalla completa permanente con tres estados visuales:
-
-#### Estado 1: Esperando Escaneo (estado base)
-
-```
-┌──────────────────────────────────────────────┐
-│                                              │
-│         [ Logo ORVIAN ]                      │
-│                                              │
-│   ┌──────────────────────────────────────┐   │
-│   │                                      │   │
-│   │        PREVIEW DE CÁMARA             │   │
-│   │        (OpenCV → CTkLabel)           │   │
-│   │                                      │   │
-│   └──────────────────────────────────────┘   │
-│                                              │
-│        ⬤  Esperando escaneo...              │
-│        Sesión activa · Tanda Matutina        │
-│                                              │
-└──────────────────────────────────────────────┘
-```
-
-#### Estado 2: Procesando (overlay semi-transparente, ~500ms)
-
-```
-┌──────────────────────────────────────────────┐
-│         ░░░░░░░░░░░░░░░░░░░░                 │
-│         ░  Verificando...  ░                 │
-│         ░░░░░░░░░░░░░░░░░░░░                 │
-└──────────────────────────────────────────────┘
-```
-
-#### Estado 3: Resultado (visible durante 3 segundos, luego vuelve a Estado 1)
-
-```
-┌──────────────────────────────────────────────┐
-│                                              │
-│   ┌──────────────────────────────────────┐   │
-│   │  [ Foto del estudiante — 120x120 ]   │   │
-│   │                                      │   │
-│   │  Ana María Rodríguez Pérez           │   │
-│   │  ✅  PRESENTE                        │   │
-│   │  07:48 AM                            │   │
-│   └──────────────────────────────────────┘   │
-│                                              │
-│     [ Barra de progreso de 3 segundos ]      │
-│                                              │
-└──────────────────────────────────────────────┘
-```
-
-Para el estado de **error** (QR no encontrado, cara no reconocida, sesión cerrada), el overlay muestra el ícono de error, el mensaje descriptivo del `error_message` de la API, y reproduce `error.wav`. Tras 3 segundos regresa al estado base.
-
-#### Estado 4: Sin Sesión Activa
-
-```
-┌──────────────────────────────────────────────┐
-│                                              │
-│         [ Logo ORVIAN ]                      │
-│                                              │
-│         ⏸  Sin sesión activa                │
-│         No hay sesión de asistencia          │
-│         abierta para hoy.                   │
-│                                              │
-│         Próxima verificación en 60s          │
-│                                              │
-└──────────────────────────────────────────────┘
-```
-
-El cliente hace polling al endpoint `GET /status` cada 60 segundos cuando no hay sesión activa, y cada 30 segundos como heartbeat cuando sí la hay (para detectar cierres de sesión).
-
-#### Ciclo principal de la UI
-
-```python
-# ui/kiosk_window.py (fragmento del loop de frames)
-
-def _process_frame_loop(self) -> None:
-    """Loop ejecutado en hilo separado — nunca bloquea el hilo de UI."""
-    while self._running:
-        ret, frame = self._camera.read()
-        if not ret:
-            continue
-
-        result = self._scanner_context.process_frame(frame)
-
-        # Actualizar preview (thread-safe via queue)
-        self._frame_queue.put(frame if result.frame_annotated is None
-                              else result.frame_annotated)
-
-        if result.detected:
-            self._handle_detection(result)
-
-def _handle_detection(self, result: ScanResult) -> None:
-    self._scanner_context.reset()
-    self._show_processing_overlay()
-
-    try:
-        if isinstance(self._scanner_context._strategy, QrStrategy):
-            api_result = self._api.record_qr(self._session_id, result.payload)
-        else:
-            frame = self._frame_queue.queue[-1]   # último frame capturado
-            api_result = self._api.record_facial(self._session_id, frame)
-
-        if api_result.get('success'):
-            self._audio.play_success()
-            self._show_result_overlay(api_result)
-        else:
-            self._audio.play_error()
-            self._show_error_overlay(api_result.get('message', 'Error desconocido'))
-
-    except Exception as exc:
-        self._audio.play_error()
-        self._show_error_overlay(f'Error de conexión: {exc}')
-
-    finally:
-        # Volver al estado de espera tras 3 segundos
-        self.after(3000, self._show_waiting_state)
-```
-
-### 2.7 — Modo Dual: Facial + QR Simultáneo
-
-El cliente de escritorio puede operar en modo dual donde ambas estrategias se ejecutan en el mismo frame de forma alternada (frame par → Facial, frame impar → QR), idéntico al concepto planteado en el antiguo REQ-02 Slim Client, pero ahora con el rendimiento de las librerías nativas.
-
-La implementación usa una estrategia compuesta `DualStrategy` que envuelve `FacialStrategy` y `QrStrategy`, alternando entre ellas por contador de frame. El `ScannerContext` no necesita modificaciones.
-
-### 2.8 — Auto-Update (Concepto)
-
-El ejecutable distribuido se acompaña de un `launcher.py` que actúa como script de arranque. Antes de iniciar la aplicación principal, el launcher consulta al servidor ORVIAN un endpoint dedicado (fuera del scope de v0.9.0, pero diseñado desde esta versión):
-
-```
-GET /api/v1/kiosk/version
-→ { "latest_version": "1.2.0", "download_url": "https://..." }
-```
-
-Si la versión instalada (leída desde `version.txt` en el directorio del ejecutable) es anterior a `latest_version`, el launcher descarga el nuevo `.exe`, reemplaza el actual y relanza la aplicación. Si el servidor no responde, el launcher inicia la aplicación con la versión existente sin interrumpir la operación.
-
-Este mecanismo garantiza que los dispositivos kiosko en las escuelas siempre corran la versión más reciente sin intervención manual del administrador del centro.
-
-### 2.9 — Configuración Local y Persistencia
-
-La aplicación de escritorio no utiliza archivos `.env`, ya que está diseñada para compilarse como un ejecutable autónomo. En su lugar, utiliza un archivo `config.json` administrado directamente desde la interfaz gráfica del kiosko.
-
-```json
-// config.json — generado automáticamente en %APPDATA%/OrvianScanner/ en el primer arranque
-
-{
-  "server_url": "http://localhost", 
-  "kiosk_token": "",
-  "camera_index": 0,
-  "scan_mode": "dual",
-  "display_fullscreen": true,
-  "audio_enabled": true,
-  "result_display_seconds": 3,
-  "status_poll_interval_seconds": 60
+### 2.4 — Detección Facial en el Renderer (MediaPipe Tasks-Vision)
+
+```javascript
+// renderer/camera.js
+
+import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
+
+const DWELL_REQUIRED_MS = 1200;
+const MIN_DETECTION_CONFIDENCE = 0.6;
+
+let faceDetector = null;
+let dwellStart = null;
+
+export async function initFaceDetector() {
+    // Resolver apunta a la carpeta local empaquetada, NUNCA a un CDN
+    const vision = await FilesetResolver.forVisionTasks("./vendor/mediapipe/wasm");
+
+    faceDetector = await FaceDetector.createFromOptions(vision, {
+        baseOptions: {
+            modelAssetPath: "./vendor/mediapipe/models/blaze_face_short_range.tflite",
+        },
+        runningMode: "VIDEO",
+        minDetectionConfidence: MIN_DETECTION_CONFIDENCE,
+    });
+}
+
+export function detectLoop(videoEl, canvasEl, onCaptureReady) {
+    const ctx = canvasEl.getContext("2d");
+
+    function loop() {
+        const result = faceDetector.detectForVideo(videoEl, performance.now());
+        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+        if (result.detections.length === 1) {
+            const box = result.detections[0].boundingBox;
+            drawFaceBox(ctx, box);
+
+            const now = Date.now();
+            if (!dwellStart) dwellStart = now;
+            const progress = Math.min((now - dwellStart) / DWELL_REQUIRED_MS, 1);
+
+            if (progress >= 1) {
+                dwellStart = null;
+                onCaptureReady(videoEl); // dispara la captura del frame
+            }
+        } else {
+            dwellStart = null;
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+}
+
+function drawFaceBox(ctx, box) {
+    ctx.strokeStyle = "#10b981";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(box.originX, box.originY, box.width, box.height);
 }
 ```
 
-El token se configura una sola vez en la instalación inicial del dispositivo (pegando el token generado desde la UI de configuración de la escuela en Laravel). Puede actualizarse desde la pantalla de configuración del propio kiosko, protegida por un PIN de administrador.
+Nota: la lógica de *dwell time* (mantener el rostro estable antes de capturar) es prácticamente un calco del bucle que ya tenías en `scanner-visor.blade.php` con `face-api.js`. No es código nuevo conceptualmente, solo una librería distinta corriendo en un contexto sin restricciones de red.
+
+### 2.5 — Cliente HTTP (`api-client.js`)
+
+```javascript
+// renderer/api-client.js
+
+export class ApiClient {
+    constructor(serverUrl, token) {
+        this.base = `${serverUrl.replace(/\/$/, '')}/api/v1/kiosk`;
+        this.headers = { 'Authorization': `Bearer ${token}` };
+    }
+
+    async getStatus() {
+        const resp = await fetch(`${this.base}/status`, { headers: this.headers });
+        return resp.json();
+    }
+
+    async recordFacial(sessionId, blob) {
+        const form = new FormData();
+        form.append('session_id', sessionId);
+        form.append('photo', blob, 'capture.jpg');
+
+        const resp = await fetch(`${this.base}/record/facial`, {
+            method: 'POST',
+            headers: this.headers, // FormData define su propio Content-Type automáticamente
+            body: form,
+        });
+        return resp.json();
+    }
+}
+```
+
+### 2.6 — Configuración Inicial sin Login (Token de Kiosko)
+
+No existe pantalla de usuario/contraseña. En el primer arranque, `setup-screen.js` muestra un formulario simple con dos campos: URL del servidor y Token de Kiosko (generado desde `SchoolSettings` en Laravel, exactamente como ya documentaste en la sección 1.1 de la Fase 1). Al guardar, el proceso principal persiste estos valores con `electron-store`:
+
+```javascript
+// main/config-store.js
+
+const Store = require('electron-store');
+const store = new Store({
+    defaults: {
+        server_url: '',
+        kiosk_token: '',
+        display_fullscreen: true,
+        audio_enabled: true,
+        status_poll_interval_seconds: 60,
+    }
+});
+
+module.exports = store;
+```
+
+Estos valores se exponen al renderer mediante el `preload.js` con `contextBridge`, nunca exponiendo Node.js directamente a la ventana (buena práctica de seguridad de Electron):
+
+```javascript
+// main/preload.js
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('orvianConfig', {
+    get: (key) => ipcRenderer.invoke('config:get', key),
+    set: (key, value) => ipcRenderer.invoke('config:set', key, value),
+});
+```
+
+### 2.7 — UX/UI del Kiosko
+
+Los **cuatro estados visuales** (Esperando escaneo, Procesando, Resultado, Sin sesión activa) se mantienen idénticos a los planeados originalmente para CustomTkinter — solo cambia que ahora se implementan como vistas HTML con Tailwind en vez de widgets de Tkinter. El polling de `GET /status` (60s sin sesión, 30s con sesión activa como heartbeat) tampoco cambia.
+
+### 2.8 — Preparación para Lector de Huella Futuro
+
+La razón original para usar el Patrón Strategy en Python era permitir agregar módulos de escaneo sin tocar el núcleo. En Electron, el equivalente es mantener el acceso a hardware en el **proceso principal** (donde Node.js sí puede hablar con dispositivos USB/Serial vía `node-hid` o `serialport`) y exponerlo al renderer únicamente a través de IPC — el renderer nunca toca hardware directamente, solo recibe eventos:
+
+```javascript
+// main/hardware/fingerprint.js (placeholder para cuando se integre el lector)
+
+const { ipcMain } = require('electron');
+// const HID = require('node-hid');
+
+ipcMain.handle('fingerprint:scan', async () => {
+    // Lógica del SDK del lector específico, ejecutada en el proceso principal
+    // Devuelve el resultado al renderer vía Promise resuelta del invoke()
+});
+```
+
+Esto preserva la misma idea de extensibilidad que tenía `ScannerStrategy` en Python, adaptada al modelo de procesos de Electron en vez de a clases abstractas de Python.
+
+### 2.9 — Auto-Update
+
+`electron-updater` es la herramienta estándar del ecosistema para este propósito — sustituye al `launcher.py` personalizado que se había planeado para Python. Se configura apuntando a un feed de actualizaciones (puede ser un endpoint propio en Laravel o GitHub Releases) y gestiona la descarga e instalación de nuevas versiones de forma silenciosa en segundo plano, sin necesitar un script de arranque separado.
+
+### 2.10 — Empaquetado
+
+```yaml
+# electron-builder.yml
+
+appId: com.orvian.kiosk
+productName: ORVIAN Kiosko
+win:
+  target: nsis
+  icon: assets/icons/orvian.ico
+extraResources:
+  - from: vendor/mediapipe
+    to: vendor/mediapipe
+```
+
+El bloque `extraResources` es la pieza clave: garantiza que los archivos `.wasm` y `.tflite` de MediaPipe viajen físicamente dentro del instalador `.exe`, accesibles por ruta local en cualquier máquina donde se instale, sin pedir nada a un CDN en tiempo de ejecución.
 
 ---
 
@@ -1551,50 +1310,37 @@ Patrón canónico de uso (opt-in con `wire:target` explícito):
 | `resources/views/components/ui/button.blade.php` | Eliminar `wire:loading.class` global | 11 |
 | `docs/ui/buttons.md` | Actualizar sección de estados de carga | 11 |
 
-### Repositorio `orvian-desktop-scanner` (nuevo)
+## Archivos a Crear — Repositorio `orvian-kiosk-electron` (nuevo)
 
 | Archivo | Acción | Fase |
 | :--- | :--- | :--- |
-| `main.py` | Crear — punto de entrada | 2 |
-| `launcher.py` | Crear — script de arranque con auto-update | 2 |
-| `config.py` + `config.json` | Crear — configuración local | 2 |
-| `core/api_client.py` | Crear — cliente HTTP | 2 |
-| `core/camera_manager.py` | Crear — gestión de stream OpenCV | 2 |
-| `core/audio_manager.py` | Crear — reproducción de audio | 2 |
-| `strategies/base_strategy.py` | Crear — interfaz Strategy | 2 |
-| `strategies/facial_strategy.py` | Crear — implementación MediaPipe | 2 |
-| `strategies/qr_strategy.py` | Crear — implementación pyzbar | 2 |
-| `ui/kiosk_window.py` | Crear — ventana principal CustomTkinter | 2 |
-| `ui/widgets/camera_feed.py` | Crear — widget preview de cámara | 2 |
-| `ui/widgets/result_overlay.py` | Crear — overlay de resultado | 2 |
+| `main/main.js` | Crear — punto de entrada del proceso principal | 2 |
+| `main/config-store.js` | Crear — persistencia de token/configuración | 2 |
+| `main/preload.js` | Crear — bridge seguro main↔renderer | 2 |
+| `main/hardware/fingerprint.js` | Crear (placeholder) — preparación lector de huella futuro | 2 |
+| `renderer/index.html` | Crear — ventana única del kiosko | 2 |
+| `renderer/camera.js` | Crear — captura + detección MediaPipe Tasks-Vision | 2 |
+| `renderer/api-client.js` | Crear — cliente HTTP hacia `/api/v1/kiosk/` | 2 |
+| `renderer/ui-states.js` | Crear — los 4 estados visuales del kiosko | 2 |
+| `renderer/setup-screen.js` | Crear — pantalla de configuración inicial (token) | 2 |
+| `vendor/mediapipe/wasm/` + `models/` | Incluir en el repositorio | 2 |
 | `assets/sounds/success.wav` + `error.wav` | Incluir en el repositorio | 2 |
-| `build/orvian-scanner.spec` | Crear — configuración PyInstaller | 2 |
-| `requirements.txt` | Crear | 2 |
+| `electron-builder.yml` | Crear — configuración de empaquetado | 2 |
+| `tailwind.config.js` | Crear — build standalone de Tailwind | 2 |
+| `package.json` | Crear | 2 |
 
 ---
 
-## Notas de Implementación
+## Notas de Implementación (revisadas)
 
-**Separación de repositorios:** `orvian-desktop-scanner` es un repositorio Git independiente. No comparte código ni dependencias con el monorepo Laravel. La única interfaz entre ambos sistemas son los tres endpoints del API Gateway definidos en Fase 1.
+Las siguientes notas de la versión original eran específicas de Python y ya no aplican: threading en Tkinter, `pyzbar` + `zbar.dll`, `PyInstaller` con `binaries=[...]`, calidad de imagen JPEG vía OpenCV. Se reemplazan por:
 
-**Sanctum y tokenable School:** Laravel Sanctum soporta múltiples tokenables. Para que `School` pueda emitir tokens, debe implementar `HasApiTokens` e incluirse en el `sanctum.guard` si se usa la autenticación de guards. Verificar que `config/sanctum.php` liste el guard correcto o que el middleware `auth:sanctum` resuelva el modelo correctamente.
+**Seguridad del proceso de renderizado:** Electron debe configurarse con `contextIsolation: true` y `nodeIntegration: false` en el `BrowserWindow`. El renderer (donde corre la cámara y MediaPipe) nunca debe tener acceso directo a Node.js — todo acceso a hardware o sistema de archivos pasa por `preload.js` vía `contextBridge`, evitando que código malicioso embebido en la ventana pueda escalar privilegios.
 
-Las llamadas a `ApiClient` dentro de `_handle_detection` deben ejecutarse de forma asíncrona o enviarse a un `ThreadPoolExecutor`. De lo contrario, la petición HTTP síncrona bloqueará el hilo de captura de OpenCV, congelando el feed de video del usuario mientras espera la respuesta del servidor.
+**MediaPipe y el modelo de un solo hilo:** A diferencia de Python (donde fue necesario separar captura e inferencia en dos hilos para evitar lag visual), el renderer de Electron es JavaScript de un solo hilo con `requestAnimationFrame`. El patrón ya usado en `scanner-visor.blade.php` (un bucle de detección no bloqueante por frame) es directamente aplicable sin necesitar arquitectura de hilos adicional — esto es, de hecho, más simple que el problema que se resolvió en Python.
 
-**Autenticación de Kiosko con Sanctum:** Para que el middleware `auth:sanctum` resuelva correctamente el modelo `School` en lugar del modelo `User`, se debe configurar un nuevo guard y provider en `config/auth.php` para las escuelas, o en su defecto, crear un middleware personalizado `KioskAuthMiddleware` que extraiga el modelo directamente usando `PersonalAccessToken::findToken($request->bearerToken())->tokenable`.
+**Bundling de WASM:** Verificar en cada build de `electron-builder` que `extraResources` copie correctamente la carpeta `vendor/mediapipe/` al directorio de recursos del `.exe` final. Un error común es que `FilesetResolver.forVisionTasks()` reciba una ruta relativa que funciona en desarrollo (`npm start`) pero no en el ejecutable empaquetado, donde la estructura de carpetas cambia. Resolver siempre la ruta vía `process.resourcesPath` en producción.
 
-**Seguridad del Token de Kiosko:** El token de kiosko tiene la ability `kiosk` y no tiene fecha de expiración por defecto (los dispositivos de portería operan indefinidamente). Si un dispositivo es robado o comprometido, el administrador puede revocar el token desde la configuración de la escuela y generar uno nuevo. El dispositivo detectará el error `INVALID_TOKEN` en el próximo polling y mostrará la pantalla de configuración solicitando el nuevo token.
+**Seguridad del Token de Kiosko:** Sin cambios respecto al diseño original — el token con ability `kiosk` se persiste en `electron-store`, no expira por defecto, y es revocable desde Laravel si el dispositivo se pierde o compromete.
 
-**Threading en la UI Python:** El loop de cámara (`_process_frame_loop`) corre en un hilo `daemon` separado del hilo principal de CustomTkinter. Las actualizaciones de UI se pasan a través de una `queue.Queue` y el método `after()` de Tkinter para garantizar thread-safety. Nunca se llaman métodos de UI directamente desde el hilo de cámara.
-
-**pyzbar en Windows:** `pyzbar` requiere que `zbar.dll` esté disponible en el PATH o en el directorio del ejecutable. PyInstaller no lo incluye automáticamente; debe agregarse explícitamente en el `.spec` mediante `binaries=[('path/to/zbar.dll', '.')]`.
-
-**Calidad de imagen para reconocimiento facial:** El cliente de escritorio captura el frame en la resolución nativa de OpenCV (típicamente 1280×720) y lo comprime al 90% de calidad JPEG antes de enviarlo. Si el microservicio `orvian-facial-recognition` tiene restricciones de tamaño, ajustar la calidad o reducir la resolución del crop facial en `facial_strategy.py` antes de serializar.
-
-**Polling de sesión:** El intervalo de 60 segundos para el polling de `GET /status` es configurable en `config.json`. En escuelas con sesiones que abren exactamente a la hora, considerar reducirlo a 30 segundos para reducir la latencia de detección de sesión.
-
-**Gestos en desktop (Fase 5):** Los eventos `touchstart`/`touchmove`/`touchend` no disparan en desktop. Los botones de Presente / Ausente / Tardanza son el método principal en desktop. Los gestos son aceleradores para tablets y móviles del maestro.
-
-**Corrección de botones — migración incremental (Fase 11):** El cambio en `button.blade.php` rompe el loading automático en todos los formularios sin `wire:target` explícito. Aplicar la corrección al inicio de la fase y revisar los formularios críticos antes de mergear.
-
-**VERSION:** Al completar todos los entregables, actualizar el archivo `VERSION` en la raíz del proyecto `orvian` a `0.9.0` y crear el tag `v0.9.0` en el repositorio `orvian-desktop-scanner`.
+**VERSION:** Al completar los entregables de esta fase, actualizar el archivo `VERSION` en la raíz de `orvian` a `0.9.0` y crear el tag `v0.9.0` en el nuevo repositorio `orvian-kiosk-electron` (en lugar de `orvian-desktop-scanner`, que queda descartado).
