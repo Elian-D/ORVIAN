@@ -42,6 +42,7 @@ class School extends Model
         'sigerd_code', 
         'name', 
         'logo_path',
+        'kiosk_pin',
         'regimen_gestion',
         'modalidad',  
         'phone',
@@ -66,6 +67,9 @@ class School extends Model
     'stub_expires_at' => 'datetime',
 ];
 
+    protected $hidden = [
+        'kiosk_pin',
+    ];
 
     /*
     |--------------------------------------------------------------------------
