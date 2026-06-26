@@ -713,6 +713,711 @@ El bloque `extraResources` es la pieza clave: garantiza que los archivos `.wasm`
 
 ---
 
+## Fase 2.5 — Gestión de Dispositivos Kiosko y PIN de Técnico
+
+> **Por qué existe esta fase:** La Fase 2 dejó documentada la arquitectura base de Electron. Durante su implementación inicial surgieron cambios no planificados en el repositorio `orvian` (Laravel) que deben consolidarse antes de continuar, y dos funcionalidades que son prerequisito para que el kiosko sea operable en producción: (1) soporte para múltiples dispositivos con tokens individuales y (2) el mecanismo de PIN para que un técnico pueda reconfigurar un kiosko cuyo token fue revocado, sin exponer la pantalla de setup a cualquier persona frente a la pantalla.
+
+---
+
+### 2.5.1 — Laravel: Soporte Multi-Token y PIN de Técnico
+
+**Rama nueva:** `feature/v0.9.0-kiosk-devices`
+**Base:** `feature/v0.9.0-platform-maturity`
+
+```bash
+git checkout feature/v0.9.0-platform-maturity
+git checkout -b feature/v0.9.0-kiosk-devices
+```
+
+#### Migración: Campo `kiosk_pin` en `schools`
+
+```php
+// database/migrations/xxxx_add_kiosk_pin_to_schools_table.php
+
+Schema::table('schools', function (Blueprint $table) {
+    // Hash bcrypt del PIN numérico de 4-6 dígitos.
+    // Null = sin PIN configurado (primer arranque, setup libre).
+    $table->string('kiosk_pin')->nullable()->after('logo_path');
+});
+```
+
+El PIN se guarda hasheado con `bcrypt()` — nunca en texto plano. El valor almacenado es idéntico en formato al de las contraseñas de `users`, por lo que `Hash::check()` funciona directamente.
+
+#### Actualización del Modelo `School`
+
+```php
+// app/Models/Tenant/School.php
+
+// Agregar a $fillable:
+'kiosk_pin',
+
+// Agregar al array $hidden para que no aparezca en respuestas JSON genéricas:
+'kiosk_pin',
+```
+
+#### Actualización de `KioskStatusController`
+
+El endpoint `/status` ya existe. Se le agrega `pin_hash` a la respuesta para que Electron pueda cachearlo y usarlo en validación local cuando el token sea revocado:
+
+```php
+// app/Http/Controllers/Api/Kiosk/KioskStatusController.php
+
+public function __invoke(Request $request): JsonResponse
+{
+    $school = $request->user(); // School model, autenticado por Sanctum
+
+    $activeSession = DailyAttendanceSession::where('school_id', $school->id)
+        ->whereDate('date', today())
+        ->active()
+        ->with('shift')
+        ->first();
+
+    return response()->json([
+        'school' => [
+            'id'   => $school->id,
+            'name' => $school->name,
+        ],
+        'session' => $activeSession ? [
+            'id'         => $activeSession->id,
+            'shift_name' => $activeSession->shift->type,
+            'opened_at'  => $activeSession->opened_at->toIso8601String(),
+        ] : null,
+        // Hash bcrypt del PIN. Electron lo cachea en electron-store.
+        // Nunca es el PIN en texto plano. Null si el director no ha configurado PIN.
+        'pin_hash' => $school->kiosk_pin,
+    ]);
+}
+```
+
+#### Reemplazo del método `generateKioskToken()` en `SchoolSettings`
+
+El método actual borra todos los tokens anteriores antes de crear uno nuevo. Esto se reemplaza por un sistema donde cada token tiene un nombre de dispositivo y puede gestionarse individualmente.
+
+```php
+// app/Livewire/App/Settings/SchoolSettings.php
+
+// ── Nuevas propiedades para el modal de creación ──────────────
+
+public bool   $showCreateDeviceModal = false;
+public string $newDeviceName         = '';
+public ?string $generatedToken       = null;   // Solo vive mientras el modal está abierto
+
+// ── Nuevas propiedades para el modal de revocación ────────────
+
+public bool   $showRevokeModal       = false;
+public ?int   $tokenToRevokeId       = null;
+public string $revokeConfirmName     = '';    // El usuario debe tipear el nombre del dispositivo
+
+// ── Propiedad para gestión del PIN ────────────────────────────
+
+public string $kioskPin              = '';
+public string $kioskPinConfirm       = '';
+
+/**
+ * Crea un token individual para un dispositivo.
+ * NO revoca tokens existentes.
+ */
+public function createDeviceToken(): void
+{
+    $this->authorize('settings.update');
+
+    $this->validate([
+        'newDeviceName' => ['required', 'string', 'min:3', 'max:50'],
+    ]);
+
+    try {
+        $school = Auth::user()->school;
+
+        // Verificar que no existe otro token activo con el mismo nombre
+        $existingNames = $school->tokens()
+            ->where('abilities', json_encode(['kiosk']))
+            ->pluck('name');
+
+        if ($existingNames->contains($this->newDeviceName)) {
+            $this->addError('newDeviceName', 'Ya existe un dispositivo con ese nombre.');
+            return;
+        }
+
+        $this->generatedToken = $school->createToken(
+            $this->newDeviceName,
+            ['kiosk']
+        )->plainTextToken;
+
+        // El modal transiciona a mostrar el token. No se cierra aún.
+        $this->newDeviceName = '';
+
+    } catch (\Exception $e) {
+        Log::error('Error al crear token de dispositivo kiosko', [
+            'school_id' => Auth::user()->school_id,
+            'error'     => $e->getMessage(),
+        ]);
+
+        $this->dispatch('notify',
+            type: 'error',
+            title: 'Error',
+            message: 'No se pudo generar el token. Intente de nuevo.'
+        );
+    }
+}
+
+/**
+ * Inicia el flujo de revocación mostrando el modal de confirmación.
+ */
+public function confirmRevokeDevice(int $tokenId, string $tokenName): void
+{
+    $this->authorize('settings.update');
+    $this->tokenToRevokeId  = $tokenId;
+    $this->revokeConfirmName = '';
+    // El modal de confirmación muestra el nombre y pide tipearlo
+    $this->showRevokeModal  = true;
+}
+
+/**
+ * Ejecuta la revocación tras la confirmación por nombre.
+ */
+public function revokeDevice(): void
+{
+    $this->authorize('settings.update');
+
+    $token = Auth::user()->school->tokens()->find($this->tokenToRevokeId);
+
+    if (!$token) {
+        $this->dispatch('notify', type: 'error', message: 'Token no encontrado.');
+        $this->resetRevokeModal();
+        return;
+    }
+
+    // El usuario debe haber tipeado exactamente el nombre del dispositivo
+    if ($this->revokeConfirmName !== $token->name) {
+        $this->addError('revokeConfirmName', 'El nombre no coincide. Escríbelo exactamente.');
+        return;
+    }
+
+    $token->delete();
+
+    $this->dispatch('notify',
+        type: 'success',
+        title: 'Dispositivo desconectado',
+        message: "El dispositivo \"{$token->name}\" ya no tiene acceso al sistema."
+    );
+
+    $this->resetRevokeModal();
+}
+
+/**
+ * Guarda o actualiza el PIN de acceso al modo técnico del kiosko.
+ */
+public function saveKioskPin(): void
+{
+    $this->authorize('settings.update');
+
+    $this->validate([
+        'kioskPin'        => ['required', 'digits_between:4,6'],
+        'kioskPinConfirm' => ['required', 'same:kioskPin'],
+    ]);
+
+    Auth::user()->school->update([
+        'kiosk_pin' => bcrypt($this->kioskPin),
+    ]);
+
+    $this->kioskPin        = '';
+    $this->kioskPinConfirm = '';
+
+    $this->dispatch('notify',
+        type: 'success',
+        title: 'PIN actualizado',
+        message: 'El nuevo PIN de técnico entrará en efecto en el próximo heartbeat del kiosko.'
+    );
+}
+
+private function resetRevokeModal(): void
+{
+    $this->showRevokeModal  = false;
+    $this->tokenToRevokeId  = null;
+    $this->revokeConfirmName = '';
+}
+```
+
+#### Vista — Sección "Dispositivos Kiosko" en `SchoolSettings`
+
+La sección se añade en la vista de configuración de la escuela como una **Zona de Peligro** visualmente separada, colapsada por defecto con Alpine.js.
+
+```html
+{{-- resources/views/livewire/app/settings/school-settings.blade.php --}}
+{{-- Añadir esta sección al final de la vista, antes del cierre del form --}}
+
+<div x-data="{ open: false }" class="mt-10">
+
+    {{-- Cabecera colapsable de la zona de peligro --}}
+    <button
+        @click="open = !open"
+        class="w-full flex items-center justify-between p-4 rounded-2xl border border-red-200 dark:border-red-800/40 bg-red-50/50 dark:bg-red-900/10 text-left transition-colors hover:bg-red-100/50 dark:hover:bg-red-900/20">
+        <div class="flex items-center gap-3">
+            <x-heroicon-s-shield-exclamation class="w-5 h-5 text-red-500 flex-shrink-0" />
+            <div>
+                <p class="text-sm font-bold text-red-700 dark:text-red-400">Zona de Peligro — Dispositivos Kiosko</p>
+                <p class="text-xs text-red-600/70 dark:text-red-500/70">
+                    Tokens de acceso de terminales físicas y PIN de técnico.
+                    Los cambios aquí afectan dispositivos en operación.
+                </p>
+            </div>
+        </div>
+        <x-heroicon-s-chevron-down class="w-4 h-4 text-red-400 transition-transform" ::class="open && 'rotate-180'" />
+    </button>
+
+    <div x-show="open" x-collapse class="mt-4 space-y-6">
+
+        {{-- ── Lista de Dispositivos Activos ────────────────────── --}}
+        <div class="rounded-2xl border border-gray-200 dark:border-dark-border overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 bg-gray-50 dark:bg-white/5 border-b border-gray-200 dark:border-dark-border">
+                <div>
+                    <p class="text-sm font-bold text-gray-900 dark:text-white">Terminales registradas</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Cada terminal tiene un token de acceso único e independiente.
+                        Revocar un token desconecta únicamente ese dispositivo.
+                    </p>
+                </div>
+                <x-ui.button
+                    wire:click="$set('showCreateDeviceModal', true)"
+                    type="solid"
+                    hex="#e85523"
+                    size="sm"
+                    iconLeft="heroicon-s-plus">
+                    Nueva terminal
+                </x-ui.button>
+            </div>
+
+            @php
+                $kioskTokens = Auth::user()->school->tokens()
+                    ->where('abilities', json_encode(['kiosk']))
+                    ->latest()
+                    ->get();
+            @endphp
+
+            @forelse ($kioskTokens as $token)
+                <div class="flex items-center justify-between px-5 py-3.5 border-b last:border-0 border-gray-100 dark:border-dark-border/50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center flex-shrink-0">
+                            <x-heroicon-s-computer-desktop class="w-4 h-4 text-gray-400" />
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $token->name }}</p>
+                            <p class="text-xs text-gray-400">
+                                Creado {{ $token->created_at->diffForHumans() }}
+                                · Último uso {{ $token->last_used_at?->diffForHumans() ?? 'nunca' }}
+                            </p>
+                        </div>
+                    </div>
+                    <x-ui.button
+                        wire:click="confirmRevokeDevice({{ $token->id }}, '{{ $token->name }}')"
+                        type="outline"
+                        hex="#ef4444"
+                        size="sm"
+                        iconLeft="heroicon-s-trash">
+                        Revocar
+                    </x-ui.button>
+                </div>
+            @empty
+                <div class="px-5 py-8 text-center">
+                    <x-heroicon-o-computer-desktop class="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                    <p class="text-sm text-gray-400">No hay terminales registradas.</p>
+                </div>
+            @endforelse
+        </div>
+
+        {{-- ── PIN de Técnico ────────────────────────────────────── --}}
+        <div class="rounded-2xl border border-gray-200 dark:border-dark-border p-5 space-y-4">
+            <div>
+                <p class="text-sm font-bold text-gray-900 dark:text-white">PIN de acceso técnico</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Código numérico de 4 a 6 dígitos que el técnico debe ingresar en el kiosko
+                    para acceder al formulario de configuración. Si no hay PIN configurado,
+                    el formulario de configuración es accesible sin restricciones.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <x-ui.forms.input
+                    wire:model="kioskPin"
+                    type="password"
+                    label="Nuevo PIN"
+                    placeholder="••••"
+                    inputmode="numeric"
+                    maxlength="6" />
+                <x-ui.forms.input
+                    wire:model="kioskPinConfirm"
+                    type="password"
+                    label="Confirmar PIN"
+                    placeholder="••••"
+                    inputmode="numeric"
+                    maxlength="6" />
+            </div>
+            <x-ui.button
+                wire:click="saveKioskPin"
+                type="outline"
+                hex="#e85523"
+                size="sm">
+                Guardar PIN
+            </x-ui.button>
+        </div>
+
+    </div>
+</div>
+
+{{-- ── Modal: Crear nueva terminal ──────────────────────────────── --}}
+<x-ui.modal wire:model="showCreateDeviceModal" maxWidth="md">
+    @if (!$generatedToken)
+        {{-- Paso 1: Ingresar nombre --}}
+        <div class="p-6 space-y-5">
+            <div>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">Registrar nueva terminal</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Asigna un nombre descriptivo a este dispositivo kiosko.
+                    Podrás identificarlo en la lista para revocarlo individualmente si es necesario.
+                </p>
+            </div>
+            <x-ui.forms.input
+                wire:model="newDeviceName"
+                label="Nombre del dispositivo"
+                placeholder="Ej: Portería Principal, Entrada Norte..." />
+            <div class="flex justify-end gap-3">
+                <x-ui.button wire:click="$set('showCreateDeviceModal', false)" type="ghost" size="sm">Cancelar</x-ui.button>
+                <x-ui.button wire:click="createDeviceToken" type="solid" hex="#e85523" size="sm">Generar token</x-ui.button>
+            </div>
+        </div>
+    @else
+        {{-- Paso 2: Mostrar el token (única vez) --}}
+        <div class="p-6 space-y-5">
+            <div class="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
+                <x-heroicon-s-exclamation-triangle class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p class="text-sm text-amber-800 dark:text-amber-300 font-medium">
+                    Este token solo se muestra ahora. Una vez cerres este modal,
+                    no habrá forma de recuperarlo — deberás generar uno nuevo.
+                </p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Token de acceso</p>
+                <div class="flex items-center gap-2">
+                    <code class="flex-1 text-xs bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 font-mono text-gray-800 dark:text-gray-200 break-all select-all">
+                        {{ $generatedToken }}
+                    </code>
+                    <button
+                        x-data
+                        @click="navigator.clipboard.writeText('{{ $generatedToken }}'); $dispatch('notify', { type: 'success', message: 'Token copiado.' })"
+                        class="flex-shrink-0 p-2.5 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
+                        <x-heroicon-s-clipboard class="w-4 h-4 text-gray-500" />
+                    </button>
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <x-ui.button
+                    wire:click="$set('showCreateDeviceModal', false); $set('generatedToken', null)"
+                    type="solid"
+                    hex="#e85523"
+                    size="sm">
+                    Entendido, cerrar
+                </x-ui.button>
+            </div>
+        </div>
+    @endif
+</x-ui.modal>
+
+{{-- ── Modal: Confirmar revocación ─────────────────────────────── --}}
+<x-ui.modal wire:model="showRevokeModal" maxWidth="md">
+    <div class="p-6 space-y-5">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                <x-heroicon-s-trash class="w-5 h-5 text-red-500" />
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">¿Revocar este dispositivo?</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    El kiosko asociado perderá acceso inmediatamente y mostrará
+                    un error de token inválido. Esta acción no se puede deshacer.
+                </p>
+            </div>
+        </div>
+        <div>
+            <x-ui.forms.input
+                wire:model="revokeConfirmName"
+                label="Escribe el nombre del dispositivo para confirmar"
+                placeholder="Nombre exacto del dispositivo" />
+        </div>
+        <div class="flex justify-end gap-3">
+            <x-ui.button wire:click="$set('showRevokeModal', false)" type="ghost" size="sm">Cancelar</x-ui.button>
+            <x-ui.button wire:click="revokeDevice" type="solid" hex="#ef4444" size="sm" iconLeft="heroicon-s-trash">
+                Sí, revocar acceso
+            </x-ui.button>
+        </div>
+    </div>
+</x-ui.modal>
+```
+
+### Partialización de la vista de configuración
+
+La vista `resources/views/livewire/app/settings/school-settings.blade.php` tiene 600+ líneas. Para mantener la legibilidad, se hará a cabo una partialización de las secciones de configuracion del centro: Identidad e Información General, Estructura Educativa, Ubicación Física y la nueva Zona de Peligro. En archivos independientes bajo `resources/views/livewire/app/settings/school-partials/` (por si entran más archivos) y se incluirán con `@include()` y cada archivo debe tener el formato de `_nombre-archivo`.
+
+**Archivos parciales:**
+
+- `_identity-info.blade.php`
+- `_educational-structure.blade.php`
+- `_physical-location.blade.php`
+- `_danger-zone.blade.php`
+
+---
+
+### 2.5.2 — Electron: Manejo de Token Revocado y Pantalla de PIN
+
+**Repositorio:** `orvian-kiosk-electron`
+
+Esta sección documenta los dos cambios en Electron que dependen de lo implementado en 2.5.1.
+
+#### Fix estructural: `Accept: application/json` en todas las peticiones
+
+El error `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON` ocurre porque cuando Sanctum rechaza un token inválido, Laravel devuelve una página HTML de redirección si el cliente no declara explícitamente que espera JSON. La corrección es agregar `Accept: application/json` en el constructor de `ApiClient`, lo que hace que Laravel responda siempre con JSON estructurado (incluyendo `{"message": "Unauthenticated."}` en lugar de HTML):
+
+```javascript
+// renderer/api-client.js
+
+export class ApiClient {
+    constructor(serverUrl, token) {
+        this.base = `${serverUrl.replace(/\/$/, '')}/api/v1/kiosk`;
+        this.headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',   // ← Fix crítico
+        };
+    }
+
+    async getStatus() {
+        const resp = await fetch(`${this.base}/status`, { headers: this.headers });
+
+        if (resp.status === 401) {
+            throw new TokenRevokedError();
+        }
+
+        if (!resp.ok) {
+            throw new Error(`Status ${resp.status}`);
+        }
+
+        const data = await resp.json();
+
+        // Cachear el pin_hash en electron-store para validación offline posterior
+        if (data.pin_hash) {
+            await window.orvianConfig.set('cached_pin_hash', data.pin_hash);
+        }
+
+        return data;
+    }
+
+    async recordFacial(sessionId, blob) {
+        const form = new FormData();
+        form.append('session_id', sessionId);
+        form.append('photo', blob, 'capture.jpg');
+
+        const resp = await fetch(`${this.base}/record/facial`, {
+            method: 'POST',
+            headers: this.headers,
+            body: form,
+        });
+
+        if (resp.status === 401) {
+            throw new TokenRevokedError();
+        }
+
+        return resp.json();
+    }
+}
+
+export class TokenRevokedError extends Error {
+    constructor() {
+        super('TOKEN_REVOKED');
+        this.name = 'TokenRevokedError';
+    }
+}
+```
+
+#### Cache del `pin_hash` vía `preload.js`
+
+El preload ya expone `orvianConfig.get` y `orvianConfig.set`. No se necesita ningún cambio adicional — `cached_pin_hash` se guarda como cualquier otra clave en `electron-store`.
+
+#### Pantalla de PIN Gate (`renderer/pin-gate.js`)
+
+Cuando cualquier petición lanza `TokenRevokedError`, el flujo de UI llama a `showPinGate()`. Esta función reemplaza la pantalla del kiosko con el formulario de PIN:
+
+```javascript
+// renderer/pin-gate.js
+
+import bcrypt from 'bcryptjs';   // npm install bcryptjs
+
+export async function showPinGate(onUnlocked) {
+    const cachedHash = await window.orvianConfig.get('cached_pin_hash');
+
+    const container = document.getElementById('app');
+    container.innerHTML = `
+        <div class="min-h-screen bg-gray-950 flex items-center justify-center p-6">
+            <div class="w-full max-w-sm space-y-6">
+
+                <div class="text-center space-y-2">
+                    <div class="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20
+                                flex items-center justify-center mx-auto">
+                        <!-- heroicon: lock-closed -->
+                        <svg class="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75
+                                   9h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25
+                                   2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5
+                                   12v6.75A2.25 2.25 0 006.75 21.75z" />
+                        </svg>
+                    </div>
+                    <h1 class="text-xl font-bold text-white">Token revocado</h1>
+                    <p class="text-sm text-gray-400">
+                        Este dispositivo ya no tiene acceso al sistema.<br>
+                        Ingresa el PIN de técnico para reconfigurar.
+                    </p>
+                </div>
+
+                ${cachedHash ? `
+                    <div class="space-y-3">
+                        <input
+                            id="pin-input"
+                            type="password"
+                            inputmode="numeric"
+                            maxlength="6"
+                            placeholder="PIN de técnico"
+                            class="w-full text-center text-2xl tracking-widest bg-white/5 border
+                                   border-white/10 rounded-2xl px-4 py-4 text-white placeholder-gray-600
+                                   focus:outline-none focus:border-orvian-orange/50 focus:ring-1
+                                   focus:ring-orvian-orange/30 transition-all" />
+                        <p id="pin-error" class="text-xs text-red-400 text-center hidden">
+                            PIN incorrecto. Inténtalo de nuevo.
+                        </p>
+                        <button
+                            id="pin-submit"
+                            class="w-full py-3 rounded-2xl bg-orvian-orange hover:bg-orvian-orange-hover
+                                   text-white font-bold text-sm transition-colors">
+                            Desbloquear
+                        </button>
+                    </div>
+                ` : `
+                    <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
+                        <p class="text-sm text-amber-300">
+                            No hay PIN almacenado en este dispositivo.<br>
+                            Puedes reconfigurar directamente.
+                        </p>
+                    </div>
+                    <button
+                        id="pin-submit"
+                        class="w-full py-3 rounded-2xl bg-orvian-orange hover:bg-orvian-orange-hover
+                               text-white font-bold text-sm transition-colors">
+                        Ir a configuración
+                    </button>
+                `}
+
+            </div>
+        </div>
+    `;
+
+    const submitBtn = document.getElementById('pin-submit');
+    const pinInput  = document.getElementById('pin-input');
+    const pinError  = document.getElementById('pin-error');
+
+    submitBtn.addEventListener('click', async () => {
+        if (!cachedHash) {
+            // Sin hash almacenado: acceso libre (primer arranque o dispositivo nunca conectado)
+            onUnlocked();
+            return;
+        }
+
+        const entered = pinInput?.value?.trim();
+        if (!entered) return;
+
+        const valid = await bcrypt.compare(entered, cachedHash);
+
+        if (valid) {
+            onUnlocked();
+        } else {
+            pinError.classList.remove('hidden');
+            pinInput.value = '';
+            pinInput.focus();
+        }
+    });
+
+    pinInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitBtn.click();
+    });
+}
+```
+
+#### Integración en `setup-screen.js`
+
+```javascript
+// renderer/setup-screen.js (fragmento — función de heartbeat existente)
+
+import { TokenRevokedError } from './api-client.js';
+import { showPinGate } from './pin-gate.js';
+import { showSetupForm } from './setup-form.js'; // formulario existente de token + URL
+
+async function evaluateKioskState() {
+    try {
+        const status = await apiClient.getStatus();
+        // ... lógica normal de sesión ...
+    } catch (err) {
+        if (err instanceof TokenRevokedError) {
+            // Detener el heartbeat antes de mostrar el PIN gate
+            clearInterval(heartbeatInterval);
+
+            showPinGate(() => {
+                // Callback ejecutado al validar el PIN correctamente
+                showSetupForm();
+            });
+        } else {
+            // Otros errores (red, timeout, etc.) — mostrar estado de error sin salir del kiosko
+            showConnectionError(err.message);
+        }
+    }
+}
+```
+
+---
+
+### 2.5.3 — Archivos Nuevos y Modificados
+
+#### En `orvian` (Laravel) — rama `feature/v0.9.0-kiosk-devices`
+
+| Archivo | Acción |
+| :--- | :--- |
+| `database/migrations/xxxx_add_kiosk_pin_to_schools_table.php` | Crear |
+| `app/Models/Tenant/School.php` | Modificar — agregar `kiosk_pin` a `$fillable` y `$hidden` |
+| `app/Http/Controllers/Api/Kiosk/KioskStatusController.php` | Modificar — agregar `pin_hash` a la respuesta |
+| `app/Livewire/App/Settings/SchoolSettings.php` | Modificar — reemplazar `generateKioskToken()`, agregar métodos de gestión multi-token y PIN |
+| `resources/views/livewire/app/settings/school-settings.blade.php` | Modificar — agregar sección Zona de Peligro con lista de dispositivos, modales y formulario de PIN |
+
+#### En `orvian-kiosk-electron` — rama `main`
+
+| Archivo | Acción |
+| :--- | :--- |
+| `renderer/api-client.js` | Modificar — agregar `Accept: application/json`, manejo de 401 con `TokenRevokedError`, cacheo de `pin_hash` |
+| `renderer/pin-gate.js` | Crear — pantalla de PIN gate con validación bcrypt local |
+| `renderer/setup-screen.js` | Modificar — interceptar `TokenRevokedError` y delegar a `showPinGate()` |
+| `package.json` | Modificar — agregar dependencia `bcryptjs` |
+
+---
+
+### 2.5.4 — Notas de Implementación
+
+**¿Por qué `bcryptjs` en Electron y no una llamada a Laravel?**
+Cuando el token es revocado, Electron no tiene credenciales válidas para hacer ninguna petición autenticada. Crear un endpoint público de validación de PIN introduce una superficie de ataque — cualquiera que conozca la URL podría intentar fuerza bruta. La solución de cachear el hash y comparar localmente es la estándar en aplicaciones offline-capable: el PIN se verifica con el mismo algoritmo bcrypt que usó Laravel para guardarlo, pero sin necesitar conexión en ese momento.
+
+**¿Qué pasa si el director cambia el PIN mientras el kiosko está activo?**
+El hash viejo permanece en `cached_pin_hash` de `electron-store` hasta el próximo heartbeat exitoso. Esto significa que durante máximo 30 segundos (intervalo del heartbeat), el kiosko todavía validaría con el PIN anterior. En la práctica esto no es un problema operativo — cambiar el PIN es un evento infrecuente, y el margen de 30 segundos es irrelevante.
+
+**¿Qué pasa si el director nunca configuró un PIN?**
+`pin_hash` vendrá `null` en la respuesta de `/status`. `electron-store` guardará `null`. La pantalla de PIN gate detecta `null` y muestra directamente el botón "Ir a configuración" sin pedir código. Esto es el comportamiento correcto para instalaciones nuevas.
+
+**Sobre la rama de Electron:**
+El repositorio `orvian-kiosk-electron` usa `main` directamente (repositorio nuevo, sin historial previo que proteger). Los cambios de esta fase van en `main` sin rama de feature.
+
+---
+
 ## Fase 3 — Ventanas Horarias Configurables por Tanda
 
 **Rama:** `feature/v0.9.0-shift-windows`
