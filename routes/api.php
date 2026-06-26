@@ -3,10 +3,10 @@
 use App\Http\Controllers\Api\Kiosk\KioskStatusController;
 use App\Http\Controllers\Api\Kiosk\KioskQrRecordController;
 use App\Http\Controllers\Api\Kiosk\KioskFacialRecordController;
-use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1/kiosk')
-    ->middleware(['auth:sanctum', 'ability:kiosk'])
+    ->middleware('auth:sanctum')
     ->group(function () {
 
         // GET /api/v1/kiosk/status

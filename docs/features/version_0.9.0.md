@@ -38,7 +38,7 @@
 | ID | Fase | Área | Descripción | Prioridad | Estado |
 | :-- | :-- | :-- | :-- | :-- | :-- |
 | REQ-01 | 1 | Asistencia Biométrica | API Gateway para el Kiosko: rutas `/api/v1/kiosk/` protegidas por Sanctum | Alta | Completado |
-| REQ-02 | 2 | Asistencia Biométrica | Arquitectura del `orvian-desktop-scanner`: app Python nativa con OpenCV + MediaPipe | Alta | Pendiente |
+| REQ-02 | 2 | Asistencia Biométrica | Arquitectura de `orvian-kiosk-electron`: app de escritorio con Electron + MediaPipe Tasks-Vision for Web (WASM local), sin lógica de QR | Alta | Pendiente |
 | REQ-03 | 3 | Configuración | Ventanas horarias configurables por tanda (entrada, tardanza, cierre) | Alta | Pendiente |
 | REQ-04 | 4 | UI / Componentes | Selector Universal de Cursos — componente Livewire reutilizable | Alta | Pendiente |
 | REQ-05 | 5 | Asistencia Aula | Rediseño completo del pase de lista con gestos de deslizamiento | Alta | Pendiente |
@@ -452,45 +452,38 @@ public function rules(): array
 
 ---
 
-## Fase 2 — Arquitectura del `orvian-desktop-scanner` (REQ-02)
+## Fase 2 (revisada) — Arquitectura del Cliente de Escritorio Electron (REQ-02)
 
-**Repositorio:** `orvian-desktop-scanner` (independiente de `orvian`)
+**Repositorio:** `orvian-kiosk-electron` (independiente de `orvian`, reemplaza al repositorio Python que no llegó a completarse)
 
 **Rama inicial:** `main`
 
 ### 2.1 — Visión General
 
-`orvian-desktop-scanner` es una aplicación de escritorio nativa para Windows (con posible extensión a Linux/macOS en el futuro) que reemplaza completamente al kiosko web. Se instala en el dispositivo físico de portería como una aplicación independiente. Al iniciarse, se conecta al servidor ORVIAN mediante el Token de Kiosko configurado y opera de forma autónoma.
+Electron empaqueta dos procesos dentro de un mismo ejecutable: un **proceso principal** (Node.js, sin interfaz, con acceso a sistema de archivos y hardware) y un **proceso de renderizado** (la ventana visible, que es Chromium real ejecutando HTML/CSS/JS locales, no remotos). La cámara, MediaPipe y la UI corren en el renderer; el token, la configuración persistente y el futuro acceso a lectores de hardware (huella) viven en el proceso principal.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│             orvian-desktop-scanner (Python)              │
-│                                                          │
-│  ┌──────────────┐    ┌──────────────┐   ┌────────────┐  │
-│  │  Camera      │    │  Strategy    │   │  UI Layer  │  │
-│  │  Manager     │───▶│  Context     │──▶│ (CTk)      │  │
-│  │  (OpenCV)    │    │              │   │            │  │
-│  └──────────────┘    └──────┬───────┘   └────────────┘  │
-│                             │                            │
-│              ┌──────────────┼──────────────┐             │
-│              ▼              ▼              ▼             │
-│     ┌──────────────┐ ┌──────────┐ ┌──────────────┐      │
-│     │ FacialStrategy│ │QrStrategy│ │(FutureStrategy│     │
-│     │(MediaPipe)   │ │(pyzbar)  │ │ Fingerprint) │      │
-│     └──────────────┘ └──────────┘ └──────────────┘      │
-│                             │                            │
-│                    ┌────────▼───────┐                    │
-│                    │ ApiClient      │                    │
-│                    │ (httpx/requests│                    │
-│                    │  + Sanctum)    │                    │
-│                    └────────────────┘                    │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                  orvian-kiosk-electron                        │
+│                                                                │
+│  ┌────────────────────────┐      ┌─────────────────────────┐ │
+│  │   Proceso Principal     │      │   Proceso de Renderizado │ │
+│  │   (Node.js)              │      │   (Chromium local)       │ │
+│  │                          │      │                          │ │
+│  │  • config-store.js       │◀────▶│  • index.html             │ │
+│  │    (token, server_url)   │ IPC  │  • camera.js (getUserMedia│ │
+│  │  • preload.js (bridge)   │      │    + MediaPipe Tasks-     │ │
+│  │  • (futuro) huella.js    │      │    Vision, WASM local)    │ │
+│  │    via node-hid/serialport│      │  • api-client.js (fetch  │ │
+│  │                          │      │    + Bearer token)        │ │
+│  └────────────────────────┘      └─────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
                              │
                     HTTPS + Bearer Token
                              │
                     ┌────────▼───────┐
                     │  Laravel API   │
-                    │  /api/v1/kiosk/│
+                    │  /api/v1/kiosk/│   (sin cambios — Fase 1)
                     └────────────────┘
 ```
 
@@ -498,39 +491,43 @@ public function rules(): array
 
 | Componente | Librería | Justificación |
 | :--- | :--- | :--- |
-| Captura de cámara | `opencv-python` | Control total sobre el stream, FPS y resolución; sin restricciones de browser |
-| Detección facial | `mediapipe` (Python nativo) | Rendimiento superior al WASM; acceso a GPU si disponible |
-| Lectura QR | `pyzbar` + `python-zxing` (fallback) | `pyzbar` envuelve `zbar`, la librería C más rápida para QR; procesamiento directo sobre `numpy array` del frame |
-| UI / Ventana | `customtkinter` | Widgets modernos sobre Tkinter; sin dependencias de Electron o navegador |
-| HTTP Client | `httpx` (async) | Soporte nativo async/await; multipart para envío de imágenes |
-| Audio | `pygame.mixer` | Reproducción de WAV sin overhead; ya distribuido en la mayoría de entornos Python |
-| Empaquetado | `PyInstaller` | Genera `.exe` standalone para Windows sin requerir Python instalado |
-| Auto-update | Script `launcher.py` personalizado | Ver sección 2.8 |
+| Runtime de escritorio | `electron` | Empaqueta Chromium + Node.js en un único ejecutable; assets locales, sin dependencia de CDN |
+| Captura de cámara | `getUserMedia` (Web API nativa) | Misma API que ya usabas en el navegador; no requiere librería adicional |
+| Detección facial | `@mediapipe/tasks-vision` | La misma librería que falló por CDN en el navegador — aquí los `.wasm` y `.tflite` se sirven desde disco local, dentro del propio paquete |
+| Estilos | `tailwindcss` (build standalone) | Reutiliza el mismo lenguaje de utilidades que ya usas en Laravel, en un pipeline de build independiente |
+| HTTP Client | `fetch` nativo de Chromium | No requiere librería adicional para llamar a `/api/v1/kiosk/` |
+| Persistencia de configuración | `electron-store` | Equivalente directo al `config.json` planeado para Python; guarda token, URL del servidor y preferencias en disco |
+| Empaquetado | `electron-builder` | Genera instalador `.exe` (NSIS) standalone para Windows; equivalente a `PyInstaller` |
+| Auto-update | `electron-updater` | Librería estándar del ecosistema Electron; sustituye al `launcher.py` personalizado planeado para Python |
+| (Futuro) Lector de huella | `node-hid` o `serialport` (proceso principal) | Acceso a dispositivos USB/Serial desde Node.js, expuesto al renderer vía IPC |
 
 ### 2.3 — Estructura del Repositorio
 
 ```
-orvian-desktop-scanner/
-├── launcher.py                 # Script de arranque con verificación de versión
-├── main.py                     # Punto de entrada de la aplicación
-├── config.py                   # Carga de configuración desde config.json
-├── config.json                 # Token, URL del servidor, preferencias locales
+orvian-kiosk-electron/
+├── package.json
+├── electron-builder.yml          # Configuración de empaquetado (.exe)
 │
-├── core/
-│   ├── api_client.py           # Cliente HTTP para /api/v1/kiosk/
-│   ├── camera_manager.py       # Gestión del stream OpenCV
-│   └── audio_manager.py        # Reproducción de feedback de audio
+├── main/
+│   ├── main.js                   # Punto de entrada del proceso principal
+│   ├── config-store.js           # Wrapper sobre electron-store (token, server_url)
+│   ├── preload.js                # Bridge seguro entre main y renderer (contextBridge)
+│   └── hardware/
+│       └── fingerprint.js        # Placeholder — futuro lector de huella vía node-hid
 │
-├── strategies/
-│   ├── base_strategy.py        # Clase abstracta ScannerStrategy
-│   ├── facial_strategy.py      # Implementación con MediaPipe
-│   └── qr_strategy.py          # Implementación con pyzbar
+├── renderer/
+│   ├── index.html                # Ventana única del kiosko
+│   ├── styles.css                # Salida del build de Tailwind
+│   ├── camera.js                 # Captura de video + bucle de detección MediaPipe
+│   ├── api-client.js             # Wrapper de fetch() con Bearer token
+│   ├── ui-states.js              # Manejo de los 4 estados visuales del kiosko
+│   └── setup-screen.js           # Pantalla de configuración inicial (pegar token)
 │
-├── ui/
-│   ├── kiosk_window.py         # Ventana principal CustomTkinter
-│   └── widgets/
-│       ├── camera_feed.py      # Widget de preview de cámara
-│       └── result_overlay.py   # Overlay de resultado (nombre + estado)
+├── vendor/
+│   └── mediapipe/
+│       ├── wasm/                 # Runtime WASM de MediaPipe, copiado localmente
+│       └── models/
+│           └── blaze_face_short_range.tflite
 │
 ├── assets/
 │   ├── sounds/
@@ -539,418 +536,885 @@ orvian-desktop-scanner/
 │   └── icons/
 │       └── orvian.ico
 │
-├── build/
-│   └── orvian-scanner.spec     # Configuración PyInstaller
-│
-├── requirements.txt
-└── README.md
+└── tailwind.config.js
 ```
 
-### 2.4 — Patrón Strategy para Módulos de Escaneo
-
-El escáner se diseña bajo el **Patrón Strategy** (GoF). El `ScannerContext` delega el procesamiento de cada frame a una estrategia concreta intercambiable, sin conocer los detalles de implementación. Esto garantiza que agregar un módulo futuro (ej. Lector de Huella Digital con `pyfingerprint`) no requiera modificar el núcleo de la aplicación.
-
-#### Clase Abstracta Base
-
-```python
-# strategies/base_strategy.py
-
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Optional
-import numpy as np
-
-@dataclass
-class ScanResult:
-    """Resultado normalizado de cualquier estrategia de escaneo."""
-    detected: bool
-    payload: Optional[str] = None    # QR code string o encoding facial serializado
-    confidence: Optional[float] = None
-    frame_annotated: Optional[np.ndarray] = None  # Frame con overlays visuales
-
-
-class ScannerStrategy(ABC):
-    """
-    Interfaz común para todos los módulos de escaneo.
-    Cada estrategia procesa un frame de OpenCV y retorna un ScanResult.
-    """
-
-    @abstractmethod
-    def process_frame(self, frame: np.ndarray) -> ScanResult:
-        """
-        Analiza el frame y retorna el resultado del intento de detección.
-        Debe ser no bloqueante. El estado de dwell-time o cooldown
-        se gestiona internamente por cada estrategia.
-        """
-        ...
-
-    @abstractmethod
-    def reset(self) -> None:
-        """Reinicia el estado interno (dwell timer, cooldown, etc.)."""
-        ...
-
-    @abstractmethod
-    def release(self) -> None:
-        """Libera recursos de hardware o modelos cargados en memoria."""
-        ...
-```
-
-#### Contexto del Escáner
-
-```python
-# core/scanner_context.py
-
-from strategies.base_strategy import ScannerStrategy, ScanResult
-import numpy as np
-
-
-class ScannerContext:
-    """
-    Mantiene una referencia a la estrategia activa y delega el procesamiento.
-    La UI nunca instancia estrategias directamente.
-    """
-
-    def __init__(self, strategy: ScannerStrategy) -> None:
-        self._strategy = strategy
-
-    def set_strategy(self, strategy: ScannerStrategy) -> None:
-        self._strategy.release()
-        self._strategy = strategy
-        self._strategy.reset()
-
-    def process_frame(self, frame: np.ndarray) -> ScanResult:
-        return self._strategy.process_frame(frame)
-
-    def reset(self) -> None:
-        self._strategy.reset()
-```
-
-#### Estrategia Facial (MediaPipe)
-
-```python
-# strategies/facial_strategy.py
-
-import time
-import numpy as np
-import mediapipe as mp
-from mediapipe.tasks import python as mp_python
-from mediapipe.tasks.python import vision as mp_vision
-
-from .base_strategy import ScannerStrategy, ScanResult
-
-DWELL_REQUIRED_MS = 1200   # ms de cara estable antes de capturar
-MIN_DETECTION_CONFIDENCE = 0.6
-
-
-class FacialStrategy(ScannerStrategy):
-
-    def __init__(self, model_path: str) -> None:
-        options = mp_vision.FaceDetectorOptions(
-            base_options=mp_python.BaseOptions(model_asset_path=model_path),
-            running_mode=mp_vision.RunningMode.IMAGE,
-            min_detection_confidence=MIN_DETECTION_CONFIDENCE,
-        )
-        self._detector = mp_vision.FaceDetector.create_from_options(options)
-        self._dwell_start: Optional[float] = None
-
-    def process_frame(self, frame: np.ndarray) -> ScanResult:
-        rgb = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-        result = self._detector.detect(rgb)
-
-        annotated = frame.copy()
-
-        if len(result.detections) != 1:
-            self._dwell_start = None
-            return ScanResult(detected=False, frame_annotated=annotated)
-
-        detection = result.detections[0]
-        bbox = detection.bounding_box
-
-        # Dibujar bounding box en el frame
-        self._draw_bbox(annotated, bbox)
-
-        now = time.time() * 1000  # ms
-        if self._dwell_start is None:
-            self._dwell_start = now
-
-        elapsed = now - self._dwell_start
-        progress = min(elapsed / DWELL_REQUIRED_MS, 1.0)
-
-        if progress >= 1.0:
-            self._dwell_start = None
-            return ScanResult(
-                detected=True,
-                payload=None,   # El payload es la imagen completa, enviada por el caller
-                confidence=detection.categories[0].score if detection.categories else None,
-                frame_annotated=annotated,
-            )
-
-        return ScanResult(detected=False, frame_annotated=annotated)
-
-    def _draw_bbox(self, frame: np.ndarray, bbox) -> None:
-        import cv2
-        color = (16, 185, 129)  # Esmeralda ORVIAN
-        cv2.rectangle(
-            frame,
-            (bbox.origin_x, bbox.origin_y),
-            (bbox.origin_x + bbox.width, bbox.origin_y + bbox.height),
-            color, 2
-        )
-
-    def reset(self) -> None:
-        self._dwell_start = None
-
-    def release(self) -> None:
-        self._detector.close()
-```
-
-#### Estrategia QR (pyzbar)
-
-```python
-# strategies/qr_strategy.py
-
-import time
-import numpy as np
-from pyzbar.pyzbar import decode as pyzbar_decode
-
-from .base_strategy import ScannerStrategy, ScanResult
-
-COOLDOWN_MS = 3000  # ms de cooldown tras detección exitosa
-
-
-class QrStrategy(ScannerStrategy):
-
-    def __init__(self) -> None:
-        self._last_detection_time: Optional[float] = None
-
-    def process_frame(self, frame: np.ndarray) -> ScanResult:
-        now = time.time() * 1000
-
-        if self._last_detection_time and (now - self._last_detection_time) < COOLDOWN_MS:
-            return ScanResult(detected=False)
-
-        codes = pyzbar_decode(frame)
-        if not codes:
-            return ScanResult(detected=False)
-
-        code = codes[0]
-        data = code.data.decode('utf-8')
-
-        self._last_detection_time = now
-
-        return ScanResult(detected=True, payload=data)
-
-    def reset(self) -> None:
-        self._last_detection_time = None
-
-    def release(self) -> None:
-        pass  # pyzbar no mantiene recursos persistentes
-```
-
-### 2.5 — Cliente HTTP (`ApiClient`)
-
-```python
-# core/api_client.py
-
-import httpx
-from pathlib import Path
-from typing import Optional
-import numpy as np
-import cv2
-
-
-class ApiClient:
-
-    def __init__(self, base_url: str, token: str) -> None:
-        self._base = base_url.rstrip('/') + '/api/v1/kiosk'
-        self._headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/json'}
-
-    def get_status(self) -> dict:
-        with httpx.Client(headers=self._headers, timeout=5.0) as client:
-            resp = client.get(f'{self._base}/status')
-            resp.raise_for_status()
-            return resp.json()
-
-    def record_qr(self, session_id: int, qr_code: str) -> dict:
-        with httpx.Client(headers=self._headers, timeout=10.0) as client:
-            resp = client.post(
-                f'{self._base}/record/qr',
-                json={'session_id': session_id, 'qr_code': qr_code},
-            )
-            return resp.json()
-
-    def record_facial(self, session_id: int, frame: np.ndarray) -> dict:
-        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
-        image_bytes = buffer.tobytes()
-
-        with httpx.Client(headers=self._headers, timeout=15.0) as client:
-            resp = client.post(
-                f'{self._base}/record/facial',
-                data={'session_id': session_id},
-                files={'photo': ('capture.jpg', image_bytes, 'image/jpeg')},
-            )
-            return resp.json()
-```
-
-### 2.6 — UX/UI del Kiosko (CustomTkinter)
-
-La interfaz opera en modo pantalla completa permanente con tres estados visuales:
-
-#### Estado 1: Esperando Escaneo (estado base)
-
-```
-┌──────────────────────────────────────────────┐
-│                                              │
-│         [ Logo ORVIAN ]                      │
-│                                              │
-│   ┌──────────────────────────────────────┐   │
-│   │                                      │   │
-│   │        PREVIEW DE CÁMARA             │   │
-│   │        (OpenCV → CTkLabel)           │   │
-│   │                                      │   │
-│   └──────────────────────────────────────┘   │
-│                                              │
-│        ⬤  Esperando escaneo...              │
-│        Sesión activa · Tanda Matutina        │
-│                                              │
-└──────────────────────────────────────────────┘
-```
-
-#### Estado 2: Procesando (overlay semi-transparente, ~500ms)
-
-```
-┌──────────────────────────────────────────────┐
-│         ░░░░░░░░░░░░░░░░░░░░                 │
-│         ░  Verificando...  ░                 │
-│         ░░░░░░░░░░░░░░░░░░░░                 │
-└──────────────────────────────────────────────┘
-```
-
-#### Estado 3: Resultado (visible durante 3 segundos, luego vuelve a Estado 1)
-
-```
-┌──────────────────────────────────────────────┐
-│                                              │
-│   ┌──────────────────────────────────────┐   │
-│   │  [ Foto del estudiante — 120x120 ]   │   │
-│   │                                      │   │
-│   │  Ana María Rodríguez Pérez           │   │
-│   │  ✅  PRESENTE                        │   │
-│   │  07:48 AM                            │   │
-│   └──────────────────────────────────────┘   │
-│                                              │
-│     [ Barra de progreso de 3 segundos ]      │
-│                                              │
-└──────────────────────────────────────────────┘
-```
-
-Para el estado de **error** (QR no encontrado, cara no reconocida, sesión cerrada), el overlay muestra el ícono de error, el mensaje descriptivo del `error_message` de la API, y reproduce `error.wav`. Tras 3 segundos regresa al estado base.
-
-#### Estado 4: Sin Sesión Activa
-
-```
-┌──────────────────────────────────────────────┐
-│                                              │
-│         [ Logo ORVIAN ]                      │
-│                                              │
-│         ⏸  Sin sesión activa                │
-│         No hay sesión de asistencia          │
-│         abierta para hoy.                   │
-│                                              │
-│         Próxima verificación en 60s          │
-│                                              │
-└──────────────────────────────────────────────┘
-```
-
-El cliente hace polling al endpoint `GET /status` cada 60 segundos cuando no hay sesión activa, y cada 30 segundos como heartbeat cuando sí la hay (para detectar cierres de sesión).
-
-#### Ciclo principal de la UI
-
-```python
-# ui/kiosk_window.py (fragmento del loop de frames)
-
-def _process_frame_loop(self) -> None:
-    """Loop ejecutado en hilo separado — nunca bloquea el hilo de UI."""
-    while self._running:
-        ret, frame = self._camera.read()
-        if not ret:
-            continue
-
-        result = self._scanner_context.process_frame(frame)
-
-        # Actualizar preview (thread-safe via queue)
-        self._frame_queue.put(frame if result.frame_annotated is None
-                              else result.frame_annotated)
-
-        if result.detected:
-            self._handle_detection(result)
-
-def _handle_detection(self, result: ScanResult) -> None:
-    self._scanner_context.reset()
-    self._show_processing_overlay()
-
-    try:
-        if isinstance(self._scanner_context._strategy, QrStrategy):
-            api_result = self._api.record_qr(self._session_id, result.payload)
-        else:
-            frame = self._frame_queue.queue[-1]   # último frame capturado
-            api_result = self._api.record_facial(self._session_id, frame)
-
-        if api_result.get('success'):
-            self._audio.play_success()
-            self._show_result_overlay(api_result)
-        else:
-            self._audio.play_error()
-            self._show_error_overlay(api_result.get('message', 'Error desconocido'))
-
-    except Exception as exc:
-        self._audio.play_error()
-        self._show_error_overlay(f'Error de conexión: {exc}')
-
-    finally:
-        # Volver al estado de espera tras 3 segundos
-        self.after(3000, self._show_waiting_state)
-```
-
-### 2.7 — Modo Dual: Facial + QR Simultáneo
-
-El cliente de escritorio puede operar en modo dual donde ambas estrategias se ejecutan en el mismo frame de forma alternada (frame par → Facial, frame impar → QR), idéntico al concepto planteado en el antiguo REQ-02 Slim Client, pero ahora con el rendimiento de las librerías nativas.
-
-La implementación usa una estrategia compuesta `DualStrategy` que envuelve `FacialStrategy` y `QrStrategy`, alternando entre ellas por contador de frame. El `ScannerContext` no necesita modificaciones.
-
-### 2.8 — Auto-Update (Concepto)
-
-El ejecutable distribuido se acompaña de un `launcher.py` que actúa como script de arranque. Antes de iniciar la aplicación principal, el launcher consulta al servidor ORVIAN un endpoint dedicado (fuera del scope de v0.9.0, pero diseñado desde esta versión):
-
-```
-GET /api/v1/kiosk/version
-→ { "latest_version": "1.2.0", "download_url": "https://..." }
-```
-
-Si la versión instalada (leída desde `version.txt` en el directorio del ejecutable) es anterior a `latest_version`, el launcher descarga el nuevo `.exe`, reemplaza el actual y relanza la aplicación. Si el servidor no responde, el launcher inicia la aplicación con la versión existente sin interrumpir la operación.
-
-Este mecanismo garantiza que los dispositivos kiosko en las escuelas siempre corran la versión más reciente sin intervención manual del administrador del centro.
-
-### 2.9 — Configuración Local y Persistencia
-
-La aplicación de escritorio no utiliza archivos `.env`, ya que está diseñada para compilarse como un ejecutable autónomo. En su lugar, utiliza un archivo `config.json` administrado directamente desde la interfaz gráfica del kiosko.
-
-```json
-// config.json — generado automáticamente en %APPDATA%/OrvianScanner/ en el primer arranque
-
-{
-  "server_url": "http://localhost", 
-  "kiosk_token": "",
-  "camera_index": 0,
-  "scan_mode": "dual",
-  "display_fullscreen": true,
-  "audio_enabled": true,
-  "result_display_seconds": 3,
-  "status_poll_interval_seconds": 60
+### 2.4 — Detección Facial en el Renderer (MediaPipe Tasks-Vision)
+
+```javascript
+// renderer/camera.js
+
+import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
+
+const DWELL_REQUIRED_MS = 1200;
+const MIN_DETECTION_CONFIDENCE = 0.6;
+
+let faceDetector = null;
+let dwellStart = null;
+
+export async function initFaceDetector() {
+    // Resolver apunta a la carpeta local empaquetada, NUNCA a un CDN
+    const vision = await FilesetResolver.forVisionTasks("./vendor/mediapipe/wasm");
+
+    faceDetector = await FaceDetector.createFromOptions(vision, {
+        baseOptions: {
+            modelAssetPath: "./vendor/mediapipe/models/blaze_face_short_range.tflite",
+        },
+        runningMode: "VIDEO",
+        minDetectionConfidence: MIN_DETECTION_CONFIDENCE,
+    });
+}
+
+export function detectLoop(videoEl, canvasEl, onCaptureReady) {
+    const ctx = canvasEl.getContext("2d");
+
+    function loop() {
+        const result = faceDetector.detectForVideo(videoEl, performance.now());
+        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+
+        if (result.detections.length === 1) {
+            const box = result.detections[0].boundingBox;
+            drawFaceBox(ctx, box);
+
+            const now = Date.now();
+            if (!dwellStart) dwellStart = now;
+            const progress = Math.min((now - dwellStart) / DWELL_REQUIRED_MS, 1);
+
+            if (progress >= 1) {
+                dwellStart = null;
+                onCaptureReady(videoEl); // dispara la captura del frame
+            }
+        } else {
+            dwellStart = null;
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+}
+
+function drawFaceBox(ctx, box) {
+    ctx.strokeStyle = "#10b981";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(box.originX, box.originY, box.width, box.height);
 }
 ```
 
-El token se configura una sola vez en la instalación inicial del dispositivo (pegando el token generado desde la UI de configuración de la escuela en Laravel). Puede actualizarse desde la pantalla de configuración del propio kiosko, protegida por un PIN de administrador.
+Nota: la lógica de *dwell time* (mantener el rostro estable antes de capturar) es prácticamente un calco del bucle que ya tenías en `scanner-visor.blade.php` con `face-api.js`. No es código nuevo conceptualmente, solo una librería distinta corriendo en un contexto sin restricciones de red.
+
+### 2.5 — Cliente HTTP (`api-client.js`)
+
+```javascript
+// renderer/api-client.js
+
+export class ApiClient {
+    constructor(serverUrl, token) {
+        this.base = `${serverUrl.replace(/\/$/, '')}/api/v1/kiosk`;
+        this.headers = { 'Authorization': `Bearer ${token}` };
+    }
+
+    async getStatus() {
+        const resp = await fetch(`${this.base}/status`, { headers: this.headers });
+        return resp.json();
+    }
+
+    async recordFacial(sessionId, blob) {
+        const form = new FormData();
+        form.append('session_id', sessionId);
+        form.append('photo', blob, 'capture.jpg');
+
+        const resp = await fetch(`${this.base}/record/facial`, {
+            method: 'POST',
+            headers: this.headers, // FormData define su propio Content-Type automáticamente
+            body: form,
+        });
+        return resp.json();
+    }
+}
+```
+
+### 2.6 — Configuración Inicial sin Login (Token de Kiosko)
+
+No existe pantalla de usuario/contraseña. En el primer arranque, `setup-screen.js` muestra un formulario simple con dos campos: URL del servidor y Token de Kiosko (generado desde `SchoolSettings` en Laravel, exactamente como ya documentaste en la sección 1.1 de la Fase 1). Al guardar, el proceso principal persiste estos valores con `electron-store`:
+
+```javascript
+// main/config-store.js
+
+const Store = require('electron-store');
+const store = new Store({
+    defaults: {
+        server_url: '',
+        kiosk_token: '',
+        display_fullscreen: true,
+        audio_enabled: true,
+        status_poll_interval_seconds: 60,
+    }
+});
+
+module.exports = store;
+```
+
+Estos valores se exponen al renderer mediante el `preload.js` con `contextBridge`, nunca exponiendo Node.js directamente a la ventana (buena práctica de seguridad de Electron):
+
+```javascript
+// main/preload.js
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('orvianConfig', {
+    get: (key) => ipcRenderer.invoke('config:get', key),
+    set: (key, value) => ipcRenderer.invoke('config:set', key, value),
+});
+```
+
+### 2.7 — UX/UI del Kiosko
+
+Los **cuatro estados visuales** (Esperando escaneo, Procesando, Resultado, Sin sesión activa) se mantienen idénticos a los planeados originalmente para CustomTkinter — solo cambia que ahora se implementan como vistas HTML con Tailwind en vez de widgets de Tkinter. El polling de `GET /status` (60s sin sesión, 30s con sesión activa como heartbeat) tampoco cambia.
+
+### 2.8 — Preparación para Lector de Huella Futuro
+
+La razón original para usar el Patrón Strategy en Python era permitir agregar módulos de escaneo sin tocar el núcleo. En Electron, el equivalente es mantener el acceso a hardware en el **proceso principal** (donde Node.js sí puede hablar con dispositivos USB/Serial vía `node-hid` o `serialport`) y exponerlo al renderer únicamente a través de IPC — el renderer nunca toca hardware directamente, solo recibe eventos:
+
+```javascript
+// main/hardware/fingerprint.js (placeholder para cuando se integre el lector)
+
+const { ipcMain } = require('electron');
+// const HID = require('node-hid');
+
+ipcMain.handle('fingerprint:scan', async () => {
+    // Lógica del SDK del lector específico, ejecutada en el proceso principal
+    // Devuelve el resultado al renderer vía Promise resuelta del invoke()
+});
+```
+
+Esto preserva la misma idea de extensibilidad que tenía `ScannerStrategy` en Python, adaptada al modelo de procesos de Electron en vez de a clases abstractas de Python.
+
+### 2.9 — Auto-Update
+
+`electron-updater` es la herramienta estándar del ecosistema para este propósito — sustituye al `launcher.py` personalizado que se había planeado para Python. Se configura apuntando a un feed de actualizaciones (puede ser un endpoint propio en Laravel o GitHub Releases) y gestiona la descarga e instalación de nuevas versiones de forma silenciosa en segundo plano, sin necesitar un script de arranque separado.
+
+### 2.10 — Empaquetado
+
+```yaml
+# electron-builder.yml
+
+appId: com.orvian.kiosk
+productName: ORVIAN Kiosko
+win:
+  target: nsis
+  icon: assets/icons/orvian.ico
+extraResources:
+  - from: vendor/mediapipe
+    to: vendor/mediapipe
+```
+
+El bloque `extraResources` es la pieza clave: garantiza que los archivos `.wasm` y `.tflite` de MediaPipe viajen físicamente dentro del instalador `.exe`, accesibles por ruta local en cualquier máquina donde se instale, sin pedir nada a un CDN en tiempo de ejecución.
+
+---
+
+## Fase 2.5 — Gestión de Dispositivos Kiosko y PIN de Técnico
+
+> **Por qué existe esta fase:** La Fase 2 dejó documentada la arquitectura base de Electron. Durante su implementación inicial surgieron cambios no planificados en el repositorio `orvian` (Laravel) que deben consolidarse antes de continuar, y dos funcionalidades que son prerequisito para que el kiosko sea operable en producción: (1) soporte para múltiples dispositivos con tokens individuales y (2) el mecanismo de PIN para que un técnico pueda reconfigurar un kiosko cuyo token fue revocado, sin exponer la pantalla de setup a cualquier persona frente a la pantalla.
+
+---
+
+### 2.5.1 — Laravel: Soporte Multi-Token y PIN de Técnico
+
+**Rama nueva:** `feature/v0.9.0-kiosk-devices`
+**Base:** `feature/v0.9.0-platform-maturity`
+
+```bash
+git checkout feature/v0.9.0-platform-maturity
+git checkout -b feature/v0.9.0-kiosk-devices
+```
+
+#### Migración: Campo `kiosk_pin` en `schools`
+
+```php
+// database/migrations/xxxx_add_kiosk_pin_to_schools_table.php
+
+Schema::table('schools', function (Blueprint $table) {
+    // Hash bcrypt del PIN numérico de 4-6 dígitos.
+    // Null = sin PIN configurado (primer arranque, setup libre).
+    $table->string('kiosk_pin')->nullable()->after('logo_path');
+});
+```
+
+El PIN se guarda hasheado con `bcrypt()` — nunca en texto plano. El valor almacenado es idéntico en formato al de las contraseñas de `users`, por lo que `Hash::check()` funciona directamente.
+
+#### Actualización del Modelo `School`
+
+```php
+// app/Models/Tenant/School.php
+
+// Agregar a $fillable:
+'kiosk_pin',
+
+// Agregar al array $hidden para que no aparezca en respuestas JSON genéricas:
+'kiosk_pin',
+```
+
+#### Actualización de `KioskStatusController`
+
+El endpoint `/status` ya existe. Se le agrega `pin_hash` a la respuesta para que Electron pueda cachearlo y usarlo en validación local cuando el token sea revocado:
+
+```php
+// app/Http/Controllers/Api/Kiosk/KioskStatusController.php
+
+public function __invoke(Request $request): JsonResponse
+{
+    $school = $request->user(); // School model, autenticado por Sanctum
+
+    $activeSession = DailyAttendanceSession::where('school_id', $school->id)
+        ->whereDate('date', today())
+        ->active()
+        ->with('shift')
+        ->first();
+
+    return response()->json([
+        'school' => [
+            'id'   => $school->id,
+            'name' => $school->name,
+        ],
+        'session' => $activeSession ? [
+            'id'         => $activeSession->id,
+            'shift_name' => $activeSession->shift->type,
+            'opened_at'  => $activeSession->opened_at->toIso8601String(),
+        ] : null,
+        // Hash bcrypt del PIN. Electron lo cachea en electron-store.
+        // Nunca es el PIN en texto plano. Null si el director no ha configurado PIN.
+        'pin_hash' => $school->kiosk_pin,
+    ]);
+}
+```
+
+#### Reemplazo del método `generateKioskToken()` en `SchoolSettings`
+
+El método actual borra todos los tokens anteriores antes de crear uno nuevo. Esto se reemplaza por un sistema donde cada token tiene un nombre de dispositivo y puede gestionarse individualmente.
+
+```php
+// app/Livewire/App/Settings/SchoolSettings.php
+
+// ── Nuevas propiedades para el modal de creación ──────────────
+
+public bool   $showCreateDeviceModal = false;
+public string $newDeviceName         = '';
+public ?string $generatedToken       = null;   // Solo vive mientras el modal está abierto
+
+// ── Nuevas propiedades para el modal de revocación ────────────
+
+public bool   $showRevokeModal       = false;
+public ?int   $tokenToRevokeId       = null;
+public string $revokeConfirmName     = '';    // El usuario debe tipear el nombre del dispositivo
+
+// ── Propiedad para gestión del PIN ────────────────────────────
+
+public string $kioskPin              = '';
+public string $kioskPinConfirm       = '';
+
+/**
+ * Crea un token individual para un dispositivo.
+ * NO revoca tokens existentes.
+ */
+public function createDeviceToken(): void
+{
+    $this->authorize('settings.update');
+
+    $this->validate([
+        'newDeviceName' => ['required', 'string', 'min:3', 'max:50'],
+    ]);
+
+    try {
+        $school = Auth::user()->school;
+
+        // Verificar que no existe otro token activo con el mismo nombre
+        $existingNames = $school->tokens()
+            ->where('abilities', json_encode(['kiosk']))
+            ->pluck('name');
+
+        if ($existingNames->contains($this->newDeviceName)) {
+            $this->addError('newDeviceName', 'Ya existe un dispositivo con ese nombre.');
+            return;
+        }
+
+        $this->generatedToken = $school->createToken(
+            $this->newDeviceName,
+            ['kiosk']
+        )->plainTextToken;
+
+        // El modal transiciona a mostrar el token. No se cierra aún.
+        $this->newDeviceName = '';
+
+    } catch (\Exception $e) {
+        Log::error('Error al crear token de dispositivo kiosko', [
+            'school_id' => Auth::user()->school_id,
+            'error'     => $e->getMessage(),
+        ]);
+
+        $this->dispatch('notify',
+            type: 'error',
+            title: 'Error',
+            message: 'No se pudo generar el token. Intente de nuevo.'
+        );
+    }
+}
+
+/**
+ * Inicia el flujo de revocación mostrando el modal de confirmación.
+ */
+public function confirmRevokeDevice(int $tokenId, string $tokenName): void
+{
+    $this->authorize('settings.update');
+    $this->tokenToRevokeId  = $tokenId;
+    $this->revokeConfirmName = '';
+    // El modal de confirmación muestra el nombre y pide tipearlo
+    $this->showRevokeModal  = true;
+}
+
+/**
+ * Ejecuta la revocación tras la confirmación por nombre.
+ */
+public function revokeDevice(): void
+{
+    $this->authorize('settings.update');
+
+    $token = Auth::user()->school->tokens()->find($this->tokenToRevokeId);
+
+    if (!$token) {
+        $this->dispatch('notify', type: 'error', message: 'Token no encontrado.');
+        $this->resetRevokeModal();
+        return;
+    }
+
+    // El usuario debe haber tipeado exactamente el nombre del dispositivo
+    if ($this->revokeConfirmName !== $token->name) {
+        $this->addError('revokeConfirmName', 'El nombre no coincide. Escríbelo exactamente.');
+        return;
+    }
+
+    $token->delete();
+
+    $this->dispatch('notify',
+        type: 'success',
+        title: 'Dispositivo desconectado',
+        message: "El dispositivo \"{$token->name}\" ya no tiene acceso al sistema."
+    );
+
+    $this->resetRevokeModal();
+}
+
+/**
+ * Guarda o actualiza el PIN de acceso al modo técnico del kiosko.
+ */
+public function saveKioskPin(): void
+{
+    $this->authorize('settings.update');
+
+    $this->validate([
+        'kioskPin'        => ['required', 'digits_between:4,6'],
+        'kioskPinConfirm' => ['required', 'same:kioskPin'],
+    ]);
+
+    Auth::user()->school->update([
+        'kiosk_pin' => bcrypt($this->kioskPin),
+    ]);
+
+    $this->kioskPin        = '';
+    $this->kioskPinConfirm = '';
+
+    $this->dispatch('notify',
+        type: 'success',
+        title: 'PIN actualizado',
+        message: 'El nuevo PIN de técnico entrará en efecto en el próximo heartbeat del kiosko.'
+    );
+}
+
+private function resetRevokeModal(): void
+{
+    $this->showRevokeModal  = false;
+    $this->tokenToRevokeId  = null;
+    $this->revokeConfirmName = '';
+}
+```
+
+#### Vista — Sección "Dispositivos Kiosko" en `SchoolSettings`
+
+La sección se añade en la vista de configuración de la escuela como una **Zona de Peligro** visualmente separada, colapsada por defecto con Alpine.js.
+
+```html
+{{-- resources/views/livewire/app/settings/school-settings.blade.php --}}
+{{-- Añadir esta sección al final de la vista, antes del cierre del form --}}
+
+<div x-data="{ open: false }" class="mt-10">
+
+    {{-- Cabecera colapsable de la zona de peligro --}}
+    <button
+        @click="open = !open"
+        class="w-full flex items-center justify-between p-4 rounded-2xl border border-red-200 dark:border-red-800/40 bg-red-50/50 dark:bg-red-900/10 text-left transition-colors hover:bg-red-100/50 dark:hover:bg-red-900/20">
+        <div class="flex items-center gap-3">
+            <x-heroicon-s-shield-exclamation class="w-5 h-5 text-red-500 flex-shrink-0" />
+            <div>
+                <p class="text-sm font-bold text-red-700 dark:text-red-400">Zona de Peligro — Dispositivos Kiosko</p>
+                <p class="text-xs text-red-600/70 dark:text-red-500/70">
+                    Tokens de acceso de terminales físicas y PIN de técnico.
+                    Los cambios aquí afectan dispositivos en operación.
+                </p>
+            </div>
+        </div>
+        <x-heroicon-s-chevron-down class="w-4 h-4 text-red-400 transition-transform" ::class="open && 'rotate-180'" />
+    </button>
+
+    <div x-show="open" x-collapse class="mt-4 space-y-6">
+
+        {{-- ── Lista de Dispositivos Activos ────────────────────── --}}
+        <div class="rounded-2xl border border-gray-200 dark:border-dark-border overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 bg-gray-50 dark:bg-white/5 border-b border-gray-200 dark:border-dark-border">
+                <div>
+                    <p class="text-sm font-bold text-gray-900 dark:text-white">Terminales registradas</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Cada terminal tiene un token de acceso único e independiente.
+                        Revocar un token desconecta únicamente ese dispositivo.
+                    </p>
+                </div>
+                <x-ui.button
+                    wire:click="$set('showCreateDeviceModal', true)"
+                    type="solid"
+                    hex="#e85523"
+                    size="sm"
+                    iconLeft="heroicon-s-plus">
+                    Nueva terminal
+                </x-ui.button>
+            </div>
+
+            @php
+                $kioskTokens = Auth::user()->school->tokens()
+                    ->where('abilities', json_encode(['kiosk']))
+                    ->latest()
+                    ->get();
+            @endphp
+
+            @forelse ($kioskTokens as $token)
+                <div class="flex items-center justify-between px-5 py-3.5 border-b last:border-0 border-gray-100 dark:border-dark-border/50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-xl bg-gray-100 dark:bg-white/5 flex items-center justify-center flex-shrink-0">
+                            <x-heroicon-s-computer-desktop class="w-4 h-4 text-gray-400" />
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $token->name }}</p>
+                            <p class="text-xs text-gray-400">
+                                Creado {{ $token->created_at->diffForHumans() }}
+                                · Último uso {{ $token->last_used_at?->diffForHumans() ?? 'nunca' }}
+                            </p>
+                        </div>
+                    </div>
+                    <x-ui.button
+                        wire:click="confirmRevokeDevice({{ $token->id }}, '{{ $token->name }}')"
+                        type="outline"
+                        hex="#ef4444"
+                        size="sm"
+                        iconLeft="heroicon-s-trash">
+                        Revocar
+                    </x-ui.button>
+                </div>
+            @empty
+                <div class="px-5 py-8 text-center">
+                    <x-heroicon-o-computer-desktop class="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                    <p class="text-sm text-gray-400">No hay terminales registradas.</p>
+                </div>
+            @endforelse
+        </div>
+
+        {{-- ── PIN de Técnico ────────────────────────────────────── --}}
+        <div class="rounded-2xl border border-gray-200 dark:border-dark-border p-5 space-y-4">
+            <div>
+                <p class="text-sm font-bold text-gray-900 dark:text-white">PIN de acceso técnico</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Código numérico de 4 a 6 dígitos que el técnico debe ingresar en el kiosko
+                    para acceder al formulario de configuración. Si no hay PIN configurado,
+                    el formulario de configuración es accesible sin restricciones.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <x-ui.forms.input
+                    wire:model="kioskPin"
+                    type="password"
+                    label="Nuevo PIN"
+                    placeholder="••••"
+                    inputmode="numeric"
+                    maxlength="6" />
+                <x-ui.forms.input
+                    wire:model="kioskPinConfirm"
+                    type="password"
+                    label="Confirmar PIN"
+                    placeholder="••••"
+                    inputmode="numeric"
+                    maxlength="6" />
+            </div>
+            <x-ui.button
+                wire:click="saveKioskPin"
+                type="outline"
+                hex="#e85523"
+                size="sm">
+                Guardar PIN
+            </x-ui.button>
+        </div>
+
+    </div>
+</div>
+
+{{-- ── Modal: Crear nueva terminal ──────────────────────────────── --}}
+<x-ui.modal wire:model="showCreateDeviceModal" maxWidth="md">
+    @if (!$generatedToken)
+        {{-- Paso 1: Ingresar nombre --}}
+        <div class="p-6 space-y-5">
+            <div>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">Registrar nueva terminal</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Asigna un nombre descriptivo a este dispositivo kiosko.
+                    Podrás identificarlo en la lista para revocarlo individualmente si es necesario.
+                </p>
+            </div>
+            <x-ui.forms.input
+                wire:model="newDeviceName"
+                label="Nombre del dispositivo"
+                placeholder="Ej: Portería Principal, Entrada Norte..." />
+            <div class="flex justify-end gap-3">
+                <x-ui.button wire:click="$set('showCreateDeviceModal', false)" type="ghost" size="sm">Cancelar</x-ui.button>
+                <x-ui.button wire:click="createDeviceToken" type="solid" hex="#e85523" size="sm">Generar token</x-ui.button>
+            </div>
+        </div>
+    @else
+        {{-- Paso 2: Mostrar el token (única vez) --}}
+        <div class="p-6 space-y-5">
+            <div class="flex items-start gap-3 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
+                <x-heroicon-s-exclamation-triangle class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p class="text-sm text-amber-800 dark:text-amber-300 font-medium">
+                    Este token solo se muestra ahora. Una vez cerres este modal,
+                    no habrá forma de recuperarlo — deberás generar uno nuevo.
+                </p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Token de acceso</p>
+                <div class="flex items-center gap-2">
+                    <code class="flex-1 text-xs bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 font-mono text-gray-800 dark:text-gray-200 break-all select-all">
+                        {{ $generatedToken }}
+                    </code>
+                    <button
+                        x-data
+                        @click="navigator.clipboard.writeText('{{ $generatedToken }}'); $dispatch('notify', { type: 'success', message: 'Token copiado.' })"
+                        class="flex-shrink-0 p-2.5 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
+                        <x-heroicon-s-clipboard class="w-4 h-4 text-gray-500" />
+                    </button>
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <x-ui.button
+                    wire:click="$set('showCreateDeviceModal', false); $set('generatedToken', null)"
+                    type="solid"
+                    hex="#e85523"
+                    size="sm">
+                    Entendido, cerrar
+                </x-ui.button>
+            </div>
+        </div>
+    @endif
+</x-ui.modal>
+
+{{-- ── Modal: Confirmar revocación ─────────────────────────────── --}}
+<x-ui.modal wire:model="showRevokeModal" maxWidth="md">
+    <div class="p-6 space-y-5">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                <x-heroicon-s-trash class="w-5 h-5 text-red-500" />
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">¿Revocar este dispositivo?</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    El kiosko asociado perderá acceso inmediatamente y mostrará
+                    un error de token inválido. Esta acción no se puede deshacer.
+                </p>
+            </div>
+        </div>
+        <div>
+            <x-ui.forms.input
+                wire:model="revokeConfirmName"
+                label="Escribe el nombre del dispositivo para confirmar"
+                placeholder="Nombre exacto del dispositivo" />
+        </div>
+        <div class="flex justify-end gap-3">
+            <x-ui.button wire:click="$set('showRevokeModal', false)" type="ghost" size="sm">Cancelar</x-ui.button>
+            <x-ui.button wire:click="revokeDevice" type="solid" hex="#ef4444" size="sm" iconLeft="heroicon-s-trash">
+                Sí, revocar acceso
+            </x-ui.button>
+        </div>
+    </div>
+</x-ui.modal>
+```
+
+### Partialización de la vista de configuración
+
+La vista `resources/views/livewire/app/settings/school-settings.blade.php` tiene 600+ líneas. Para mantener la legibilidad, se hará a cabo una partialización de las secciones de configuracion del centro: Identidad e Información General, Estructura Educativa, Ubicación Física y la nueva Zona de Peligro. En archivos independientes bajo `resources/views/livewire/app/settings/school-partials/` (por si entran más archivos) y se incluirán con `@include()` y cada archivo debe tener el formato de `_nombre-archivo`.
+
+**Archivos parciales:**
+
+- `_identity-info.blade.php`
+- `_educational-structure.blade.php`
+- `_physical-location.blade.php`
+- `_danger-zone.blade.php`
+
+---
+
+### 2.5.2 — Electron: Manejo de Token Revocado y Pantalla de PIN
+
+**Repositorio:** `orvian-kiosk-electron`
+
+Esta sección documenta los dos cambios en Electron que dependen de lo implementado en 2.5.1.
+
+#### Fix estructural: `Accept: application/json` en todas las peticiones
+
+El error `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON` ocurre porque cuando Sanctum rechaza un token inválido, Laravel devuelve una página HTML de redirección si el cliente no declara explícitamente que espera JSON. La corrección es agregar `Accept: application/json` en el constructor de `ApiClient`, lo que hace que Laravel responda siempre con JSON estructurado (incluyendo `{"message": "Unauthenticated."}` en lugar de HTML):
+
+```javascript
+// renderer/api-client.js
+
+export class ApiClient {
+    constructor(serverUrl, token) {
+        this.base = `${serverUrl.replace(/\/$/, '')}/api/v1/kiosk`;
+        this.headers = {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',   // ← Fix crítico
+        };
+    }
+
+    async getStatus() {
+        const resp = await fetch(`${this.base}/status`, { headers: this.headers });
+
+        if (resp.status === 401) {
+            throw new TokenRevokedError();
+        }
+
+        if (!resp.ok) {
+            throw new Error(`Status ${resp.status}`);
+        }
+
+        const data = await resp.json();
+
+        // Cachear el pin_hash en electron-store para validación offline posterior
+        if (data.pin_hash) {
+            await window.orvianConfig.set('cached_pin_hash', data.pin_hash);
+        }
+
+        return data;
+    }
+
+    async recordFacial(sessionId, blob) {
+        const form = new FormData();
+        form.append('session_id', sessionId);
+        form.append('photo', blob, 'capture.jpg');
+
+        const resp = await fetch(`${this.base}/record/facial`, {
+            method: 'POST',
+            headers: this.headers,
+            body: form,
+        });
+
+        if (resp.status === 401) {
+            throw new TokenRevokedError();
+        }
+
+        return resp.json();
+    }
+}
+
+export class TokenRevokedError extends Error {
+    constructor() {
+        super('TOKEN_REVOKED');
+        this.name = 'TokenRevokedError';
+    }
+}
+```
+
+#### Cache del `pin_hash` vía `preload.js`
+
+El preload ya expone `orvianConfig.get` y `orvianConfig.set`. No se necesita ningún cambio adicional — `cached_pin_hash` se guarda como cualquier otra clave en `electron-store`.
+
+#### Pantalla de PIN Gate (`renderer/pin-gate.js`)
+
+Cuando cualquier petición lanza `TokenRevokedError`, el flujo de UI llama a `showPinGate()`. Esta función reemplaza la pantalla del kiosko con el formulario de PIN:
+
+```javascript
+// renderer/pin-gate.js
+
+import bcrypt from 'bcryptjs';   // npm install bcryptjs
+
+export async function showPinGate(onUnlocked) {
+    const cachedHash = await window.orvianConfig.get('cached_pin_hash');
+
+    const container = document.getElementById('app');
+    container.innerHTML = `
+        <div class="min-h-screen bg-gray-950 flex items-center justify-center p-6">
+            <div class="w-full max-w-sm space-y-6">
+
+                <div class="text-center space-y-2">
+                    <div class="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20
+                                flex items-center justify-center mx-auto">
+                        <!-- heroicon: lock-closed -->
+                        <svg class="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75
+                                   9h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25
+                                   2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5
+                                   12v6.75A2.25 2.25 0 006.75 21.75z" />
+                        </svg>
+                    </div>
+                    <h1 class="text-xl font-bold text-white">Token revocado</h1>
+                    <p class="text-sm text-gray-400">
+                        Este dispositivo ya no tiene acceso al sistema.<br>
+                        Ingresa el PIN de técnico para reconfigurar.
+                    </p>
+                </div>
+
+                ${cachedHash ? `
+                    <div class="space-y-3">
+                        <input
+                            id="pin-input"
+                            type="password"
+                            inputmode="numeric"
+                            maxlength="6"
+                            placeholder="PIN de técnico"
+                            class="w-full text-center text-2xl tracking-widest bg-white/5 border
+                                   border-white/10 rounded-2xl px-4 py-4 text-white placeholder-gray-600
+                                   focus:outline-none focus:border-orvian-orange/50 focus:ring-1
+                                   focus:ring-orvian-orange/30 transition-all" />
+                        <p id="pin-error" class="text-xs text-red-400 text-center hidden">
+                            PIN incorrecto. Inténtalo de nuevo.
+                        </p>
+                        <button
+                            id="pin-submit"
+                            class="w-full py-3 rounded-2xl bg-orvian-orange hover:bg-orvian-orange-hover
+                                   text-white font-bold text-sm transition-colors">
+                            Desbloquear
+                        </button>
+                    </div>
+                ` : `
+                    <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
+                        <p class="text-sm text-amber-300">
+                            No hay PIN almacenado en este dispositivo.<br>
+                            Puedes reconfigurar directamente.
+                        </p>
+                    </div>
+                    <button
+                        id="pin-submit"
+                        class="w-full py-3 rounded-2xl bg-orvian-orange hover:bg-orvian-orange-hover
+                               text-white font-bold text-sm transition-colors">
+                        Ir a configuración
+                    </button>
+                `}
+
+            </div>
+        </div>
+    `;
+
+    const submitBtn = document.getElementById('pin-submit');
+    const pinInput  = document.getElementById('pin-input');
+    const pinError  = document.getElementById('pin-error');
+
+    submitBtn.addEventListener('click', async () => {
+        if (!cachedHash) {
+            // Sin hash almacenado: acceso libre (primer arranque o dispositivo nunca conectado)
+            onUnlocked();
+            return;
+        }
+
+        const entered = pinInput?.value?.trim();
+        if (!entered) return;
+
+        const valid = await bcrypt.compare(entered, cachedHash);
+
+        if (valid) {
+            onUnlocked();
+        } else {
+            pinError.classList.remove('hidden');
+            pinInput.value = '';
+            pinInput.focus();
+        }
+    });
+
+    pinInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitBtn.click();
+    });
+}
+```
+
+#### Integración en `setup-screen.js`
+
+```javascript
+// renderer/setup-screen.js (fragmento — función de heartbeat existente)
+
+import { TokenRevokedError } from './api-client.js';
+import { showPinGate } from './pin-gate.js';
+import { showSetupForm } from './setup-form.js'; // formulario existente de token + URL
+
+async function evaluateKioskState() {
+    try {
+        const status = await apiClient.getStatus();
+        // ... lógica normal de sesión ...
+    } catch (err) {
+        if (err instanceof TokenRevokedError) {
+            // Detener el heartbeat antes de mostrar el PIN gate
+            clearInterval(heartbeatInterval);
+
+            showPinGate(() => {
+                // Callback ejecutado al validar el PIN correctamente
+                showSetupForm();
+            });
+        } else {
+            // Otros errores (red, timeout, etc.) — mostrar estado de error sin salir del kiosko
+            showConnectionError(err.message);
+        }
+    }
+}
+```
+
+---
+
+### 2.5.3 — Archivos Nuevos y Modificados
+
+#### En `orvian` (Laravel) — rama `feature/v0.9.0-kiosk-devices`
+
+| Archivo | Acción |
+| :--- | :--- |
+| `database/migrations/xxxx_add_kiosk_pin_to_schools_table.php` | Crear |
+| `app/Models/Tenant/School.php` | Modificar — agregar `kiosk_pin` a `$fillable` y `$hidden` |
+| `app/Http/Controllers/Api/Kiosk/KioskStatusController.php` | Modificar — agregar `pin_hash` a la respuesta |
+| `app/Livewire/App/Settings/SchoolSettings.php` | Modificar — reemplazar `generateKioskToken()`, agregar métodos de gestión multi-token y PIN |
+| `resources/views/livewire/app/settings/school-settings.blade.php` | Modificar — agregar sección Zona de Peligro con lista de dispositivos, modales y formulario de PIN |
+
+#### En `orvian-kiosk-electron` — rama `main`
+
+| Archivo | Acción |
+| :--- | :--- |
+| `renderer/api-client.js` | Modificar — agregar `Accept: application/json`, manejo de 401 con `TokenRevokedError`, cacheo de `pin_hash` |
+| `renderer/pin-gate.js` | Crear — pantalla de PIN gate con validación bcrypt local |
+| `renderer/setup-screen.js` | Modificar — interceptar `TokenRevokedError` y delegar a `showPinGate()` |
+| `package.json` | Modificar — agregar dependencia `bcryptjs` |
+
+---
+
+### 2.5.4 — Notas de Implementación
+
+**¿Por qué `bcryptjs` en Electron y no una llamada a Laravel?**
+Cuando el token es revocado, Electron no tiene credenciales válidas para hacer ninguna petición autenticada. Crear un endpoint público de validación de PIN introduce una superficie de ataque — cualquiera que conozca la URL podría intentar fuerza bruta. La solución de cachear el hash y comparar localmente es la estándar en aplicaciones offline-capable: el PIN se verifica con el mismo algoritmo bcrypt que usó Laravel para guardarlo, pero sin necesitar conexión en ese momento.
+
+**¿Qué pasa si el director cambia el PIN mientras el kiosko está activo?**
+El hash viejo permanece en `cached_pin_hash` de `electron-store` hasta el próximo heartbeat exitoso. Esto significa que durante máximo 30 segundos (intervalo del heartbeat), el kiosko todavía validaría con el PIN anterior. En la práctica esto no es un problema operativo — cambiar el PIN es un evento infrecuente, y el margen de 30 segundos es irrelevante.
+
+**¿Qué pasa si el director nunca configuró un PIN?**
+`pin_hash` vendrá `null` en la respuesta de `/status`. `electron-store` guardará `null`. La pantalla de PIN gate detecta `null` y muestra directamente el botón "Ir a configuración" sin pedir código. Esto es el comportamiento correcto para instalaciones nuevas.
+
+**Sobre la rama de Electron:**
+El repositorio `orvian-kiosk-electron` usa `main` directamente (repositorio nuevo, sin historial previo que proteger). Los cambios de esta fase van en `main` sin rama de feature.
 
 ---
 
@@ -1551,50 +2015,37 @@ Patrón canónico de uso (opt-in con `wire:target` explícito):
 | `resources/views/components/ui/button.blade.php` | Eliminar `wire:loading.class` global | 11 |
 | `docs/ui/buttons.md` | Actualizar sección de estados de carga | 11 |
 
-### Repositorio `orvian-desktop-scanner` (nuevo)
+## Archivos a Crear — Repositorio `orvian-kiosk-electron` (nuevo)
 
 | Archivo | Acción | Fase |
 | :--- | :--- | :--- |
-| `main.py` | Crear — punto de entrada | 2 |
-| `launcher.py` | Crear — script de arranque con auto-update | 2 |
-| `config.py` + `config.json` | Crear — configuración local | 2 |
-| `core/api_client.py` | Crear — cliente HTTP | 2 |
-| `core/camera_manager.py` | Crear — gestión de stream OpenCV | 2 |
-| `core/audio_manager.py` | Crear — reproducción de audio | 2 |
-| `strategies/base_strategy.py` | Crear — interfaz Strategy | 2 |
-| `strategies/facial_strategy.py` | Crear — implementación MediaPipe | 2 |
-| `strategies/qr_strategy.py` | Crear — implementación pyzbar | 2 |
-| `ui/kiosk_window.py` | Crear — ventana principal CustomTkinter | 2 |
-| `ui/widgets/camera_feed.py` | Crear — widget preview de cámara | 2 |
-| `ui/widgets/result_overlay.py` | Crear — overlay de resultado | 2 |
+| `main/main.js` | Crear — punto de entrada del proceso principal | 2 |
+| `main/config-store.js` | Crear — persistencia de token/configuración | 2 |
+| `main/preload.js` | Crear — bridge seguro main↔renderer | 2 |
+| `main/hardware/fingerprint.js` | Crear (placeholder) — preparación lector de huella futuro | 2 |
+| `renderer/index.html` | Crear — ventana única del kiosko | 2 |
+| `renderer/camera.js` | Crear — captura + detección MediaPipe Tasks-Vision | 2 |
+| `renderer/api-client.js` | Crear — cliente HTTP hacia `/api/v1/kiosk/` | 2 |
+| `renderer/ui-states.js` | Crear — los 4 estados visuales del kiosko | 2 |
+| `renderer/setup-screen.js` | Crear — pantalla de configuración inicial (token) | 2 |
+| `vendor/mediapipe/wasm/` + `models/` | Incluir en el repositorio | 2 |
 | `assets/sounds/success.wav` + `error.wav` | Incluir en el repositorio | 2 |
-| `build/orvian-scanner.spec` | Crear — configuración PyInstaller | 2 |
-| `requirements.txt` | Crear | 2 |
+| `electron-builder.yml` | Crear — configuración de empaquetado | 2 |
+| `tailwind.config.js` | Crear — build standalone de Tailwind | 2 |
+| `package.json` | Crear | 2 |
 
 ---
 
-## Notas de Implementación
+## Notas de Implementación (revisadas)
 
-**Separación de repositorios:** `orvian-desktop-scanner` es un repositorio Git independiente. No comparte código ni dependencias con el monorepo Laravel. La única interfaz entre ambos sistemas son los tres endpoints del API Gateway definidos en Fase 1.
+Las siguientes notas de la versión original eran específicas de Python y ya no aplican: threading en Tkinter, `pyzbar` + `zbar.dll`, `PyInstaller` con `binaries=[...]`, calidad de imagen JPEG vía OpenCV. Se reemplazan por:
 
-**Sanctum y tokenable School:** Laravel Sanctum soporta múltiples tokenables. Para que `School` pueda emitir tokens, debe implementar `HasApiTokens` e incluirse en el `sanctum.guard` si se usa la autenticación de guards. Verificar que `config/sanctum.php` liste el guard correcto o que el middleware `auth:sanctum` resuelva el modelo correctamente.
+**Seguridad del proceso de renderizado:** Electron debe configurarse con `contextIsolation: true` y `nodeIntegration: false` en el `BrowserWindow`. El renderer (donde corre la cámara y MediaPipe) nunca debe tener acceso directo a Node.js — todo acceso a hardware o sistema de archivos pasa por `preload.js` vía `contextBridge`, evitando que código malicioso embebido en la ventana pueda escalar privilegios.
 
-Las llamadas a `ApiClient` dentro de `_handle_detection` deben ejecutarse de forma asíncrona o enviarse a un `ThreadPoolExecutor`. De lo contrario, la petición HTTP síncrona bloqueará el hilo de captura de OpenCV, congelando el feed de video del usuario mientras espera la respuesta del servidor.
+**MediaPipe y el modelo de un solo hilo:** A diferencia de Python (donde fue necesario separar captura e inferencia en dos hilos para evitar lag visual), el renderer de Electron es JavaScript de un solo hilo con `requestAnimationFrame`. El patrón ya usado en `scanner-visor.blade.php` (un bucle de detección no bloqueante por frame) es directamente aplicable sin necesitar arquitectura de hilos adicional — esto es, de hecho, más simple que el problema que se resolvió en Python.
 
-**Autenticación de Kiosko con Sanctum:** Para que el middleware `auth:sanctum` resuelva correctamente el modelo `School` en lugar del modelo `User`, se debe configurar un nuevo guard y provider en `config/auth.php` para las escuelas, o en su defecto, crear un middleware personalizado `KioskAuthMiddleware` que extraiga el modelo directamente usando `PersonalAccessToken::findToken($request->bearerToken())->tokenable`.
+**Bundling de WASM:** Verificar en cada build de `electron-builder` que `extraResources` copie correctamente la carpeta `vendor/mediapipe/` al directorio de recursos del `.exe` final. Un error común es que `FilesetResolver.forVisionTasks()` reciba una ruta relativa que funciona en desarrollo (`npm start`) pero no en el ejecutable empaquetado, donde la estructura de carpetas cambia. Resolver siempre la ruta vía `process.resourcesPath` en producción.
 
-**Seguridad del Token de Kiosko:** El token de kiosko tiene la ability `kiosk` y no tiene fecha de expiración por defecto (los dispositivos de portería operan indefinidamente). Si un dispositivo es robado o comprometido, el administrador puede revocar el token desde la configuración de la escuela y generar uno nuevo. El dispositivo detectará el error `INVALID_TOKEN` en el próximo polling y mostrará la pantalla de configuración solicitando el nuevo token.
+**Seguridad del Token de Kiosko:** Sin cambios respecto al diseño original — el token con ability `kiosk` se persiste en `electron-store`, no expira por defecto, y es revocable desde Laravel si el dispositivo se pierde o compromete.
 
-**Threading en la UI Python:** El loop de cámara (`_process_frame_loop`) corre en un hilo `daemon` separado del hilo principal de CustomTkinter. Las actualizaciones de UI se pasan a través de una `queue.Queue` y el método `after()` de Tkinter para garantizar thread-safety. Nunca se llaman métodos de UI directamente desde el hilo de cámara.
-
-**pyzbar en Windows:** `pyzbar` requiere que `zbar.dll` esté disponible en el PATH o en el directorio del ejecutable. PyInstaller no lo incluye automáticamente; debe agregarse explícitamente en el `.spec` mediante `binaries=[('path/to/zbar.dll', '.')]`.
-
-**Calidad de imagen para reconocimiento facial:** El cliente de escritorio captura el frame en la resolución nativa de OpenCV (típicamente 1280×720) y lo comprime al 90% de calidad JPEG antes de enviarlo. Si el microservicio `orvian-facial-recognition` tiene restricciones de tamaño, ajustar la calidad o reducir la resolución del crop facial en `facial_strategy.py` antes de serializar.
-
-**Polling de sesión:** El intervalo de 60 segundos para el polling de `GET /status` es configurable en `config.json`. En escuelas con sesiones que abren exactamente a la hora, considerar reducirlo a 30 segundos para reducir la latencia de detección de sesión.
-
-**Gestos en desktop (Fase 5):** Los eventos `touchstart`/`touchmove`/`touchend` no disparan en desktop. Los botones de Presente / Ausente / Tardanza son el método principal en desktop. Los gestos son aceleradores para tablets y móviles del maestro.
-
-**Corrección de botones — migración incremental (Fase 11):** El cambio en `button.blade.php` rompe el loading automático en todos los formularios sin `wire:target` explícito. Aplicar la corrección al inicio de la fase y revisar los formularios críticos antes de mergear.
-
-**VERSION:** Al completar todos los entregables, actualizar el archivo `VERSION` en la raíz del proyecto `orvian` a `0.9.0` y crear el tag `v0.9.0` en el repositorio `orvian-desktop-scanner`.
+**VERSION:** Al completar los entregables de esta fase, actualizar el archivo `VERSION` en la raíz de `orvian` a `0.9.0` y crear el tag `v0.9.0` en el nuevo repositorio `orvian-kiosk-electron` (en lugar de `orvian-desktop-scanner`, que queda descartado).

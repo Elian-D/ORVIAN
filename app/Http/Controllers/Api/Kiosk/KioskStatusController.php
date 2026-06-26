@@ -15,7 +15,7 @@ class KioskStatusController
         $session = DailyAttendanceSession::query()
             ->where('school_id', $school->id)
             ->whereDate('date', today())
-            ->where('status', 'open')
+            ->active() // <--- Usamos tu scope local en lugar de ->where('status', 'open')
             ->first();
 
         return response()->json([
@@ -24,6 +24,9 @@ class KioskStatusController
             'session_date'   => $session?->date?->toDateString(),
             'school_name'    => $school->name,
             'server_time'    => now()->toIso8601String(),
+            // Hash bcrypt del PIN. Electron lo cachea en electron-store.
+            // Nunca es el PIN en texto plano. Null si el director no ha configurado PIN.
+            'pin_hash' => $school->kiosk_pin,
         ]);
     }
 }
