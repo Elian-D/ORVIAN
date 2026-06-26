@@ -15,7 +15,7 @@ class KioskStatusController
         $session = DailyAttendanceSession::query()
             ->where('school_id', $school->id)
             ->whereDate('date', today())
-            ->where('status', 'open')
+            ->active() // <--- Usamos tu scope local en lugar de ->where('status', 'open')
             ->first();
 
         return response()->json([
