@@ -10,23 +10,30 @@ class KioskStatusController
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $school = $request->user(); // El tokenable es el modelo School
+        $school = $request->user();
+
+        // Cargar el plan con sus features en una sola query
+        $school->loadMissing('plan.features');
 
         $session = DailyAttendanceSession::query()
             ->where('school_id', $school->id)
             ->whereDate('date', today())
-            ->active() // <--- Usamos tu scope local en lugar de ->where('status', 'open')
+            ->active()
+            ->with('shift')
             ->first();
 
         return response()->json([
-            'session_active' => (bool) $session,
-            'session_id'     => $session?->id,
-            'session_date'   => $session?->date?->toDateString(),
-            'school_name'    => $school->name,
-            'server_time'    => now()->toIso8601String(),
-            // Hash bcrypt del PIN. Electron lo cachea en electron-store.
-            // Nunca es el PIN en texto plano. Null si el director no ha configurado PIN.
-            'pin_hash' => $school->kiosk_pin,
+            'school_name'      => $school->name,
+            'session_active'   => (bool) $session,
+            'session_id'       => $session?->id,
+            'server_time'      => now()->toIso8601String(),
+            'pin_hash'         => $school->kiosk_pin,
+
+            // Features del plan — Electron decide qué interfaz mostrar
+            'features' => [
+                'attendance_qr'     => $school->plan?->hasFeature('attendance_qr') ?? false,
+                'attendance_facial' => $school->plan?->hasFeature('attendance_facial') ?? false,
+            ],
         ]);
     }
 }

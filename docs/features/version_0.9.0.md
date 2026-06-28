@@ -1416,6 +1416,625 @@ El hash viejo permanece en `cached_pin_hash` de `electron-store` hasta el próxi
 **Sobre la rama de Electron:**
 El repositorio `orvian-kiosk-electron` usa `main` directamente (repositorio nuevo, sin historial previo que proteger). Los cambios de esta fase van en `main` sin rama de feature.
 
+# ORVIAN v0.9.0 — Fase 2.6: QR por Lector USB y Control de Features por Plan
+
+> **Alcance:** Esta fase añade dos capacidades al ecosistema `orvian-kiosk-electron`:
+> 1. Registro de asistencia por código QR mediante lector USB (modo *keyboard wedge*), desacoplado de la cámara facial.
+> 2. Control de modo de operación del kiosko basado en las features del plan de la escuela: el endpoint `/status` informa qué tiene habilitado el plan, y Electron renderiza la interfaz correspondiente sin cámara (QR only) o con cámara (Facial + QR).
+>
+> **No requiere rama nueva en `orvian`** — los cambios en Laravel son solo en `KioskStatusController` (ya existente) y en el `CSP` del `index.html`. Los cambios de UI son exclusivamente en `orvian-kiosk-electron`.
+
+---
+
+## Contexto: cómo funcionan los lectores USB en modo wedge
+
+Un lector QR o de barras en modo *keyboard wedge* no requiere driver ni SDK. El sistema operativo lo reconoce como un teclado HID. Cuando el lector escanea un código, "tipea" el contenido del código seguido de un carácter de terminación (generalmente `Enter` o `Tab`). Desde el punto de vista de Electron, es exactamente como si el usuario hubiera escrito el código con el teclado.
+
+Esto tiene una implicación de diseño importante: **el input que captura los códigos no debe estar visible en pantalla ni ser accesible para el estudiante**. Se implementa como un `<input>` oculto que mantiene el foco permanentemente, acumulando caracteres hasta recibir el `Enter` del lector.
+
+---
+
+## Cambios en Laravel — `KioskStatusController`
+
+El endpoint `/status` ya existe y funciona. Se le agregan dos campos al JSON de respuesta para informar al kiosko qué features tiene habilitadas el plan de la escuela:
+
+```php
+// app/Http/Controllers/Api/Kiosk/KioskStatusController.php
+
+public function __invoke(Request $request): JsonResponse
+{
+    $school = $request->user();
+
+    // Cargar el plan con sus features en una sola query
+    $school->loadMissing('plan.features');
+
+    $session = DailyAttendanceSession::query()
+        ->where('school_id', $school->id)
+        ->whereDate('date', today())
+        ->active()
+        ->with('shift')
+        ->first();
+
+    return response()->json([
+        'school_name'      => $school->name,
+        'session_active'   => (bool) $session,
+        'session_id'       => $session?->id,
+        'server_time'      => now()->toIso8601String(),
+        'pin_hash'         => $school->kiosk_pin,
+
+        // Features del plan — Electron decide qué interfaz mostrar
+        'features' => [
+            'attendance_qr'     => $school->plan?->hasFeature('attendance_qr') ?? false,
+            'attendance_facial' => $school->plan?->hasFeature('attendance_facial') ?? false,
+        ],
+    ]);
+}
+```
+
+**Respuesta de ejemplo — plan básico (QR solamente):**
+
+```json
+{
+  "school_name": "Colegio San José",
+  "session_active": true,
+  "session_id": 12,
+  "server_time": "2026-06-27T07:45:00-04:00",
+  "pin_hash": "$2y$10$...",
+  "features": {
+    "attendance_qr": true,
+    "attendance_facial": false
+  }
+}
+```
+
+**Respuesta de ejemplo — plan pro:**
+
+```json
+{
+  "features": {
+    "attendance_qr": true,
+    "attendance_facial": true
+  }
+}
+```
+
+El campo `features` es el único cambio. El contrato existente con `session_active`, `session_id` y `pin_hash` no se modifica.
+
+### Corregir envio de foto
+
+En `app/Http/Controllers/Api/Kiosk/KioskQrRecordController.php` se agrego el parceo de la ruta ya que utilizaba photo_url y es photo_path, pero adiconalmente se envia ya correctamente con la url.
+
+```php
+
+    /**
+     * Solución al formateo de la URL:
+     * Como tu base de datos guarda "schools/1/students/archivo.jpg", al concatenarlo con 'storage/'
+     * y pasarlo por asset(), Laravel generará automáticamente:
+     * Local: http://orvian.test/storage/schools/1/students/archivo.jpg
+     * Prod:  https://orvian.com.do/storage/schools/1/students/archivo.jpg
+     *
+     * Nota: Usamos asset() aquí porque evita las falsas alertas de error en el IDE que suele dar Storage::url()
+     */
+    $photoUrl = $result->student->photo_path 
+        ? asset('storage/' . $result->student->photo_path) 
+        : null;
+
+
+    return response()->json([
+        'success'    => true,
+        'student'    => [
+            'id'         => $result->student->id,
+            'full_name'  => $result->student->full_name,
+            'photo_url'  => $photoUrl, // Enviamos la URL absoluta resuelta
+        ],
+        'status'     => $result->attendanceStatus,  // 'present' | 'late'
+        'recorded_at'=> $result->recordedAt->toIso8601String(),
+    ]);
+
+```
+
+
+### Corregir componente
+
+En `resources/views/livewire/admin/plans/plan-features.blade.php` se estaba usando un componente dinamico para los iconos de los módulos, el cuál anteriormente se había cambiado. Este fue reemplazado por el componente de `ui.module-icon`
+
+```html
+    <x-ui.module-icon
+        :name="$features->first()->getIcon()"
+        class="w-5 h-5 opacity-60 group-hover/item:opacity-100 transition-opacity"
+    />
+```
+
+
+---
+
+## Cambios en Electron — `orvian-kiosk-electron`
+
+### Estado global de features
+
+En `setup-screen.js`, el objeto de features recibido del `/status` se guarda en una variable de módulo. Esto evita tener que pasar el estado como parámetro por toda la cadena de funciones:
+
+```javascript
+// renderer/setup-screen.js
+
+// Variable de módulo — se actualiza en cada evaluateKioskState exitoso
+let kioskFeatures = {
+    attendance_qr:     false,
+    attendance_facial: false,
+};
+```
+
+En `evaluateKioskState`:
+
+```javascript
+async function evaluateKioskState(client) {
+    try {
+        const status = await client.getStatus();
+        if (status?.school_name) lastKnownSchoolName = status.school_name;
+
+        // Actualizar features en cada heartbeat (el plan puede cambiar en el servidor)
+        if (status?.features) {
+            kioskFeatures = status.features;
+        }
+
+        // Cachear pin_hash para validación offline
+        await window.orvianConfig.set('cached_pin_hash', status.pin_hash ?? null);
+
+        if (status?.session_active) {
+            currentSessionId = status.session_id;
+            await activateKioskMode(client); // ← reemplaza turnOnCamera()
+        } else {
+            currentSessionId = null;
+            deactivateKioskMode();
+        }
+    } catch (err) {
+        if (err instanceof TokenRevokedError) {
+            clearInterval(heartbeatInterval);
+            showPinGate(() => showConfigForm());
+        } else {
+            console.warn('Error de conexión:', err.message);
+        }
+    }
+}
+```
+
+---
+
+### `activateKioskMode()` — decide qué interfaz mostrar
+
+Esta función reemplaza `turnOnCamera()`. Evalúa las features para determinar el modo de operación:
+
+```javascript
+// renderer/setup-screen.js
+
+async function activateKioskMode(client) {
+    if (kioskFeatures.attendance_facial) {
+        // Plan Pro: interfaz con cámara facial + QR listener en paralelo
+        await turnOnCamera();
+        startQrListener(client); // El QR listener corre siempre si el plan lo tiene
+    } else if (kioskFeatures.attendance_qr) {
+        // Plan básico: solo QR, sin cámara
+        turnOffCamera();         // Asegurar que la cámara no esté encendida
+        UI.renderQrOnly(lastKnownSchoolName);
+        startQrListener(client);
+    } else {
+        // Sin features de asistencia — no debería ocurrir, pero se maneja
+        UI.render('no_session', { school_name: lastKnownSchoolName });
+    }
+}
+
+function deactivateKioskMode() {
+    stopQrListener();
+    turnOffCamera();
+    UI.render('no_session', { school_name: lastKnownSchoolName });
+}
+```
+
+---
+
+### `qr-listener.js` — captura de lector USB
+
+El lector USB "tipea" caracteres en el sistema operativo. El listener mantiene un `<input>` oculto con foco permanente. Cuando recibe `Enter`, interpreta el buffer acumulado como el código QR y lo envía a Laravel:
+
+```javascript
+// renderer/qr-listener.js
+
+let _client = null;
+let _sessionIdRef = null; // función que devuelve el sessionId actual
+let _isListening = false;
+
+export function startQrListener(client, getSessionId) {
+    if (_isListening) return;
+    _client = client;
+    _sessionIdRef = getSessionId;
+    _isListening = true;
+
+    // Input oculto — el foco del lector va aquí
+    let hiddenInput = document.getElementById('qr-wedge-input');
+    if (!hiddenInput) {
+        hiddenInput = document.createElement('input');
+        hiddenInput.id = 'qr-wedge-input';
+        hiddenInput.setAttribute('aria-hidden', 'true');
+        // Fuera del viewport, invisible al usuario
+        hiddenInput.style.cssText = `
+            position: fixed; top: -9999px; left: -9999px;
+            opacity: 0; width: 1px; height: 1px;
+            pointer-events: none;
+        `;
+        document.body.appendChild(hiddenInput);
+    }
+
+    hiddenInput.addEventListener('keydown', handleQrKeydown);
+
+    // Mantener el foco en el input oculto continuamente
+    // (el usuario no debe poder escribir en ningún input visible)
+    document.addEventListener('focusin', refocusHiddenInput);
+
+    // Foco inicial
+    hiddenInput.focus();
+}
+
+export function stopQrListener() {
+    if (!_isListening) return;
+    _isListening = false;
+
+    const hiddenInput = document.getElementById('qr-wedge-input');
+    if (hiddenInput) {
+        hiddenInput.removeEventListener('keydown', handleQrKeydown);
+    }
+    document.removeEventListener('focusin', refocusHiddenInput);
+}
+
+function refocusHiddenInput(event) {
+    // No redirigir el foco si el pin-gate o el config form están activos
+    const globalOverlay = document.getElementById('global-overlay');
+    if (globalOverlay && !globalOverlay.classList.contains('hidden')) return;
+
+    const hiddenInput = document.getElementById('qr-wedge-input');
+    if (hiddenInput && event.target !== hiddenInput) {
+        hiddenInput.focus();
+    }
+}
+
+let buffer = '';
+let bufferTimer = null;
+
+function handleQrKeydown(event) {
+    if (event.key === 'Enter') {
+        const code = buffer.trim();
+        buffer = '';
+        clearTimeout(bufferTimer);
+
+        if (code.length > 0) {
+            processQrCode(code);
+        }
+        return;
+    }
+
+    // Acumular caracteres en el buffer
+    if (event.key.length === 1) {
+        buffer += event.key;
+    }
+
+    // Timeout de seguridad: si pasan 200ms sin Enter, limpiar buffer
+    // (previene contaminación por teclas accidentales del usuario)
+    clearTimeout(bufferTimer);
+    bufferTimer = setTimeout(() => { buffer = ''; }, 200);
+}
+
+async function processQrCode(code) {
+    const sessionId = _sessionIdRef ? _sessionIdRef() : null;
+
+    if (!sessionId) {
+        // No hay sesión activa — ignorar silenciosamente
+        return;
+    }
+
+    // Prevenir doble escaneo mientras se procesa
+    if (document.getElementById('app')?.dataset.state === 'processing') return;
+
+    UI.render('processing');
+
+    try {
+        const result = await _client.recordQr(sessionId, code);
+
+        if (result.success) {
+            const timeString = new Date().toLocaleTimeString('es-DO', {
+                hour: '2-digit', minute: '2-digit', hour12: true
+            });
+            UI.render('success', {
+                name:      result.student.full_name,
+                photo_url: result.student.photo_url,
+                time:      timeString,
+                status:    result.status || 'Presente',
+            });
+        } else {
+            UI.render('error', { message: result.message || 'Código no reconocido' });
+        }
+    } catch (e) {
+        UI.render('error', { message: 'Error de comunicación' });
+    }
+}
+```
+
+El timeout de 200ms en el buffer es clave: un lector USB envía todos los caracteres de un código en ~20-50ms. Si pasan más de 200ms entre caracteres, es una pulsación manual del usuario, no un escaneo — el buffer se descarta.
+
+---
+
+### `api-client.js` — agregar `recordQr`
+
+```javascript
+// renderer/api-client.js — agregar al ApiClient existente
+
+async recordQr(sessionId, qrCode) {
+    const resp = await fetch(`${this.base}/record/qr`, {
+        method: 'POST',
+        headers: {
+            ...this.headers,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            session_id: sessionId,
+            qr_code:    qrCode,
+        }),
+    });
+
+    if (resp.status === 401) {
+        throw new TokenRevokedError();
+    }
+
+    return resp.json();
+}
+```
+
+---
+
+### `ui-states.js` — estado `qr_only`
+
+Para el plan básico sin cámara, se agrega el estado `qr_only` al switch de `UI.render()`. Este estado reemplaza el `#scanner-view` del 70% con un panel simple centrado:
+
+```javascript
+// renderer/ui-states.js — agregar al switch de render()
+
+case 'qr_only':
+    processingOverlay.classList.add('opacity-0', 'pointer-events-none');
+    errorOverlay.classList.add('opacity-0', 'pointer-events-none');
+    globalOverlay.classList.add('hidden');
+    scannerPrompt.classList.add('opacity-0');
+
+    badgeDot.className = "w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse";
+    badgeText.textContent = "Escáner QR Activo";
+
+    // Reemplazar el área de cámara con panel QR minimalista
+    const scannerView = document.getElementById('scanner-view');
+    if (scannerView && !scannerView.dataset.qrMode) {
+        scannerView.dataset.qrMode = 'true';
+        // El video y canvas quedan ocultos — la cámara no está encendida
+        document.getElementById('webcam').style.display = 'none';
+        document.getElementById('output-canvas').style.display = 'none';
+
+        // Panel QR minimalista centrado en el 70%
+        const qrPanel = document.createElement('div');
+        qrPanel.id = 'qr-only-panel';
+        qrPanel.className = `
+            absolute inset-0 flex flex-col items-center justify-center gap-6
+            bg-[#0a0a0b]
+        `;
+        qrPanel.innerHTML = `
+            <div class="w-32 h-32 rounded-3xl border-4 border-[#f78904]/30 flex items-center justify-center">
+                <svg class="w-16 h-16 text-[#f78904]/60" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621
+                           0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125
+                           1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5Z
+                           M3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621
+                           0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125
+                           1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5Z
+                           M13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621
+                           0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125
+                           1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.75h.75v.75h-.75v-.75ZM16.75 6.75h.75v.75h-.75v-.75Z
+                           M13.5 13.5h.75v.75H13.5v-.75ZM13.5 19.5h.75v.75H13.5v-.75Z
+                           M16.5 16.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75Z
+                           M19.5 19.5h.75v.75h-.75v-.75Z" />
+                </svg>
+            </div>
+            <div class="text-center space-y-1">
+                <p class="text-sm font-bold text-gray-300">Acerque el carnet al lector</p>
+                <p class="text-xs text-gray-600">${data.school_name || 'Registro de Asistencia'}</p>
+            </div>
+        `;
+        scannerView.appendChild(qrPanel);
+    }
+    break;
+```
+
+Y agrega también un método público `renderQrOnly` en el objeto `UI` para que `setup-screen.js` pueda invocarlo con el nombre de la escuela:
+
+```javascript
+// Dentro del objeto UI, fuera del switch
+renderQrOnly(schoolName) {
+    this.render('qr_only', { school_name: schoolName });
+},
+```
+
+---
+
+### Integración en `setup-screen.js`
+
+```javascript
+// renderer/setup-screen.js
+
+import { ApiClient, TokenRevokedError  } from './api-client.js';
+import { UI } from './ui-states.js';
+import { initFaceDetector, detectLoop } from './camera.js';
+import { showPinGate } from './pin-gate.js';
+import { startQrListener, stopQrListener } from './qr-listener.js'; // ← nuevo
+
+let currentSessionId = null;
+let localStream = null;
+let lastKnownSchoolName = "Politécnico Orvian";
+let heartbeatInterval = null;
+let kioskFeatures = { attendance_qr: false, attendance_facial: false };
+
+// ... showConfigForm() sin cambios ...
+
+async function init() {
+    await UI.init(); // inicializar rutas de recursos
+
+    const url = await window.orvianConfig.get('server_url');
+    const token = await window.orvianConfig.get('kiosk_token');
+
+    if (!token) {
+        await showConfigForm();
+        return;
+    }
+
+    const client = new ApiClient(url, token);
+
+    try {
+        // MediaPipe solo se inicializa si el plan puede necesitar facial
+        // Se inicializa de forma especulativa — si el plan no lo tiene,
+        // la cámara nunca se enciende pero el detector está listo por si cambia
+        await initFaceDetector();
+
+        const videoEl = document.getElementById('webcam');
+        const canvasEl = document.getElementById('output-canvas');
+
+        detectLoop(videoEl, canvasEl, async (activeVideoEl) => {
+            if (!kioskFeatures.attendance_facial) return; // plan no lo tiene, ignorar
+            UI.render('processing');
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width = 640;
+            captureCanvas.height = 480;
+            const ctx = captureCanvas.getContext('2d');
+            ctx.drawImage(activeVideoEl, 0, 0, 640, 480);
+
+            captureCanvas.toBlob(async (blob) => {
+                try {
+                    const result = await client.recordFacial(currentSessionId || '0', blob);
+                    if (result.success) {
+                        const timeString = new Date().toLocaleTimeString('es-DO', {
+                            hour: '2-digit', minute: '2-digit', hour12: true
+                        });
+                        UI.render('success', {
+                            name:      result.student.full_name,
+                            photo_url: result.student.photo_url,
+                            time:      timeString,
+                            status:    result.status || 'Presente',
+                        });
+                    } else {
+                        UI.render('error', { message: result.message || "No identificado" });
+                    }
+                } catch (e) {
+                    UI.render('error', { message: "Error de comunicación" });
+                }
+            }, 'image/jpeg', 0.85);
+        });
+
+        await evaluateKioskState(client);
+        heartbeatInterval = setInterval(() => evaluateKioskState(client), 30000);
+
+    } catch (error) {
+        console.error("Fallo inicialización:", error);
+        UI.render('error', { message: "Fallo al cargar sistema" });
+    }
+
+    // Botón de acceso técnico
+    document.getElementById('tech-access-btn')?.addEventListener('click', () => {
+        showPinGate(() => showConfigForm());
+    });
+}
+
+async function activateKioskMode(client) {
+    if (kioskFeatures.attendance_facial) {
+        await turnOnCamera();
+        startQrListener(client, () => currentSessionId);
+    } else if (kioskFeatures.attendance_qr) {
+        turnOffCamera();
+        UI.renderQrOnly(lastKnownSchoolName);
+        startQrListener(client, () => currentSessionId);
+    } else {
+        UI.render('no_session', { school_name: lastKnownSchoolName });
+    }
+}
+
+function deactivateKioskMode() {
+    stopQrListener();
+    turnOffCamera();
+    UI.render('no_session', { school_name: lastKnownSchoolName });
+}
+
+async function evaluateKioskState(client) {
+    try {
+        const status = await client.getStatus();
+        if (status?.school_name) lastKnownSchoolName = status.school_name;
+        if (status?.features) kioskFeatures = status.features;
+
+        await window.orvianConfig.set('cached_pin_hash', status.pin_hash ?? null);
+
+        if (status?.session_active) {
+            currentSessionId = status.session_id;
+            await activateKioskMode(client);
+        } else {
+            currentSessionId = null;
+            deactivateKioskMode();
+        }
+    } catch (err) {
+        if (err instanceof TokenRevokedError) {
+            clearInterval(heartbeatInterval);
+            stopQrListener();
+            showPinGate(() => showConfigForm());
+        } else {
+            console.warn('Error de conexión:', err.message);
+        }
+    }
+}
+
+// turnOnCamera() y turnOffCamera() sin cambios
+
+init();
+```
+
+---
+
+## Archivos nuevos y modificados
+
+### En `orvian` (Laravel)
+
+| Archivo | Acción | Nota |
+| :--- | :--- | :--- |
+| `app/Http/Controllers/Api/Kiosk/KioskStatusController.php` | Modificar | Agregar `features.attendance_qr` y `features.attendance_facial` al JSON |
+
+### En `orvian-kiosk-electron`
+
+| Archivo | Acción | Nota |
+| :--- | :--- | :--- |
+| `renderer/qr-listener.js` | Crear | Captura de lector USB wedge, buffer con timeout, llama a `recordQr` |
+| `renderer/api-client.js` | Modificar | Agregar método `recordQr(sessionId, qrCode)` |
+| `renderer/ui-states.js` | Modificar | Agregar estado `qr_only` y método `renderQrOnly()` |
+| `renderer/setup-screen.js` | Modificar | Variables `kioskFeatures`, funciones `activateKioskMode()` y `deactivateKioskMode()`, import de `qr-listener.js` |
+
+---
+
+## Notas de prueba con lector de barras
+
+Para probar el flujo antes de tener lector QR:
+
+1. **Generar códigos de barras** con el mismo string que tiene el campo `qr_code` de un estudiante en la BD (formato `ORV-2024-XXXXX`). Cualquier generador online de Code 128 sirve.
+2. **Conectar el lector de barras** por USB. No requiere drivers — Windows lo detecta como teclado HID.
+3. **El flujo es idéntico** al QR: el lector escanea, el buffer de `qr-listener.js` acumula el string, recibe el `Enter`, y llama a `client.recordQr()`.
+4. Si el código leído coincide con un `qr_code` en la BD de la escuela autenticada, el controlador responde con éxito.
+
+**Para verificar que el lector wedge funciona antes de integrar con la app:** abre el Bloc de Notas en Windows y escanea un código — debe aparecer el string impreso. Si aparece, el lector está en modo wedge correcto.
+
+---
+
+## Nota sobre el CSP de `index.html`
+
+El QR listener no agrega peticiones a nuevos dominios, por lo que el `Content-Security-Policy` existente no necesita modificación. Las peticiones de `recordQr` van al mismo `connect-src` ya declarado (`http://localhost:80` o `https://orvian.com.do`).
+
 ---
 
 ## Fase 3 — Ventanas Horarias Configurables por Tanda
