@@ -230,11 +230,43 @@
                 @else
                     {{-- Estado Pendiente --}}
                     <div class="mt-4 flex flex-col items-center justify-center space-y-6">
-                        <p class="text-sm text-gray-400 dark:text-gray-500 italic">Programada: {{ $shift->start_time->format('h:i A') }}</p>
-                        <button wire:click="openSession({{ $shift->id }})" 
-                                class="w-full py-4 bg-gray-900 dark:bg-white dark:text-black text-white text-sm font-black rounded-2xl hover:scale-[1.02] transition-all">
-                            ABRIR TANDA <i class="fas fa-arrow-right ml-2"></i>
-                        </button>
+                        <p class="text-sm text-gray-400 dark:text-gray-500 italic">
+                            Programada: {{ $shift->start_time->format('h:i A') }}
+                        </p>
+
+                        @php
+                            $canOpen = $shift->can_be_opened;
+                        @endphp
+
+                        {{-- Contenedor con Alpine para Tooltip Nativo/Flotante --}}
+                        <div x-data="{ showTooltip: false }" class="relative w-full" @mouseenter="showTooltip = true" @mouseleave="showTooltip = false">
+                            
+                            <x-ui.button 
+                                wire:click="openSession({{ $shift->id }})" 
+                                variant="primary"
+                                size="lg"
+                                fullWidth
+                                :hoverEffect="$canOpen"
+                                :disabled="!$canOpen"
+                                wire:loading.attr="disabled"
+                            >
+                                ABRIR TANDA <i class="fas fa-arrow-right ml-2"></i>
+                            </x-ui.button>
+
+                            {{-- Tooltip condicional si está deshabilitado --}}
+                            @if(!$canOpen)
+                                <div x-show="showTooltip" 
+                                    x-transition:enter="transition ease-out duration-200"
+                                    x-transition:enter-start="opacity-0 translate-y-1"
+                                    x-transition:enter-end="opacity-100 translate-y-0"
+                                    class="absolute z-50 bottom-full left-1/2 transform -translate-x-1/2 mb-3 w-72 p-3 bg-gray-900 dark:bg-black text-white text-xs rounded-xl shadow-xl border border-gray-100/10 text-center pointer-events-none">
+                                    <p class="font-bold text-orvian-orange mb-0.5">Apertura inhabilitada</p>
+                                    <p class="text-gray-400">Disponible 1h 30m antes. Faltan: <span class="font-bold text-white">{{ $shift->time_until_opening }}</span></p>
+                                    {{-- Flecha del Tooltip --}}
+                                    <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-black"></div>
+                                </div>
+                            @endif
+                        </div>
                     </div>
                 @endif
             </div>
