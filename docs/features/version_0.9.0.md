@@ -2046,25 +2046,43 @@ El QR listener no agrega peticiones a nuevos dominios, por lo que el `Content-Se
 La lógica actual en `PlantelAttendanceService::determineStatus()` usa `SchoolShift::start_time` + un margen fijo de 15 minutos para determinar si un estudiante llegó tarde. Esto no contempla:
 - Ventanas de registro pre-apertura (entrada temprana).
 - Cierre automático de registro (nadie puede entrar después de X hora).
-- Rangos de tardanza configurables por tanda (no siempre son 15 minutos).
 
 ### Migración de Base de Datos
 
 ```php
 // database/migrations/xxxx_add_attendance_windows_to_school_shifts.php
 
-Schema::table('school_shifts', function (Blueprint $table) {
-    // Minutos antes del start_time que se permite registrar entrada
-    $table->unsignedSmallInteger('early_entry_minutes')->default(30);
+<?php
 
-    // Minutos después del start_time que se considera "Tardanza"
-    // (anteriormente hardcodeado como 15 en el Service)
-    $table->unsignedSmallInteger('late_threshold_minutes')->default(15);
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-    // Hora límite de registro. Después de esta hora no se acepta entrada.
-    // Si es null, no hay cierre automático.
-    $table->time('registration_closes_at')->nullable();
-});
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table('school_shifts', function (Blueprint $table) {
+            // Minutos después del start_time que se considera "Tardanza"
+            $table->unsignedSmallInteger('late_threshold_minutes')->default(0)->after('end_time');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('school_shifts', function (Blueprint $table) {
+            $table->dropColumn([
+                'late_threshold_minutes',
+            ]);
+        });
+    }
+};
 ```
 
 ### Actualización de `PlantelAttendanceService::determineStatus()`
@@ -2188,6 +2206,73 @@ Route::get('/attendance/shift-windows', ShiftWindowManager::class)
     ->name('app.attendance.shift-windows')
     ->middleware('can:shifts.configure');
 ```
+
+**Agregar label**
+
+Colocar la nueva ruta en `config/modules.php`
+
+```php
+['label' => 'Configuración Horaria',            'route' => 'app.attendance.shift-windows'],
+```
+
+### Limitar apertura de tandas
+
+Ahora que se colca el cambio de hora es necesario limitar en la vista de sesion abrir las seciones a menos que falte 1 hora y 30 minutos para que haya un tiempo de confugracion. 
+
+**Agregar asesores en el modelo**
+
+```php
+
+    /**
+     * Determina si la tanda ya puede ser abierta con una ventana de tiempo estricta.
+     */
+    public function getCanBeOpenedAttribute(): bool
+    {
+        $now = Carbon::now();
+        
+        // Ventana de apertura: 1 hora y media antes del start_time
+        $openingWindowStart = Carbon::today()
+            ->setTime($this->start_time->hour, $this->start_time->minute)
+            ->subMinutes(90);
+
+        // Límite de cierre de ventana: No permitir abrir si ya pasó la hora de entrada 
+        // (o puedes cambiarlo a $this->end_time si permites aperturas extremadamente tardías)
+        $openingWindowEnd = Carbon::today()
+            ->setTime($this->start_time->hour, $this->start_time->minute);
+
+        // El botón solo se activa si la hora actual cae EXACTAMENTE dentro del rango del día de hoy
+        return $now->between($openingWindowStart, $openingWindowEnd);
+    }
+
+    /**
+     * Devuelve un string legible con el estado o tiempo restante para la apertura.
+     */
+    public function getTimeUntilOpeningAttribute(): string
+    {
+        $now = Carbon::now();
+        
+        $openingWindowStart = Carbon::today()
+            ->setTime($this->start_time->hour, $this->start_time->minute)
+            ->subMinutes(90);
+
+        $openingWindowEnd = Carbon::today()
+            ->setTime($this->start_time->hour, $this->start_time->minute);
+
+        // Caso 1: Aún no es hora de abrir (Falta tiempo)
+        if ($now->lessThan($openingWindowStart)) {
+            return 'Disponible en ' . $now->shortAbsoluteDiffForHumans($openingWindowStart);
+        }
+
+        // Caso 2: Ya pasó la hora de entrada reglamentaria para iniciar la sesión
+        if ($now->greaterThan($openingWindowEnd)) {
+            return 'Horario de apertura vencido para el día de hoy.';
+        }
+
+        return '';
+    }
+```
+
+Usar esos asesores en el livewire de `app/Livewire/App/Attendance/AttendanceSessionManager.php` y usar el boton de `ui.buttond` más un tooltip para desactivar el boton en `resources/views/livewire/app/attendance/session-manager.blade.php`.
 
 ---
 

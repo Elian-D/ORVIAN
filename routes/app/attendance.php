@@ -10,6 +10,7 @@ use App\Livewire\App\Attendance\ClassroomAttendanceHistory;
 use App\Livewire\App\Attendance\ExcuseIndex;
 use App\Livewire\App\Attendance\ManualAttendance;
 use App\Livewire\App\Attendance\PlantelAttendanceIndex;
+use App\Livewire\App\Attendance\ShiftWindowManager;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -62,4 +63,8 @@ Route::prefix('attendance')->name('attendance.')->group(function () {
     Route::middleware('can:attendance_classroom.view')->group(function () {
         Route::get('/classroom/history', ClassroomAttendanceHistory::class)->name('classroom.history');
     });
+
+    Route::get('/shift-windows', ShiftWindowManager::class)
+    ->name('shift-windows')
+    ->middleware('can:settings.update');
 });

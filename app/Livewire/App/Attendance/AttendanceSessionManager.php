@@ -45,6 +45,18 @@ class AttendanceSessionManager extends Component
     {
         $this->authorize('attendance_plantel.open_session');
 
+        $shift = SchoolShift::findOrFail($shiftId);
+
+        // Validación estricta en el Backend
+        if (!$shift->can_be_opened) {
+            $this->dispatch('notify', 
+                type: 'error', 
+                message: "No se puede abrir la tanda aún. Apertura permitida a partir de las " . 
+                        $shift->start_time->subMinutes(90)->format('h:i A')
+            );
+            return;
+        }
+
         try {
             $service->openDailySession(Auth::user()->school_id, $shiftId, today());
             $this->dispatch('notify', type: 'success', message: 'Sesión de asistencia abierta correctamente.');
