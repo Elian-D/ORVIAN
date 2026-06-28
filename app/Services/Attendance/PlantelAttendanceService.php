@@ -198,32 +198,33 @@ class PlantelAttendanceService
 
     // ── Helpers ───────────────────────────────────────────────────
 
-    protected function determineStatus(string $time, int $shiftId): string
-    {
-        $shift = SchoolShift::find($shiftId);
+        protected function determineStatus(string $time, int $shiftId): string
+        {
+            $shift = SchoolShift::find($shiftId);
 
-        if (! $shift || ! $shift->start_time) {
-            return PlantelAttendanceRecord::STATUS_PRESENT;
+            if (!$shift || !$shift->start_time) {
+                return PlantelAttendanceRecord::STATUS_PRESENT;
+            }
+
+            $arrivalTime   = Carbon::parse($time);
+            $shiftStart    = Carbon::parse($shift->start_time);
+            $lateThreshold = $shiftStart->copy()->addMinutes($shift->late_threshold_minutes ?? 15);
+
+            // ── Ventana de cierre ────────────────────────────────────────
+            if ($shift->registration_closes_at) {
+                $closesAt = Carbon::parse($shift->registration_closes_at);
+                if ($arrivalTime->gt($closesAt)) {
+                    throw new \Exception(
+                        "El registro de entrada para la {$shift->type} cerró a las " .
+                        $closesAt->format('h:i A') . '.'
+                    );
+                }
+            }
+
+            return $arrivalTime->lte($lateThreshold)
+                ? PlantelAttendanceRecord::STATUS_PRESENT
+                : PlantelAttendanceRecord::STATUS_LATE;
         }
-
-        $arrivalTime   = Carbon::parse($time);
-        $shiftStart    = Carbon::parse($shift->start_time);
-        $lateThreshold = $shiftStart->copy()->addMinutes(15);
-
-        return $arrivalTime->lte($lateThreshold)
-            ? PlantelAttendanceRecord::STATUS_PRESENT
-            : PlantelAttendanceRecord::STATUS_LATE;
-    }
-
-    public function isStudentPresentInPlantel(int $studentId, Carbon $date, int $shiftId): bool
-    {
-        $record = PlantelAttendanceRecord::where('student_id', $studentId)
-            ->where('date', $date)
-            ->where('school_shift_id', $shiftId)
-            ->first();
-
-        return $record && $record->isPresent();
-    }
 
 
     // ── Métodos nuevos (agregar al final del servicio) ────────────────
