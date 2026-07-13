@@ -53,7 +53,7 @@ class RoleAcademicSeeder extends Seeder
             'teachers.view', 'teachers.assign_subjects',
             'attendance_plantel.view', 'attendance_plantel.open_session', 'attendance_plantel.close_session', 'attendance_plantel.reports', 'attendance_plantel.verify',
             'attendance_classroom.view', 'attendance_classroom.reports',
-            'excuses.view', 'excuses.submit', 'excuses.approve', 'excuses.reject',
+            'excuses.view', 'manage_excuses',
             'settings.view',
         ]);
 
@@ -63,7 +63,7 @@ class RoleAcademicSeeder extends Seeder
             'users.view',
             'students.view',
             'attendance_classroom.view', 'attendance_classroom.record', 'attendance_classroom.edit', 'attendance_classroom.reports',
-            'excuses.view', 'excuses.submit',
+            'excuses.view', 'manage_excuses',
         ]);
 
         // --- SECRETARY (Operativa de Entrada/Salida) ---
@@ -72,14 +72,14 @@ class RoleAcademicSeeder extends Seeder
             'users.view', 'users.create',
             'students.view', 'students.create', 'students.edit', 'students.import',
             'attendance_plantel.view', 'attendance_plantel.record', 'attendance_plantel.qr', 'attendance_plantel.reports',
-            'excuses.view', 'excuses.submit',
+            'excuses.view', 'manage_excuses',
         ]);
 
         // --- STUDENT ---
         $studentRole = Role::where('name', 'Student')->first();
         $studentRole->syncPermissions([
             'attendance_classroom.view',
-            'excuses.view', 'excuses.submit',
+            'excuses.view', 'manage_excuses',
         ]);
     }
 }

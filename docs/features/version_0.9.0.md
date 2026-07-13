@@ -38,9 +38,9 @@
 | ID | Fase | Área | Descripción | Prioridad | Estado |
 | :-- | :-- | :-- | :-- | :-- | :-- |
 | REQ-01 | 1 | Asistencia Biométrica | API Gateway para el Kiosko: rutas `/api/v1/kiosk/` protegidas por Sanctum | Alta | Completado |
-| REQ-02 | 2 | Asistencia Biométrica | Arquitectura de `orvian-kiosk-electron`: app de escritorio con Electron + MediaPipe Tasks-Vision for Web (WASM local), sin lógica de QR | Alta | Pendiente |
-| REQ-03 | 3 | Configuración | Ventanas horarias configurables por tanda (entrada, tardanza, cierre) | Alta | Pendiente |
-| REQ-04 | 4 | UI / Componentes | Selector Universal de Cursos — componente Livewire reutilizable | Alta | Pendiente |
+| REQ-02 | 2 | Asistencia Biométrica | Arquitectura de `orvian-kiosk-electron`: app de escritorio con Electron + MediaPipe Tasks-Vision for Web (WASM local), sin lógica de QR | Alta | Completado |
+| REQ-03 | 3 | Configuración | Ventanas horarias configurables por tanda (entrada, tardanza, cierre) | Alta | Completado|
+| REQ-04 | 4 | UI / Componentes | Selector Universal de Cursos — componente Livewire reutilizable | Alta | A FUTURO |
 | REQ-05 | 5 | Asistencia Aula | Rediseño completo del pase de lista con gestos de deslizamiento | Alta | Pendiente |
 | REQ-06 | 6 | Mobile | Planificación de app móvil Flutter para tutores (sin código) | Media | Planificación |
 | REQ-07 | 7 | UI | Ajustes visuales al navbar de módulos en mobile | Media | Pendiente |
@@ -2371,114 +2371,218 @@ class CourseSelectorModal extends Component
 
 ---
 
-## Fase 5 — Rediseño del Pase de Lista en Aula
+# Fase 5 — Asistencia de Plantel y Excusas (alcance reducido para el piloto)
 
-**Rama:** `feature/v0.9.0-classroom-swipe`
+> Decisión: la asistencia de aula queda **desactivada por completo** para el piloto — ni obligatoria ni opcional. La columna vertebral vuelve a ser exclusivamente Plantel (entradas, vía kiosko), con un dominio de excusas simplificado atado solo a Plantel. Nada de salidas tempranas, ciclo de regreso, ticket QR, actividad institucional, ni módulo Orientación en esta fase.
 
-### Diagnóstico del Flujo Actual
+## Por qué se reduce el alcance
 
-El componente `ClassroomAttendanceLive.php` carga la lista de estudiantes en `$studentStatuses[]` y la vista la renderiza como tabla con botones por fila. Para una clase de 35 estudiantes esto implica mínimo 35 + 5 interacciones.
+El módulo de aula introducía criterio humano no programable (pasilleo, tolerancia por maestro) y dependía de un segundo registro paralelo al Registro Anecdótico oficial sin producir ningún documento que lo justificara. Las salidas tempranas con ciclo de regreso agregaban una segunda capa de estado (afuera/adentro) sobre un proceso que, sin el ticket físico digitalizado, no tiene forma confiable de capturarse. Plantel — entrada automatizada por kiosko, con excusa simple — es la única parte del dominio que es 100% mecánica, sin ambigüedad de criterio, y es la que el director realmente pidió.
 
-### Nueva Arquitectura — Vista de Tarjeta con Gestos
-
-El rediseño mantiene el backend PHP intacto. Solo cambia la vista Blade y agrega la lógica de gestos en Alpine.js. Los métodos `loadStudents()`, `setStatus()`, `saveAttendance()` de `ClassroomAttendanceLive.php` no se modifican.
-
-#### Estructura de la Vista
+## Estructura de Ramas
 
 ```
-┌──────────────────────────────────────┐
-│  [ Barra de progreso — 17 de 32 ]   │
-├──────────────────────────────────────┤
-│      FOTO DEL ESTUDIANTE             │
-│      Nombre Completo                 │
-│      Cédula / Matrícula              │
-│      Badge de estado (si ya marcado) │
-│                                      │
-│   ←  Ausente    Presente  →          │
-│         ↓  Tardanza                  │
-├──────────────────────────────────────┤
-│  [ ✗ Ausente | ✓ Presente ]         │
-│  [ ⏰ Tardanza | ⏭ Saltar ]         │
-└──────────────────────────────────────┘
+release/v0.9.0
+└── feature/v0.9.0-plantel-excuses-fase5    (única rama — ya no hay Sub-fase B de aula)
 ```
 
-#### Implementación Alpine de Gestos
+## Tabla de Requisitos
 
-```js
-Alpine.data('classroomSwiper', (students, statuses) => ({
-    students: students,
-    statuses: statuses,
-    currentIndex: 0,
+| ID | Descripción | Estado |
+| :-- | :-- | :-- |
+| REQ-05.7 | Dominio de excusas simplificado, atado solo a Plantel | Completado |
+| REQ-05.12 | `AttendanceAudit` — dos transiciones sobre Plantel, restringidas a hoy | Completado |
+| REQ-05.13 | Ocultar módulo de Aula (pase de lista, dashboard, reportes, historial) | Completado|
 
-    touchStartX: 0,
-    touchStartY: 0,
-    dragX: 0,
-    dragY: 0,
-    isDragging: false,
-    pendingAction: null,
+### Fuera de alcance del piloto — no se implementa, no se revierte porque no se construyó
 
-    SWIPE_THRESHOLD: 80,
+| Requisito anterior | Estado |
+| :-- | :-- |
+| Actividad Institucional (antes REQ-05.8/05.9) | Descartado — dependía de aula |
+| Base del módulo Orientación (antes REQ-05.10) | Descartado — sin aula ni ciclo de salidas no hay caso de uso que lo requiera ahora |
+| Ticket QR de salida/regreso, modo portería en Electron (antes REQ-05.11) | Descartado — Plantel no maneja salidas |
+| Interacción tipo tarjeta / swipe UI (antes REQ-05.9 de Sub-fase B) | Descartado — nunca se llegó a construir, no hay nada que revertir |
+| `EarlyDepartureControl` | Descartado — si llegó a scaffolearse algún archivo, eliminar; si solo quedó documentado, no requiere acción |
 
-    get currentStudent() { return this.students[this.currentIndex] ?? null; },
+### Ya completado, se deja intacto y oculto (no se revierte, no se toca)
 
-    get progress() {
-        return {
-            done:  Object.values(this.statuses).filter(Boolean).length,
-            total: this.students.length,
-        };
-    },
+| Requisito | Motivo para no tocarlo |
+| :-- | :-- |
+| REQ-05.1 — Gate de sesión cerrada por tanda | Vive dentro de `ClassroomAttendanceLive`, queda oculto junto con el resto de aula (REQ-05.13) |
+| REQ-05.3 — Estado inicial "Sin Marcar" | Idem |
+| REQ-05.5 — Trazabilidad del Modo Sustituto | Idem |
+| REQ-05.6 — Fix de validación cruzada | Idem — sin registros de aula que cruzar, queda inerte pero no daña nada estando oculto |
 
-    onTouchStart(e) {
-        this.touchStartX = e.touches[0].clientX;
-        this.touchStartY = e.touches[0].clientY;
-        this.isDragging  = true;
-    },
+---
 
-    onTouchMove(e) {
-        if (!this.isDragging) return;
-        this.dragX = e.touches[0].clientX - this.touchStartX;
-        this.dragY = e.touches[0].clientY - this.touchStartY;
-        const absX = Math.abs(this.dragX);
-        const absY = Math.abs(this.dragY);
-        if (absX > absY)        this.pendingAction = this.dragX > 0 ? 'present' : 'absent';
-        else if (this.dragY > 0) this.pendingAction = 'late';
-        else                     this.pendingAction = null;
-    },
+## REQ-05.7 — Dominio de Excusas Simplificado (versión final, solo Plantel)
 
-    onTouchEnd() {
-        const absX = Math.abs(this.dragX);
-        const absY = Math.abs(this.dragY);
-        if (absX > this.SWIPE_THRESHOLD && absX > absY)
-            this.mark(this.dragX > 0 ? 'present' : 'absent');
-        else if (absY > this.SWIPE_THRESHOLD && this.dragY > 0 && absY > absX)
-            this.mark('late');
-        this.resetDrag();
-    },
+### Regla central (sin cambios)
 
-    mark(status) {
-        if (!this.currentStudent) return;
-        const studentId = this.currentStudent.id;
-        this.statuses[studentId] = status;
-        @this.setStatus(studentId, status);
-        this.nextStudent();
-    },
+Una excusa nunca modifica un registro de asistencia ya creado, sin importar qué tan en el pasado esté. `markAbsences()` consulta la excusa confirmada en el momento de crear cada registro — si no existía cuando el registro se creó, se queda como estaba, para siempre.
 
-    nextStudent() {
-        if (this.currentIndex < this.students.length - 1) this.currentIndex++;
-    },
+### Tipos — dos motivos, sin más
 
-    resetDrag() { this.dragX = 0; this.dragY = 0; this.isDragging = false; this.pendingAction = null; },
+```php
+// AttendanceExcuse.php
+public const TYPE_MEDICAL  = 'medical';
+public const TYPE_PERSONAL = 'personal';
 
-    get cardStyle() {
-        const rotation = this.dragX * 0.05;
-        return `transform: translateX(${this.dragX}px) translateY(${this.dragY > 0 ? this.dragY * 0.3 : 0}px) rotate(${rotation}deg); transition: ${this.isDragging ? 'none' : 'transform 0.3s ease'};`;
-    },
-
-    get overlayColor() {
-        return { present: 'bg-emerald-500/60', absent: 'bg-red-500/60', late: 'bg-amber-500/60' }[this.pendingAction] ?? '';
-    },
-}));
+public const TYPE_LABELS = [
+    self::TYPE_MEDICAL  => 'Motivo Médico',
+    self::TYPE_PERSONAL => 'Motivo Personal',
+];
 ```
+
+Ambos tipos se crean bajo el mismo permiso `attendance.manage_excuses` — sin split de autoridad entre Administración y Orientación, sin rol nuevo.
+
+### Terminología y máquina de estados — Confirmación/Cancelación
+
+```php
+public const STATUS_PENDING   = 'pending';
+public const STATUS_CONFIRMED = 'confirmed'; // antes: approved
+public const STATUS_CANCELLED = 'cancelled'; // antes: rejected
+```
+
+Dos transiciones válidas únicamente:
+
+- `pending → confirmed`: única forma de avanzar, con modal de resumen (estudiante + foto + cédula/sección + tipo + fechas) como segundo factor antes de confirmar.
+- `confirmed → cancelled`: exclusiva para el error detectado **después** de confirmar (ej. excusa confirmada para el estudiante equivocado). No existe `pending → cancelled` — una pendiente mal hecha se corrige editando en `ExcuseForm`, no se cancela.
+
+Cancelar una excusa confirmada no revierte ningún `plantel_attendance_record` ya creado — solo la saca de las consultas futuras (`markAbsences()`, `getActivelyExcusedStudentIds()`). Un registro que ya nació `excusado` mientras la excusa estaba vigente se corrige, si hace falta, por Audit — no por cancelar la excusa.
+
+### Validaciones — un solo punto de verdad, en el momento correcto (ya corregido)
+
+```php
+// ExcuseService.php
+
+/** Se evalúa en cada guardado (crear Y editar) — depende solo del propio valor. */
+public function canCreateForDate(Carbon $dateStart): bool
+{
+    return $dateStart->greaterThanOrEqualTo(today());
+}
+
+/**
+ * Se evalúa EXCLUSIVAMENTE al confirmar, nunca al crear ni al editar —
+ * es la única forma de que no quede obsoleta por ediciones posteriores.
+ */
+public function validateForConfirmation(AttendanceExcuse $excuse): void
+{
+    if ($this->hasOverlappingConfirmedExcuse(
+        $excuse->student_id, $excuse->date_start, $excuse->date_end, excludeId: $excuse->id
+    )) {
+        throw new ExcuseValidationException('Ya existe una excusa confirmada que se traslapa con este rango.');
+    }
+}
+
+public function hasOverlappingConfirmedExcuse(int $studentId, Carbon $dateStart, Carbon $dateEnd, ?int $excludeId = null): bool
+{
+    return AttendanceExcuse::where('student_id', $studentId)
+        ->where('status', AttendanceExcuse::STATUS_CONFIRMED)
+        ->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
+        ->where('date_start', '<=', $dateEnd->toDateString())
+        ->where('date_end', '>=', $dateStart->toDateString())
+        ->exists();
+}
+```
+
+> **Se elimina `canCreatePersonalExcuse()` (tope de 2 días consecutivos).** Era una regla de autoridad que dependía de tener a quién escalar el tercer caso (Orientación). Sin ese rol, bloquear sin nadie que evalúe el bloqueo genera más fricción que la que resuelve. Queda solo el traslape, que es integridad de datos, no política. Si el piloto demuestra que hace falta un control de frecuencia, se agrega con evidencia real, no antes.
+
+`EarlyDepartureControl` no existe en este alcance — no hay excepción que documentar porque no hay salidas que registrar.
+
+### Vistas
+
+- `excuse-index.blade.php`: listado con foto, sección junto al nombre, badges "Pendiente"/"Confirmado"/"Cancelado".
+- `ExcuseForm.php` / `.blade.php`: vista separada (mismo patrón de `StudentForm`), editable solo mientras `status === PENDING`, guard también server-side. Personal: solo estudiante editable (fecha = hoy, fija). Médica: estudiante y rango de fechas.
+
+### Aviso informativo — excusa multi-día activa que se presenta (sin cambios, ya diseñado)
+
+```php
+// ExcuseService.php
+public function getMultiDayExcuseStillPendingForStudent(int $studentId, Carbon $date): ?AttendanceExcuse
+{
+    return AttendanceExcuse::where('student_id', $studentId)
+        ->where('status', AttendanceExcuse::STATUS_CONFIRMED)
+        ->where('date_start', '<=', $date->toDateString())
+        ->where('date_end', '>', $date->toDateString())
+        ->first();
+}
+```
+
+Se anota en `metadata` del registro de Plantel al momento de crearse — informativo, no cambia ningún status. Visible desde el listado de Plantel del día; no requiere panel de Hub dedicado para el piloto.
+
+---
+
+## REQ-05.12 — `AttendanceAudit` (Plantel, sin dependencia de aula)
+
+Dos transiciones, ambas restringidas a `today()`:
+
+1. **`ausente → tardanza`**: estudiante marcado ausente sin excusa que llega tarde sin haber avisado. Modal de confirmación.
+2. **`excusado → presente`**: sesión cerró antes de que el kiosko capturara la llegada de un estudiante con excusa confirmada. Modal de confirmación + foto.
+
+```php
+Schema::table('plantel_attendance_records', function (Blueprint $table) {
+    $table->foreignId('corrected_by_user_id')->nullable()->constrained('users');
+    $table->timestamp('corrected_at')->nullable();
+});
+```
+
+```php
+DB::transaction(function () use ($record) {
+    $record->update([
+        'status'               => PlantelAttendanceRecord::STATUS_LATE, // o STATUS_PRESENT, según transición
+        'corrected_by_user_id' => Auth::id(),
+        'corrected_at'         => now(),
+    ]);
+    $this->session->decrement('total_absent');   // o total_excused, según transición
+    $this->session->increment('total_late');     // o total_present, según transición
+});
+```
+
+Cualquier sesión distinta de hoy se renderiza en modo solo lectura, sin excepción — misma justificación de siempre: no reescribir el pasado.
+
+**Migración pendiente, aún no aplicada.**
+
+---
+
+## REQ-05.13 — Ocultar Módulo de Aula
+
+```php
+// config/modules.php
+'asistencia' => [
+    // ...
+    'sub_links' => [
+        // Pase de Lista, Dashboard (si depende de aula), Reportes de aula,
+        // Historial de aula → visible: false
+        // Sesión del Día, Excusas, Auditoría, Configuración Horaria → se quedan visibles
+    ],
+],
+```
+
+Mismo patrón usado en v0.4.1 para módulos incompletos. Las rutas ocultas devuelven 404 si se accede directamente — no se borra código, se apaga el acceso. Reversible sin reescribir nada si en algún momento se retoma aula.
+
+---
+
+## Archivos a Crear / Modificar
+
+| Archivo | Acción | REQ |
+| :--- | :--- | :--- |
+| `app/Models/Tenant/AttendanceExcuse.php` | Enum `medical`/`personal`; status `confirmed`/`cancelled` | 05.7 |
+| `database/migrations/xxxx_update_attendance_excuses_types_and_status.php` | Migración de tipo + datos de status (`approved`→`confirmed`, `rejected`→`cancelled`) | 05.7 |
+| `app/Services/Attendance/ExcuseService.php` | `canCreateForDate()`, `validateForConfirmation()`, `hasOverlappingConfirmedExcuse()`; **eliminar** `canCreatePersonalExcuse()` si ya se agregó | 05.7 |
+| `app/Livewire/App/Attendance/ExcuseForm.php` | Crear/ajustar — guard de edición por `status`, validación solo al confirmar | 05.7 |
+| `resources/views/livewire/app/attendance/excuse-form.blade.php` | Crear/ajustar | 05.7 |
+| `resources/views/livewire/app/attendance/excuse-index.blade.php` | Listado, foto, cédula/sección, badges nuevos | 05.7 |
+| `app/Livewire/App/Attendance/EarlyDepartureControl.php` | Eliminar si llegó a crearse | — |
+| `app/Models/Tenant/InstitutionalActivity.php` + migración | Eliminar si llegó a crearse | — |
+| `database/console/commands/SeedDemoSchoolData.php` | Actualizar Paso 5: status `approved` → `confirmed` | 05.7 |
+| `app/Livewire/App/Attendance/AttendanceAudit.php` | Dos transiciones, restricción `today()` | 05.12 |
+| `database/migrations/xxxx_add_correction_fields_to_plantel_attendance_records.php` | `corrected_by_user_id`, `corrected_at` — pendiente | 05.12 |
+| `config/modules.php` | `visible: false` en sublinks de aula | 05.13 |
+
+## Git
+
+Revertir únicamente commits específicos de: enum `institutional_activity`, cualquier scaffolding de `EarlyDepartureControl`/`InstitutionalActivity`/rol `Orientadora` si llegaron a crearse. El resto de v0.9.0, y todo lo ya completado de aula (REQ-05.1/05.3/05.5/05.6), queda intacto y oculto — no se toca.
 
 ---
 

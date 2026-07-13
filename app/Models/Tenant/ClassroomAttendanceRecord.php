@@ -3,6 +3,7 @@
 namespace App\Models\Tenant;
 
 use App\Models\Tenant\Academic\TeacherSubjectSection;
+use App\Models\User;
 use App\Scopes\SchoolScope;
 use App\Traits\BelongsToSchool;
 use Carbon\Carbon;
@@ -14,21 +15,23 @@ class ClassroomAttendanceRecord extends Model
     use BelongsToSchool;
 
     // ── Constantes de Estado ──────────────────────────────────────
-    public const STATUS_PRESENT = 'present';
-    public const STATUS_ABSENT  = 'absent';
-    public const STATUS_LATE    = 'late';
-    public const STATUS_EXCUSED = 'excused';
+    public const STATUS_PRESENT  = 'present';
+    public const STATUS_ABSENT   = 'absent';
+    public const STATUS_LATE     = 'late';
+    public const STATUS_EXCUSED  = 'excused';
+    public const STATUS_UNMARKED = 'unmarked';
 
     public const STATUS_LABELS = [
-        self::STATUS_PRESENT => 'Presente',
-        self::STATUS_ABSENT  => 'Ausente',
-        self::STATUS_LATE    => 'Tardanza',
-        self::STATUS_EXCUSED => 'Justificado',
+        self::STATUS_PRESENT  => 'Presente',
+        self::STATUS_ABSENT   => 'Ausente',
+        self::STATUS_LATE     => 'Tardanza',
+        self::STATUS_EXCUSED  => 'Justificado',
+        self::STATUS_UNMARKED => 'Sin Marcar',
     ];
 
     protected $fillable = [
         'school_id', 'student_id', 'teacher_subject_section_id',
-        'teacher_id', 'date', 'class_time', 'status', 'teacher_notes', 'metadata',
+        'teacher_id', 'recorded_by_user_id', 'date', 'class_time', 'status', 'teacher_notes', 'metadata',
     ];
 
     protected $casts = [
@@ -51,6 +54,11 @@ class ClassroomAttendanceRecord extends Model
     public function assignment()
     {
         return $this->belongsTo(TeacherSubjectSection::class, 'teacher_subject_section_id');
+    }
+
+    public function recordedBy()
+    {
+        return $this->belongsTo(User::class, 'recorded_by_user_id');
     }
 
     // ── Accessors ─────────────────────────────────────────────────
@@ -99,6 +107,7 @@ class ClassroomAttendanceRecord extends Model
         return $query->with([
             'student:id,first_name,last_name,photo_path',
             'teacher:id,first_name,last_name',
+            'recordedBy:id,name',
             'assignment.subject:id,name,code,color',
         ]);
     }

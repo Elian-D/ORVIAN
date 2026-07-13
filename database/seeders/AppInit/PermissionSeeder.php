@@ -37,7 +37,7 @@ class PermissionSeeder extends Seeder
                 'attendance_classroom.view', 'attendance_classroom.record', 'attendance_classroom.edit', 'attendance_classroom.reports'
             ],
             'excuses' => [
-                'excuses.view', 'excuses.submit', 'excuses.approve', 'excuses.reject'
+                'excuses.view', 'manage_excuses'
             ],
 
             // --- GLOBAL ---

@@ -61,7 +61,7 @@
                 Historial del Plantel
             </x-ui.button>
 
-            <x-ui.button 
+            {{-- <x-ui.button 
                 href="{{ route('app.attendance.classroom.history') }}"
                 variant="primary" 
                 type="outline" 
@@ -69,7 +69,7 @@
                 icon="heroicon-o-academic-cap"
             > 
                 Historial por Sección
-            </x-ui.button>
+            </x-ui.button> --}}
         </x-slot:secondary>
     </x-app.module-toolbar>
 
@@ -77,13 +77,19 @@
 
         {{-- ── Selector de tipo de reporte ────────────────────────────────── --}}
         <div class="bg-white dark:bg-dark-card rounded-3xl p-1.5 shadow-sm border border-slate-100 dark:border-dark-border">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-1">
+            {{-- Fase 5 (piloto): era "md:grid-cols-4" con los 4 tipos de reporte
+                 activos. Volver a "md:grid-cols-4" al reactivar Aula. --}}
+            <div class="grid grid-cols-2 gap-1">
                 @php
+                    // Fase 5 (piloto): 'discrepancies' (pasilleo) y 'teacher'
+                    // (cobertura de pase de lista) dependen de datos de Aula —
+                    // ocultos aquí junto con el resto de aula (REQ-05.13).
+                    // Descomentar para reactivar.
                     $types = [
                         'summary'       => ['label' => 'Resumen General',    'icon' => 'heroicon-s-chart-bar'],
                         'student'       => ['label' => 'Por Estudiante',     'icon' => 'heroicon-s-user'],
-                        'discrepancies' => ['label' => 'Discrepancias',      'icon' => 'heroicon-s-exclamation-circle'],
-                        'teacher'       => ['label' => 'Por Maestro',        'icon' => 'heroicon-s-academic-cap'],
+                        // 'discrepancies' => ['label' => 'Discrepancias',      'icon' => 'heroicon-s-exclamation-circle'],
+                        // 'teacher'       => ['label' => 'Por Maestro',        'icon' => 'heroicon-s-academic-cap'],
                     ];
                 @endphp
                 @foreach($types as $key => $info)

@@ -38,10 +38,15 @@ return [
         'module'      => 'Asistencia',
         'moduleIcon'  => 'asistencia',
         'moduleLinks' => [
+            // Fase 5 (piloto): solo el Pase de Lista se oculta a nivel de ruta
+            // (es 100% aula). Dashboard y Reportes se quedan — mezclan datos
+            // de Plantel con paneles de aula/pasilleo, que se comentan dentro
+            // de cada blade en vez de tumbar la vista completa (REQ-05.13).
             ['label' => 'Dashboard',          'route' => 'app.attendance.dashboard'],
             ['label' => 'Sesión del Día',     'route' => 'app.attendance.session'],
+            ['label' => 'Control diario',     'route' => 'app.attendance.hub'],
             ['label' => 'Configuración Horaria',            'route' => 'app.attendance.shift-windows'],
-            ['label' => 'Pase de Lista',      'route' => 'app.attendance.classroom.live'],
+            // ['label' => 'Pase de Lista',      'route' => 'app.attendance.classroom.live'],
             ['label' => 'Reportes',           'route' => 'app.attendance.reports'],
             ['label' => 'Excusas',            'route' => 'app.attendance.excuses.index'],
         ],
