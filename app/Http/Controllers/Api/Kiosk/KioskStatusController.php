@@ -22,8 +22,14 @@ class KioskStatusController
             ->with('shift')
             ->first();
 
+        // Resolución de URL absoluta para el logo del centro
+        $logoUrl = $school->logo_path 
+            ? asset('storage/' . $school->logo_path) 
+            : null;
+
         return response()->json([
             'school_name'      => $school->name,
+            'school_logo_url'  => $logoUrl, // <-- Dato expuesto para la Fase 3 de Electron
             'session_active'   => (bool) $session,
             'session_id'       => $session?->id,
             'server_time'      => now()->toIso8601String(),
