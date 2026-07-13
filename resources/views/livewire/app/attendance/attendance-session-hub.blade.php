@@ -10,7 +10,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-black text-slate-800 dark:text-white leading-none">
-                        Hub de Asistencia
+                        Control Diario de Asistencia - {{ Carbon\Carbon::parse($date)->isoFormat('D [de] MMMM') }}
                     </h1>
                     <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                         Gestión por excepción y auditoría
@@ -20,142 +20,99 @@
         </x-slot:title>
 
         <x-slot:actions>
-            <x-ui.button 
-                variant="secondary" 
-                type="ghost" 
-                size="sm" 
+            <x-ui.button
+                variant="info"
+                type="ghost"
+                size="sm"
                 iconLeft="heroicon-o-clock"
                 wire:click="goToToday">
                 Hoy
             </x-ui.button>
 
-            <x-ui.button 
-                href="{{ route('app.attendance.session') }}" 
-                variant="primary" 
-                size="sm" 
+            <x-ui.button
+                href="{{ route('app.attendance.session') }}"
+                variant="primary"
+                size="sm"
                 iconLeft="heroicon-s-plus">
                 Abrir Sesión
             </x-ui.button>
         </x-slot:actions>
     </x-ui.page-header>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {{-- ══════════════════════════════════════════
-            Columna Izquierda: Calendario
-        ══════════════════════════════════════════ --}}
-        <div class="lg:col-span-1">
-            <div class="bg-white dark:bg-dark-card rounded-2xl border border-slate-200 dark:border-white/10 
-                        shadow-sm p-5 backdrop-blur-sm">
-                
-                {{-- Header del calendario --}}
-                <div class="flex items-center justify-between mb-5">
-                    <h3 class="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">
-                        {{ $currentMonth }}
-                    </h3>
-                    <div class="flex gap-1">
-                        <button 
-                            wire:click="previousMonth"
-                            class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 
-                                   text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all">
-                            <x-heroicon-s-chevron-left class="w-4 h-4" />
-                        </button>
-                        <button 
-                            wire:click="nextMonth"
-                            class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 
-                                   text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all">
-                            <x-heroicon-s-chevron-right class="w-4 h-4" />
-                        </button>
-                    </div>
+
+    {{-- ══════════════════════════════════════════
+        Selector de Fecha (popover con el calendario)
+    ══════════════════════════════════════════ --}}
+    <div class="relative inline-block" x-data="{ open: false }">
+        <button
+            type="button"
+            @click="open = !open"
+            class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10
+                   bg-white dark:bg-dark-card shadow-sm text-sm font-semibold text-slate-700 dark:text-slate-200
+                   hover:border-slate-300 dark:hover:border-white/20 transition-all">
+            <x-heroicon-s-calendar class="w-4 h-4 text-orvian-orange" />
+            <span>{{ $selectedDateLabel }}</span>
+            <x-heroicon-s-chevron-down class="w-3.5 h-3.5 text-slate-400 transition-transform" ::class="open && 'rotate-180'" />
+        </button>
+
+        <div
+            x-show="open"
+            @click.away="open = false"
+            @calendar-date-selected.window="open = false"
+            x-transition:enter="transition ease-out duration-150"
+            x-transition:enter-start="opacity-0 scale-95 -translate-y-1"
+            x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-100"
+            x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+            x-transition:leave-end="opacity-0 scale-95 -translate-y-1"
+            x-cloak
+            class="absolute left-0 top-full mt-2 w-[320px] z-40 rounded-2xl shadow-xl p-5
+                   bg-white dark:bg-dark-card border border-slate-200 dark:border-white/10">
+
+            <x-ui.calendar :days="$this->calendarDays" :month="$currentMonth" />
+
+            {{-- Leyenda --}}
+            <div class="mt-5 flex flex-col gap-2 pt-4 border-t border-slate-200 dark:border-white/5">
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span class="text-slate-600 dark:text-slate-400">Sesiones cerradas</span>
                 </div>
-
-                {{-- Grid del calendario --}}
-                <div class="space-y-2">
-                    {{-- Días de la semana --}}
-                    <div class="grid grid-cols-7 gap-1 mb-2">
-                        @foreach(['L', 'M', 'X', 'J', 'V', 'S', 'D'] as $day)
-                            <div class="text-center text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase">
-                                {{ $day }}
-                            </div>
-                        @endforeach
-                    </div>
-
-                    {{-- Días del mes --}}
-                    <div class="grid grid-cols-7 gap-1">
-                        @foreach($this->calendarDays as $day)
-                            <button 
-                                wire:click="selectDate('{{ $day['date']->toDateString() }}')"
-                                @class([
-                                    'relative aspect-square flex flex-col items-center justify-center rounded-lg transition-all',
-                                    'hover:bg-slate-50 dark:hover:bg-white/5',
-                                    
-                                    // Día actual (borde naranja)
-                                    'ring-2 ring-orvian-orange ring-offset-2 dark:ring-offset-dark-card' => $day['is_today'],
-                                    
-                                    // Día seleccionado (fondo naranja)
-                                    'bg-orvian-orange text-white shadow-lg shadow-orvian-orange/30' => $day['is_selected'],
-                                    
-                                    // Día fuera del mes actual
-                                    'opacity-30' => !$day['is_current_month'],
-                                    
-                                    // Día del mes actual (no seleccionado)
-                                    'text-slate-700 dark:text-slate-300' => $day['is_current_month'] && !$day['is_selected'],
-                                ])
-                            >
-                                <span class="text-xs font-bold">
-                                    {{ $day['date']->day }}
-                                </span>
-
-                                {{-- Indicador de estado (punto de color) --}}
-                                @if($day['has_sessions'])
-                                    <span @class([
-                                        'absolute bottom-1 w-1 h-1 rounded-full',
-                                        'bg-emerald-500' => $day['status'] === 'success',
-                                        'bg-amber-500' => $day['status'] === 'warning',
-                                        'bg-red-500' => $day['status'] === 'error',
-                                        'opacity-0' => $day['is_selected'], // Ocultar cuando está seleccionado
-                                    ])></span>
-                                @endif
-                            </button>
-                        @endforeach
-                    </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span class="text-slate-600 dark:text-slate-400">Sesiones abiertas</span>
                 </div>
-
-                {{-- Leyenda --}}
-                <div class="mt-5 flex pt-5 border-t border-slate-200 dark:border-white/5 space-y-2">
-                    <div class="flex items-center gap-2 text-xs">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span class="text-slate-600 dark:text-slate-400">Sesiones cerradas</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs">
-                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                        <span class="text-slate-600 dark:text-slate-400">Sesiones abiertas</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs">
-                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                        <span class="text-slate-600 dark:text-slate-400">Alta ausencia (\>20%)</span>
-                    </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span class="text-slate-600 dark:text-slate-400">Alta ausencia (&gt;20%)</span>
                 </div>
             </div>
         </div>
+    </div>
 
-        {{-- ══════════════════════════════════════════
-            Columna Derecha: Selector de Tandas y Detalle
-        ══════════════════════════════════════════ --}}
-        <div class="lg:col-span-2 space-y-6">
-            
-            @if($this->sessionsOfDay->isNotEmpty())
-                
-                {{-- 1. GRID INTELIGENTE DE TANDAS (SELECTOR) --}}
+    {{-- ══════════════════════════════════════════
+        Selector de Tandas y Detalle
+    ══════════════════════════════════════════ --}}
+    <div class="space-y-6">
+        @if($this->sessionsOfDay->isNotEmpty())
+
+            {{-- 1. SELECTOR DE TANDAS — solo tiene sentido elegir cuando hay más
+                 de una. Con una sola tanda, mostrar un selector sería ofrecer una
+                 decisión que no existe y dejar un hueco de grid a medio llenar;
+                 esa misma información (tanda + estado) ya vive en el header del
+                 detalle de abajo, así que no se pierde nada al omitirlo. --}}
+            @if($this->sessionsOfDay->count() > 1)
                 @php
-                    // Dependiendo de la cantidad de tandas, ajustamos las columnas
-                    $gridCols = $this->sessionsOfDay->count() === 1 ? 'grid-cols-1 md:grid-cols-2' : 
-                               ($this->sessionsOfDay->count() === 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-3');
+                    $sessionsCount = $this->sessionsOfDay->count();
+                    $gridCols = match(true) {
+                        $sessionsCount === 2 => 'grid-cols-2',
+                        $sessionsCount === 3 => 'grid-cols-2 md:grid-cols-3',
+                        default              => 'grid-cols-2 md:grid-cols-4',
+                    };
                 @endphp
 
                 <div class="grid {{ $gridCols }} gap-4">
                     @foreach($this->sessionsOfDay as $session)
-                        <button 
+                        <button
                             wire:click="selectSession({{ $session->id }})"
                             @class([
                                 'relative flex items-center justify-between p-4 rounded-2xl border text-left transition-all duration-200 overflow-hidden',
@@ -201,26 +158,37 @@
                         </button>
                     @endforeach
                 </div>
+            @endif
 
                 {{-- 2. DETALLE DE LA SESIÓN SELECCIONADA --}}
                 @if($this->selectedSessionDetail)
                     @php $session = $this->selectedSessionDetail; @endphp
-                    
-                    <div class="bg-white/50 dark:bg-dark-card backdrop-blur-sm 
-                                rounded-2xl border border-slate-200 dark:border-white/10 
+
+                    <div class="bg-white/50 dark:bg-dark-card backdrop-blur-sm
+                                rounded-2xl border border-slate-200 dark:border-white/10
                                 shadow-sm p-6 space-y-6 animate-fade-in-up">
-                        
-                        {{-- Header Unificado --}}
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div class="flex items-center gap-4">
-                                <div class="relative">
+
+                        {{-- Header — la acción (Gestionar/Auditar) es la protagonista:
+                             botón sólido, tamaño md y ancho completo en mobile. El
+                             resto (quién abrió, hora, cupo) queda deliberadamente
+                             secundario en tamaño y peso tipográfico. --}}
+                        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-5">
+                            <div class="flex items-center gap-4 min-w-0">
+                                <div class="relative flex-shrink-0">
                                     <x-ui.avatar :user="$session->openedBy" size="md" class="ring-2 ring-white dark:ring-dark-bg" />
                                 </div>
-                                <div>
-                                    <div class="flex items-center gap-2">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         <h4 class="text-base font-black text-slate-800 dark:text-white">
                                             Tanda {{ $session->shift->type }}
                                         </h4>
+                                        <span @class([
+                                            'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide',
+                                            'bg-state-warning/10 text-state-warning' => is_null($session->closed_at),
+                                            'bg-state-success/10 text-state-success' => !is_null($session->closed_at),
+                                        ])>
+                                            {{ is_null($session->closed_at) ? 'Abierta' : 'Cerrada' }}
+                                        </span>
                                     </div>
                                     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                                         <span class="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -231,30 +199,28 @@
                                             <x-heroicon-s-clock class="w-3.5 h-3.5" />
                                             {{ $session->opened_at->format('h:i A') }}
                                         </span>
-                                        <span class="text-xs font-bold text-orvian-orange flex items-center gap-1">
+                                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
                                             <x-heroicon-s-users class="w-3.5 h-3.5" />
-                                            {{ $session->total_expected }} <span class="font-normal opacity-70">estudiantes</span>
+                                            {{ $session->total_expected }} <span class="opacity-70">estudiantes</span>
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="flex items-center gap-2 self-end sm:self-center">
-                                <x-ui.button 
-                                    variant="{{ is_null($session->closed_at) ? 'primary' : 'secondary' }}"
-                                    type="{{ is_null($session->closed_at) ? 'solid' : 'outline' }}" 
-                                    size="sm" 
-                                    iconRight="heroicon-s-chevron-right"
-                                    {{-- Cambio dinámico de la ruta --}}
-                                    href="{{ is_null($session->closed_at) 
-                                        ? route('app.attendance.session') 
-                                        : route('app.attendance.audit', ['sessionId' => $session->id]) 
-                                    }}"
-                                    class="rounded-xl shadow-sm"
-                                >
-                                    {{ is_null($session->closed_at) ? 'Gestionar' : 'Auditar' }}
-                                </x-ui.button>
-                            </div>
+                            <x-ui.button
+                                variant="{{ is_null($session->closed_at) ? 'primary' : 'secondary' }}"
+                                type="solid"
+                                size="md"
+                                iconRight="heroicon-s-chevron-right"
+                                {{-- Cambio dinámico de la ruta --}}
+                                href="{{ is_null($session->closed_at)
+                                    ? route('app.attendance.session')
+                                    : route('app.attendance.audit', ['sessionId' => $session->id])
+                                }}"
+                                class="w-full sm:w-auto rounded-xl shadow-md flex-shrink-0"
+                            >
+                                {{ is_null($session->closed_at) ? 'Gestionar Sesión' : 'Auditar Sesión' }}
+                            </x-ui.button>
                         </div>
 
                         {{-- Barra de progreso segmentada --}}
@@ -349,5 +315,4 @@
                 </div>
             @endif
         </div>
-    </div>
 </div>

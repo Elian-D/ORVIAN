@@ -3,7 +3,7 @@
     {{-- ── Page Header ─────────────────────────────────────────────────────── --}}
     <x-ui.page-header
         title="Dashboard de Asistencia"
-        description="Vista operativa dual: Plantel y Aula en tiempo real.">
+        description="Vista operativa de Plantel en tiempo real.">
         <x-slot:actions>
             <div class="flex flex-wrap items-center gap-2">
 
@@ -110,7 +110,10 @@
                     @endforeach
                 </x-ui.forms.select>
 
-                {{-- Selector de sección --}}
+                {{-- Selector de sección — Fase 5 (piloto): solo alimenta los
+                     paneles de Aula, comentado junto con ellos (REQ-05.13).
+                     Descomentar junto con el Panel Aula para reactivar. --}}
+                {{--
                 <x-ui.forms.select
                     name="selectedSection"
                     wire:model.live="selectedSection"
@@ -120,6 +123,7 @@
                         <option value="{{ $section->id }}">{{ $section->full_label }}</option>
                     @endforeach
                 </x-ui.forms.select>
+                --}}
             </div>
         </x-slot:actions>
     </x-ui.page-header>
@@ -183,8 +187,10 @@
         </div>
     @endif
 
-    {{-- ── Sección 2: Métricas Duales ──────────────────────────────────────── --}}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    {{-- ── Sección 2: Métricas ──────────────────────────────────────────────── --}}
+    {{-- Fase 5 (piloto): era "lg:grid-cols-2" cuando el Panel Aula vivía al
+         lado del Panel Plantel. Volver a "lg:grid-cols-2" al reactivar Aula. --}}
+    <div class="grid grid-cols-1 gap-6">
 
         {{-- Panel Plantel --}}
         <div class="bg-white dark:bg-dark-card rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-dark-border">
@@ -242,7 +248,9 @@
             <p class="mt-4 text-xs text-slate-400 text-right">Total esperado: <span class="font-bold text-slate-600 dark:text-slate-300">{{ $activeSession['total_expected'] ?? $plantelStats['total'] }}</span></p>
         </div>
 
-        {{-- Panel Aula --}}
+        {{-- Panel Aula — Fase 5 (piloto): desactivado, depende de datos de
+             Aula (REQ-05.13). Cambiar el "false" de abajo a "true" para reactivar. --}}
+        @if(false)
         <div class="bg-white dark:bg-dark-card rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-dark-border">
             {{-- Header --}}
             <div class="flex items-center justify-between mb-5">
@@ -297,10 +305,13 @@
 
             <p class="mt-4 text-xs text-slate-400 text-right">Total registros de clase: <span class="font-bold text-slate-600 dark:text-slate-300">{{ $classroomStats['total'] }}</span></p>
         </div>
+        @endif
     </div>
 
-    {{-- ── Sección 3: Panel de Discrepancias (Pasilleo) ────────────────────── --}}
-    @if(count($discrepancies) > 0)
+    {{-- ── Sección 3: Panel de Discrepancias (Pasilleo) — Fase 5 (piloto):
+         desactivado, depende de datos de Aula (REQ-05.13). Cambiar el "false"
+         de abajo a "count($discrepancies) > 0" para reactivar. ────────────── --}}
+    @if(false)
         <div class="bg-white dark:bg-dark-card rounded-3xl shadow-sm border border-red-100 dark:border-red-900/40 overflow-hidden">
             {{-- Header --}}
             <div class="flex items-center justify-between px-6 py-4 border-b border-red-50 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">

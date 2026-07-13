@@ -288,7 +288,7 @@
                     <x-data-table.cell column="section" :visible="$visibleColumns">
                         @php $section = $record->assignment?->section; @endphp
                         @if($section)
-                            <x-ui.badge variant="info" size="sm">
+                            <x-ui.badge class="whitespace-nowrap" variant="info" size="sm">
                                 {{ $section->grade?->name }}° - {{ $section->label }}
                             </x-ui.badge>
                         @else
@@ -324,7 +324,7 @@
 
                     {{-- Hora de Clase --}}
                     <x-data-table.cell column="class_time" :visible="$visibleColumns">
-                        <span class="text-sm font-mono text-slate-600 dark:text-slate-400">
+                        <span class="whitespace-nowrap text-sm font-mono text-slate-600 dark:text-slate-400">
                             {{ $record->class_time
                                 ? \Carbon\Carbon::parse($record->class_time)->format('h:i A')
                                 : '—' }}
@@ -345,6 +345,23 @@
                         <x-ui.badge :variant="$statusVariant" size="sm" dot>
                             {{ $record->status_label }}
                         </x-ui.badge>
+                    </x-data-table.cell>
+
+                    {{-- Registrado por --}}
+                    <x-data-table.cell column="recorded_by" :visible="$visibleColumns">
+                        @php
+                            $isSubstitute = $record->recorded_by_user_id
+                                && $record->teacher
+                                && $record->recorded_by_user_id !== $record->teacher->user_id;
+                        @endphp
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                {{ $record->recordedBy?->name ?? $record->teacher?->full_name ?? '—' }}
+                            </span>
+                            @if($isSubstitute)
+                                <x-ui.badge variant="warning" size="sm">Sustituto</x-ui.badge>
+                            @endif
+                        </div>
                     </x-data-table.cell>
 
                     {{-- Notas --}}

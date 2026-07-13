@@ -29,7 +29,8 @@ class ClassroomAttendanceService
         $this->validateCrossAttendance(
             $data['student_id'],
             Carbon::parse($data['date']),
-            $data['school_id']
+            $data['school_id'],
+            $data['status']
         );
 
         $existing = ClassroomAttendanceRecord::where('student_id', $data['student_id'])
@@ -39,9 +40,11 @@ class ClassroomAttendanceService
 
         if ($existing) {
             $existing->update([
-                'status'       => $data['status'],
-                'class_time'   => $data['class_time'],
-                'teacher_notes' => $data['teacher_notes'] ?? $existing->teacher_notes,
+                'status'              => $data['status'],
+                'class_time'          => $data['class_time'],
+                'teacher_notes'       => $data['teacher_notes'] ?? $existing->teacher_notes,
+                // Una corrección hecha por otro usuario actualiza quién queda acreditado.
+                'recorded_by_user_id' => $data['recorded_by_user_id'],
             ]);
             return $existing->fresh();
         }
@@ -59,11 +62,15 @@ class ClassroomAttendanceService
      * el status se fuerza a STATUS_EXCUSED para mantener consistencia.
      *
      * @param  array  $studentStatuses  [ student_id => status, ... ]
+     * @param  int    $recordedByUserId  User::id de quien presiona "Guardar" — el
+     *                                   titular de la clase o un sustituto (otro
+     *                                   maestro, director o coordinador).
      */
     public function takeClassAttendance(
         int $assignmentId,
         Carbon $date,
-        array $studentStatuses
+        array $studentStatuses,
+        int $recordedByUserId
     ): array {
         $assignment = TeacherSubjectSection::findOrFail($assignmentId);
 
@@ -90,6 +97,7 @@ class ClassroomAttendanceService
                     'student_id'                  => $studentId,
                     'teacher_subject_section_id'  => $assignmentId,
                     'teacher_id'                  => $assignment->teacher_id,
+                    'recorded_by_user_id'         => $recordedByUserId,
                     'date'                        => $date,
                     'class_time'                  => now()->format('H:i:s'),
                     'status'                      => $status,
@@ -168,14 +176,12 @@ class ClassroomAttendanceService
      * Regla de negocio estricta: no se puede registrar presencia en aula
      * si el estudiante está marcado como ausente en plantel.
      */
-    protected function validateCrossAttendance(int $studentId, Carbon $date, int $schoolId): void
+    protected function validateCrossAttendance(int $studentId, Carbon $date, int $schoolId, string $incomingStatus): void
     {
         $student = Student::with('section.shift')->findOrFail($studentId);
         $shiftId = $student->section?->shift?->id ?? SchoolShift::where('school_id', $schoolId)->first()?->id;
 
-        if (! $shiftId) {
-            return; // Sin tanda configurada, se permite el registro
-        }
+        if (! $shiftId) return;
 
         $plantelRecord = PlantelAttendanceRecord::where('student_id', $studentId)
             ->whereDate('date', $date)
@@ -183,26 +189,27 @@ class ClassroomAttendanceService
             ->first();
 
         if (! $plantelRecord) {
-            // Si no tiene registro de plantel pero tiene excusa aprobada para hoy,
-            // se permite el registro de aula (el sistema acepta que no pasó por la puerta
-            // pero el maestro quiere dejar constancia de la excusa).
-            $hasExcuse = $this->excuseService->hasApprovedExcuseForDate($studentId, $date);
+            $hasExcuse = $this->excuseService->hasConfirmedExcuseForDate($studentId, $date);
             if (! $hasExcuse) {
-                throw new \Exception(
-                    'El estudiante no ha registrado entrada al plantel hoy. '.
-                    'Debe pasar por la portería primero o tener una excusa aprobada.'
-                );
+                throw new \Exception('El estudiante no ha registrado entrada al plantel hoy.');
             }
             return;
         }
 
-        if (in_array($plantelRecord->status, [
+        $lockedInPlantel = in_array($plantelRecord->status, [
             PlantelAttendanceRecord::STATUS_ABSENT,
             PlantelAttendanceRecord::STATUS_EXCUSED,
+        ]);
+
+        // Solo es una combinación imposible si se intenta guardar PRESENTE/TARDE
+        // mientras el plantel dice ausente/excusado. Guardar ABSENT o EXCUSED
+        // (coherente con el plantel) siempre debe permitirse.
+        if ($lockedInPlantel && in_array($incomingStatus, [
+            ClassroomAttendanceRecord::STATUS_PRESENT,
+            ClassroomAttendanceRecord::STATUS_LATE,
         ])) {
             throw new \Exception(
-                "El estudiante está marcado como '{$plantelRecord->status_label}' en el plantel. ".
-                'No puede registrarse como presente en aula.'
+                "El estudiante está marcado como '{$plantelRecord->status_label}' en el plantel. No puede registrarse como presente en aula."
             );
         }
     }

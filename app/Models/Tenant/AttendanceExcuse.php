@@ -13,49 +13,40 @@ class AttendanceExcuse extends Model
     use BelongsToSchool;
 
     // ── Constantes de Estado ──────────────────────────────────────
-    public const STATUS_PENDING  = 'pending';
-    public const STATUS_APPROVED = 'approved';
-    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_PENDING   = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_CANCELLED = 'cancelled';
 
     // ── Constantes de Tipo de Excusa ──────────────────────────────
-    public const TYPE_FULL_ABSENCE      = 'full_absence';
-    public const TYPE_LATE_ARRIVAL      = 'late_arrival';
-    public const TYPE_EARLY_DEPARTURE   = 'early_departure';
-    public const TYPE_LICENSE           = 'license';
-    public const TYPE_MEDICAL           = 'medical';  // Licencia médica extendida
-
-    // Los tipos que implican una licencia activa (el estudiante puede entrar
-    // físicamente aunque el sistema lo tenga justificado).
-    public const LICENSE_TYPES = [
-        self::TYPE_LICENSE,
-        self::TYPE_MEDICAL,
-    ];
+    // 'type' ya no declara forma temporal (llegada tardía, salida
+    // anticipada, ausencia completa) — eso es un estado de movimiento
+    // real que vive en PlantelAttendanceRecord. Aquí solo se declara el motivo.
+    public const TYPE_MEDICAL                = 'medical';
+    public const TYPE_PERSONAL               = 'personal';
 
     public const STATUS_LABELS = [
-        self::STATUS_PENDING  => 'Pendiente',
-        self::STATUS_APPROVED => 'Aprobada',
-        self::STATUS_REJECTED => 'Rechazada',
+        self::STATUS_PENDING   => 'Pendiente',
+        self::STATUS_CONFIRMED => 'Confirmada',
+        self::STATUS_CANCELLED => 'Cancelada',
     ];
 
     public const TYPE_LABELS = [
-        self::TYPE_FULL_ABSENCE    => 'Ausencia Total',
-        self::TYPE_LATE_ARRIVAL    => 'Llegada Tardía',
-        self::TYPE_EARLY_DEPARTURE => 'Salida Anticipada',
-        self::TYPE_LICENSE         => 'Licencia',
-        self::TYPE_MEDICAL         => 'Licencia Médica',
+        self::TYPE_MEDICAL                => 'Motivo Médico',
+        self::TYPE_PERSONAL               => 'Motivo Personal',
     ];
 
     protected $fillable = [
         'school_id', 'student_id', 'date_start', 'date_end', 'type',
-        'reason', 'attachment_path', 'status', 'submitted_by',
-        'submitted_at', 'reviewed_by', 'reviewed_at', 'review_notes',
+        'reason', 'attachment_path', 'status',
+        'submitted_by', 'submitted_at', 'reviewed_by', 'reviewed_at',
+        'review_notes',
     ];
 
     protected $casts = [
-        'date_start'   => 'date',
-        'date_end'     => 'date',
-        'submitted_at' => 'datetime',
-        'reviewed_at'  => 'datetime',
+        'date_start'       => 'date',
+        'date_end'         => 'date',
+        'submitted_at'     => 'datetime',
+        'reviewed_at'      => 'datetime',
     ];
 
 
@@ -99,14 +90,14 @@ class AttendanceExcuse extends Model
         return $query->where('status', self::STATUS_PENDING);
     }
 
-    public function scopeApproved($query)
+    public function scopeConfirmed($query)
     {
-        return $query->where('status', self::STATUS_APPROVED);
+        return $query->where('status', self::STATUS_CONFIRMED);
     }
 
-    public function scopeRejected($query)
+    public function scopeCancelled($query)
     {
-        return $query->where('status', self::STATUS_REJECTED);
+        return $query->where('status', self::STATUS_CANCELLED);
     }
 
     public function scopeForDateRange($query, Carbon $start, Carbon $end)
@@ -121,16 +112,12 @@ class AttendanceExcuse extends Model
         });
     }
 
-    public function scopeLicense($query)
-    {
-        return $query->whereIn('type', self::LICENSE_TYPES);
-    }
 
     // ── Helpers ───────────────────────────────────────────────────
 
-    public function isApproved(): bool
+    public function isConfirmed(): bool
     {
-        return $this->status === self::STATUS_APPROVED;
+        return $this->status === self::STATUS_CONFIRMED;
     }
 
     public function isPending(): bool
@@ -138,9 +125,9 @@ class AttendanceExcuse extends Model
         return $this->status === self::STATUS_PENDING;
     }
 
-    public function isLicenseType(): bool
+    public function isCancelled(): bool
     {
-        return in_array($this->type, self::LICENSE_TYPES);
+        return $this->status === self::STATUS_CANCELLED;
     }
 
     public function coversDate(Carbon $date): bool

@@ -115,14 +115,21 @@ class ClassroomAttendanceHistory extends DataTable
         $baseQuery = ClassroomAttendanceRecord::where('school_id', $schoolId)
             ->with([
                 'student:id,first_name,last_name,photo_path,school_section_id,rnc',
-                'teacher:id,first_name,last_name',
+                'teacher:id,first_name,last_name,user_id',
+                'recordedBy:id,name',
                 'assignment.subject:id,name,code,color',
                 'assignment.section' => fn ($q) => $q->with('grade:id,name'),
             ]);
 
-        // Los maestros solo pueden ver sus propios registros; no es bypasseable por URL
+        // Los maestros solo pueden ver registros de sus propias clases o que ellos
+        // mismos hayan registrado como sustitutos; no es bypasseable por URL.
+        // Ambos lados de la comparación son IDs de User, no de Teacher.
         if ($this->teacherScope) {
-            $baseQuery->where('teacher_id', $this->teacherScope);
+            $currentUserId = Auth::id();
+            $baseQuery->where(fn ($q) => $q
+                ->whereHas('teacher', fn ($q2) => $q2->where('user_id', $currentUserId))
+                ->orWhere('recorded_by_user_id', $currentUserId)
+            );
         }
 
         $records = (new ClassroomAttendanceFilters($this->filters))

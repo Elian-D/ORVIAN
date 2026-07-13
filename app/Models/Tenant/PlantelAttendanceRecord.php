@@ -44,14 +44,16 @@ class PlantelAttendanceRecord extends Model
         'school_shift_id', 'date', 'time', 'status', 'method',
         'registered_by', 'temperature', 'notes', 'metadata',
         'verified_at', 'verified_by',
+        'corrected_by_user_id', 'corrected_at',
     ];
 
     protected $casts = [
-        'date'        => 'date',
-        'time'        => 'datetime',
-        'temperature' => 'decimal:2',
-        'metadata'    => 'array',
-        'verified_at' => 'datetime',
+        'date'           => 'date',
+        'time'           => 'datetime',
+        'temperature'    => 'decimal:2',
+        'metadata'       => 'array',
+        'verified_at'    => 'datetime',
+        'corrected_at'   => 'datetime',
     ];
 
 
@@ -80,6 +82,11 @@ class PlantelAttendanceRecord extends Model
     public function verifiedBy()
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function correctedBy()
+    {
+        return $this->belongsTo(User::class, 'corrected_by_user_id');
     }
 
     // ── Accessors ─────────────────────────────────────────────────
@@ -119,7 +126,7 @@ class PlantelAttendanceRecord extends Model
         return $query->where('status', self::STATUS_ABSENT);
     }
 
-    public function scopeExcused($query)
+    public function scopeExcused($query) 
     {
         return $query->where('status', self::STATUS_EXCUSED);
     }
@@ -174,4 +181,6 @@ class PlantelAttendanceRecord extends Model
     {
         return $this->status === self::STATUS_EXCUSED;
     }
+
+    
 }

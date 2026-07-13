@@ -8,7 +8,6 @@ use App\Models\Tenant\Student;
 use App\Models\Tenant\Academic\SchoolShift;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB; // <--- Necesario para transacciones
 use App\Services\FacialRecognition\FaceEncodingManager; // <--- Usar el Manager
 use Illuminate\Http\UploadedFile;
@@ -105,28 +104,20 @@ class PlantelAttendanceService
             $data['school_shift_id']
         );
 
-        // ── Alerta de licencia activa ─────────────────────────────
-        // Si el estudiante tiene una licencia o excusa médica aprobada
-        // para hoy pero se presentó físicamente, se registra la entrada
-        // normalmente pero se agrega un flag en metadata para coordinación.
+        // Aviso informativo: si el estudiante tiene una excusa de varios días
+        // que todavía no ha terminado y de todas formas se presenta, se anota
+        // en el propio registro para que Dirección lo vea en el Hub — no cambia
+        // el status, no toca la excusa, solo queda registrado el hecho.
         $metadata = $data['metadata'] ?? [];
-        $activeLicense = $this->excuseService->getActiveLicenseForStudent(
+        $pendingExcuse = $this->excuseService->getMultiDayExcuseStillPendingForStudent(
             $data['student_id'],
             Carbon::parse($data['date'])
         );
 
-        if ($activeLicense) {
-            $metadata['license_alert'] = true;
-            $metadata['license_id']    = $activeLicense->id;
-            $metadata['license_type']  = $activeLicense->type;
-            $metadata['alert_message'] = 'Estudiante con licencia activa ha ingresado al plantel.';
-
-            Log::info('Estudiante con licencia activa registró entrada', [
-                'student_id'  => $data['student_id'],
-                'excuse_id'   => $activeLicense->id,
-                'excuse_type' => $activeLicense->type,
-                'date'        => $data['date'],
-            ]);
+        if ($pendingExcuse) {
+            $metadata['excuse_alert']  = true;
+            $metadata['excuse_id']     = $pendingExcuse->id;
+            $metadata['alert_message'] = 'Estudiante con excusa activa de varios días ha ingresado al plantel.';
         }
 
         $record = PlantelAttendanceRecord::create([
@@ -167,8 +158,8 @@ class PlantelAttendanceService
         $marked = 0;
 
         foreach ($absentStudents as $student) {
-            // Verificar si tiene excusa aprobada para este día
-            $hasApprovedExcuse = $this->excuseService->hasApprovedExcuseForDate(
+            // Verificar si tiene excusa confirmada para este día
+            $hasConfirmedExcuse = $this->excuseService->hasConfirmedExcuseForDate(
                 $student->id,
                 $sessionDate
             );
@@ -180,12 +171,12 @@ class PlantelAttendanceService
                 'school_shift_id'             => $session->school_shift_id,
                 'date'                        => $session->date,
                 'time'                        => now()->format('H:i:s'),
-                'status'                      => $hasApprovedExcuse
+                'status'                      => $hasConfirmedExcuse
                                                     ? PlantelAttendanceRecord::STATUS_EXCUSED
                                                     : PlantelAttendanceRecord::STATUS_ABSENT,
                 'method'                      => PlantelAttendanceRecord::METHOD_MANUAL,
                 'registered_by'               => Auth::id(),
-                'notes'                       => $hasApprovedExcuse
+                'notes'                       => $hasConfirmedExcuse
                                                     ? 'Excusa aplicada automáticamente.'
                                                     : null,
             ]);
@@ -209,17 +200,6 @@ class PlantelAttendanceService
             $arrivalTime   = Carbon::parse($time);
             $shiftStart    = Carbon::parse($shift->start_time);
             $lateThreshold = $shiftStart->copy()->addMinutes($shift->late_threshold_minutes ?? 15);
-
-            // ── Ventana de cierre ────────────────────────────────────────
-            if ($shift->registration_closes_at) {
-                $closesAt = Carbon::parse($shift->registration_closes_at);
-                if ($arrivalTime->gt($closesAt)) {
-                    throw new \Exception(
-                        "El registro de entrada para la {$shift->type} cerró a las " .
-                        $closesAt->format('h:i A') . '.'
-                    );
-                }
-            }
 
             return $arrivalTime->lte($lateThreshold)
                 ? PlantelAttendanceRecord::STATUS_PRESENT
