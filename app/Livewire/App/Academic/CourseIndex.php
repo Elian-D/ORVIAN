@@ -151,6 +151,6 @@ class CourseIndex extends Component
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.academic.course-index');
 
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return $view->layout('layouts.app-module');
     }
 }

@@ -345,6 +345,6 @@ class AttendanceReports extends Component
                 ->toArray(),
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
+        return $view->layout('layouts.app-module');
     }
 }

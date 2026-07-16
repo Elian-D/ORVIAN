@@ -120,7 +120,7 @@ class TeacherIndex extends DataTable
             'teachers' => $teachers,
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return $view->layout('layouts.app-module');
     }
 
     protected function formatFilterValue(string $key, mixed $value): string

@@ -1,27 +1,4 @@
 <div>
-    {{-- 1. TOOLBAR --}}
-    <x-app.module-toolbar>
-        <x-slot:actions>
-            @can('teachers.create')
-                <x-ui.button
-                    variant="primary"
-                    size="sm"
-                    iconLeft="heroicon-s-plus"
-                    :href="route('app.academic.teachers.create')"
-                >
-                    Nuevo Maestro
-                </x-ui.button>
-            @endcan
-            
-        </x-slot:actions>
-
-        <x-slot:secondary>
-            <x-ui.button variant="secondary" type="ghost" size="sm" iconLeft="heroicon-s-document-arrow-down">
-                Exportar
-            </x-ui.button>
-        </x-slot:secondary>
-    </x-app.module-toolbar>
-
     <div class="p-4 md:p-6 flex flex-col gap-6">
 
         <x-ui.page-header
@@ -29,7 +6,26 @@
             description="Gestiona el personal docente, sus asignaciones y acceso al sistema."
             :count="$teachers->total()"
             countLabel="maestros"
-        />
+        >
+            <x-slot:actions>
+                @can('teachers.create')
+                    <x-ui.button
+                        variant="primary"
+                        size="sm"
+                        iconLeft="heroicon-s-plus"
+                        :href="route('app.academic.teachers.create')"
+                    >
+                        Nuevo Maestro
+                    </x-ui.button>
+                @endcan
+            </x-slot:actions>
+
+            <x-slot:secondary>
+                <x-ui.button variant="secondary" type="ghost" size="sm" class="w-full justify-start" iconLeft="heroicon-s-document-arrow-down">
+                    Exportar
+                </x-ui.button>
+            </x-slot:secondary>
+        </x-ui.page-header>
 
         {{-- 2. TABLA --}}
         <x-data-table.base-table

@@ -374,6 +374,6 @@ class ClassroomAttendanceLive extends Component
             'hasPlantelRecordsToday'   => $hasPlantelRecordsToday,
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
+        return $view->layout('layouts.app-module');
     }
 }

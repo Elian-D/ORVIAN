@@ -145,6 +145,6 @@ class TeacherAssignments extends Component
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.academic.teachers.teacher-assignments');
 
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return $view->layout('layouts.app-module');
     }
 }

@@ -181,6 +181,6 @@ class ExcuseForm extends Component
             'selectedStudent' => $selectedStudent,
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
+        return $view->layout('layouts.app-module');
     }
 }

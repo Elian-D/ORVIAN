@@ -231,6 +231,6 @@ class AttendanceSessionHub extends Component
             'selectedDateLabel' => ucfirst(Carbon::parse($this->date)->isoFormat('dddd D [de] MMMM, YYYY')),
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
+        return $view->layout('layouts.app-module');
     }
 }
