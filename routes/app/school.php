@@ -13,5 +13,9 @@ use App\Livewire\App\Settings\SchoolSettings;
 */
 
 Route::get('/school/settings', SchoolSettings::class)->name('school.settings')
-    ->middleware('can:settings.view, settings.update');
-
+    ->middleware('can:settings.view, settings.update')
+    ->defaults('navigationSearch', [
+        'title'       => 'Configuración del Centro',
+        'description' => 'Datos, logo y ajustes generales de la escuela',
+        'keywords'    => ['configuración', 'ajustes', 'logo', 'centro', 'perfil del centro'],
+    ]);
