@@ -1,4 +1,4 @@
-@props(['href', 'icon', 'active' => false])
+@props(['href', 'icon' => null, 'moduleIcon' => null, 'active' => false])
 
 <a href="{{ $href }}" 
     {{ $attributes->merge([
@@ -12,14 +12,21 @@
         <div class="absolute left-0 w-1 h-5 bg-orvian-orange rounded-r-full"></div>
     @endif
 
-    <x-dynamic-component :component="$icon" 
-        class="w-5 h-5 flex-shrink-0 transition-colors duration-200
-               {{ $active ? 'text-orvian-orange' : 'text-gray-400 dark:text-gray-500 group-hover:text-orvian-orange' }}" />
+    @if($moduleIcon)
+        <x-ui.module-icon :name="$moduleIcon" class="w-5 h-5 flex-shrink-0" />
+    @else
+        <x-dynamic-component :component="$icon"
+            class="w-5 h-5 flex-shrink-0 transition-colors duration-200
+                   {{ $active ? 'text-orvian-orange' : 'text-gray-400 dark:text-gray-500 group-hover:text-orvian-orange' }}" />
+    @endif
 
-    <span x-show="sidebarOpen || hasHover" 
-          x-transition:enter="transition ease-out duration-300"
-          x-transition:enter-start="opacity-0 translate-x-2"
-          x-transition:enter-end="opacity-100 translate-x-0"
+    <span x-show="sidebarOpen || hasHover"
+          x-transition:enter="transition ease-out duration-150 delay-150"
+          x-transition:enter-start="opacity-0"
+          x-transition:enter-end="opacity-100"
+          x-transition:leave="transition ease-in duration-75"
+          x-transition:leave-start="opacity-100"
+          x-transition:leave-end="opacity-0"
           class="text-sm font-medium whitespace-nowrap overflow-hidden tracking-wide">
         {{ $slot }}
     </span>

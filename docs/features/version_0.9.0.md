@@ -41,9 +41,23 @@
 | REQ-02 | 2 | Asistencia Biométrica | Arquitectura de `orvian-kiosk-electron`: app de escritorio con Electron + MediaPipe Tasks-Vision for Web (WASM local), sin lógica de QR | Alta | Completado |
 | REQ-03 | 3 | Configuración | Ventanas horarias configurables por tanda (entrada, tardanza, cierre) | Alta | Completado|
 | REQ-04 | 4 | UI / Componentes | Selector Universal de Cursos — componente Livewire reutilizable | Alta | A FUTURO |
-| REQ-05 | 5 | Asistencia Aula | Rediseño completo del pase de lista con gestos de deslizamiento | Alta | Pendiente |
-| REQ-06 | 6 | Mobile | Planificación de app móvil Flutter para tutores (sin código) | Media | Planificación |
-| REQ-07 | 7 | UI | Ajustes visuales al navbar de módulos en mobile | Media | Pendiente |
+| REQ-05 | 5 | Asistencia Aula | Rediseño completo del pase de lista con gestos de deslizamiento | Alta | Completado |
+| REQ-06 | 6 | Mobile | Planificación de app móvil Flutter para tutores (sin código) | Media | Planificación  |
+| REQ-07 | 7 | UX / Navegación | Rediseño de navegación de escuela: Sidebar en vez de navbar horizontal, breadcrumbs globales, fin de `config/modules.php` inyectado por Livewire, buscador global de rutas | Alta | En Análisis (decidido, sin código) |
+| REQ-07.1 | 7 | UX / Navegación | Migrar layout de escuela de navbar horizontal a Sidebar (mismo patrón que admin) | Alta | Decidido |
+| REQ-07.2 | 7 | UX / Navegación | Breadcrumbs globales en `layouts.app-module` (no dentro de `module-toolbar`) | Media | Decidido |
+| REQ-07.3 | 7 | Arquitectura | Eliminar inyección de `config('modules.*')` vía `->layout()` en los 32 Livewire de escuela | Media | Decidido |
+| REQ-07.4 | 7 | UX / Navegación | Buscador global de rutas — índice desde `->defaults('navigationSearch', ...)` en `routes/app/*.php` (no `config/modules.php`), cache 24h, filtrado por permisos por usuario | Alta | Hecho |
+| REQ-07.5 | 7 | UX / Navegación | Contenido del dashboard unificado (reemplaza navbar-mobile original; evitar "un dashboard por módulo") | Media | Sugerencias documentadas — sin spec cerrada |
+| REQ-07.6 | 7 | UI | Logo dinámico por escuela en el Sidebar (`application-logo.blade.php`) | Media | Decidido |
+| REQ-07.7 | 7 | Arquitectura | Modal de perfil (`ProfileModal`) → ruta dedicada `app.profile` (ocultar, no eliminar) | Media | Decidido |
+| REQ-07.8 | 7 | UX | Deprecar Login v1 — un solo login (azul), quitar selector y cookie (ocultar, no eliminar) | Media | Decidido |
+| REQ-07.9 | 7 | UX | Preferencia de Sidebar colapsado: de checkbox en Perfil a persistencia automática en `localStorage` | Media | Decidido |
+| REQ-07.10 | 7 | UI | Íconos de módulo propios (`assets/icons/modules/*.svg`) en `sidebar.item`/`sidebar.dropdown` en vez de Heroicons | Baja | Decidido |
+| REQ-07.11 | 7 | UI | Limpieza de `navbar/layout.blade.php`: quitar tooltip de sidebar y botón fullscreen; buscador con `x-ui.forms.*` + `x-modal` | Media | Decidido |
+| REQ-07.12 | 7 | UX | Sidebar colapsado en desktop: hover como overlay (sin empujar `<main>`, sin oscurecer fondo) | Alta | Decidido |
+| REQ-07.13 | 7 | Arquitectura | Eliminación completa del sistema de Status de Usuario (online/away/busy/offline) | Media | Decidido |
+| REQ-07.14 | 7 | UX / Navegación | Deprecar `module-toolbar` (tapaba el breadcrumb, sticky bajo el navbar) — reemplazado por `x-ui.page-header` extendido con menú de acciones secundarias (dropdown desktop / bottom sheet mobile) | Alta | Hecho |
 | REQ-08 | 8 | Arquitectura | Evaluación del dominio de tutores y padres (sin código) | Media | Análisis |
 | REQ-09 | 9 | UI | Páginas de error personalizadas (403, 404, 500) | Baja | Pendiente |
 | REQ-10 | 10 | UI Kit | Toasts acumulativos, swipe-to-dismiss y refinamiento visual | Media | Pendiente |
@@ -2586,41 +2600,431 @@ Revertir únicamente commits específicos de: enum `institutional_activity`, cua
 
 ---
 
-## Fase 6 — Planificación de App Móvil para Tutores
+# ORVIAN — Fase 6: Notificaciones a Tutores
+### Análisis de alternativas (WhatsApp / Email / App Móvil) — v0.9.0
 
-**Estado:** Sin código. Solo decisiones de arquitectura para versiones futuras.
+**Estado:** Sin código. Análisis y decisión de arquitectura para versiones futuras.
+**Fecha del análisis:** 12 de julio, 2026
+**Contexto:** Reemplaza el análisis original de Fase 7/8 (WhatsApp vía Evolution API, ya deprecado y removido). ORVIAN pasó de ser un proyecto final escolar a un producto con dos pilotos activos (tu colegio y PREPARA), lo que cambia el cálculo de qué vale la pena construir ahora.
 
-**Stack seleccionado:** Flutter con Firebase Cloud Messaging (FCM) para notificaciones push.
-
-El backend Laravel expondrá una API dedicada bajo `/api/v1/parent/` con Sanctum. Los tutores se autentican con el email y contraseña de su cuenta vinculada al estudiante.
-
-| Evento | Canal | Destinatario |
-| :--- | :--- | :--- |
-| Estudiante marcado como Presente en plantel | Push | Tutor |
-| Estudiante marcado como Tardanza en plantel | Push | Tutor |
-| Estudiante marcado como Ausente en plantel | Push | Tutor |
-| Estudiante ausente en clase (aula) | Push | Tutor |
+**Objetivo de la fase:** Documentar y decidir el canal (o combinación de canales) para notificar a los tutores sobre asistencia, tardanzas y ausencias, sin repetir el error de meter esto en el mismo ciclo que las urgencias del piloto.
 
 ---
 
-## Fase 7 — Ajustes Visuales al Navbar en Mobile
+## 0. Restricción de diseño ya acordada
 
-**Rama:** `feature/v0.9.0-navbar-mobile`
+No todas las alertas van por todos los canales. Independientemente de la alternativa elegida, el volumen se reduce desde el diseño:
 
-Correcciones menores en `resources/views/components/app/navbar.blade.php`:
+- **Push/WhatsApp/Email de alta frecuencia** (presente, tardanza, ausente en aula) → quedan como ya están definidas en la tabla original, pero condicionadas al canal más barato disponible (push).
+- **WhatsApp/Email reservados para casos importantes**: inasistencias acumuladas, tardanzas múltiples. Esto no es solo una decisión de UX — es lo que hace viable el costo de WhatsApp, que se cobra por conversación/mensaje entregado.
 
-```blade
-{{-- 1. Fondo del header en modo módulo en mobile --}}
-'bg-white dark:bg-[#0f1828] sm:bg-white/95 sm:dark:bg-dark-card border-b border-slate-200 dark:border-white/8 backdrop-blur-xl shadow-sm h-14' => $isModule,
+---
 
-{{-- 2. Reducir gap en sección derecha en mobile --}}
-<div class="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+## 1. Alternativa A — WhatsApp vía API de Meta (intermediario propio)
 
-{{-- 3. Ocultar botón fullscreen en xs --}}
-<div class="hidden sm:block" x-data="{ isFullscreen: false }">
-    {{-- lógica de fullscreen sin cambios --}}
-</div>
+### 1.1 Lo que corrigió la investigación sobre automatizado.vip
+
+Tu conclusión es correcta: **automatizado.vip no revende consumo, revende acceso e implementación.** Esto corresponde a un modelo específico dentro del ecosistema de partners de Meta, y vale la pena que quede documentado porque cambia lo que "ser intermediario" significa para ORVIAN:
+
+| Rol | Qué hace | Cómo cobra | Riesgo/implicación |
+|---|---|---|---|
+| **Solution Partner** (antes "BSP") | Mantiene una línea de crédito con Meta, paga el consumo por adelantado y factura al cliente final | Markup típico de 5–20% sobre la tarifa de Meta, a veces + fee mensual de plataforma | El cliente nunca ve la tarifa real de Meta; el partner asume el riesgo de cobro |
+| **Tech Provider / Tech Partner** | Construye software sobre la API de Meta (Embedded Signup), pero **no** mantiene línea de crédito | El cliente final agrega su propio método de pago directo en WhatsApp Manager; Meta le cobra directo | Cero riesgo financiero para el intermediario; cero markup que justificar |
+
+Esto es exactamente lo que automatizado.vip describe cuando dice que tú pagas el consumo directo a Meta: son un **Tech Provider**, no un Solution Partner con línea de crédito. Cobran por implementación, capacitación y soporte — no por el mensaje.
+
+### 1.2 Qué significa esto para ORVIAN
+
+Si la idea es que ORVIAN sea el intermediario técnico para colegios, el modelo **Tech Provider** es el que calza con lo que ya intuías (rapidez de integración, sin exponer a ORVIAN al riesgo de facturación):
+
+- ORVIAN construye la integración vía **Embedded Signup** de Meta dentro del onboarding del colegio.
+- Cada colegio conecta **su propio número y método de pago** en WhatsApp Manager.
+- Meta cobra directo al colegio por conversación entregada.
+- ORVIAN no maneja dinero de terceros, no necesita línea de crédito, y no compite en precio con BSPs establecidos — compite en velocidad de integración y en que ya vive dentro del sistema que el colegio usa a diario.
+
+Esto evita el problema real: si ORVIAN intentara operar como Solution Partner (línea de crédito + markup), se convierte en un negocio financiero paralelo al de software escolar, con obligaciones de cumplimiento distintas.
+
+### 1.3 Costos reales (referencia, sujeto a cambio por parte de Meta)
+
+- Desde julio 2025, Meta cobra **por mensaje de plantilla entregado**, no por ventana de conversación de 24h (ese modelo se retiró).
+- Las **conversaciones de servicio** (iniciadas por el usuario) son gratuitas e ilimitadas desde noviembre 2024 — relevante si en el futuro los tutores pueden responder al colegio.
+- Existe un límite de frecuencia: aprox. **2 mensajes de plantilla de marketing por usuario cada 24h**, a través de todos los negocios combinados (no aplica igual a utility/authentication).
+- Tarifas varían por país destinatario (no por ubicación del colegio) y por categoría (marketing, utility, authentication). Para RD probablemente aplica la tarifa "Rest of World".
+- Como Tech Provider sin markup, el colegio paga exactamente la tarifa de Meta — sin capa adicional de ORVIAN.
+
+### 1.4 Checklist — Alternativa WhatsApp
+
+- [ ] Confirmar tarifa "Rest of World" o específica de RD en el rate card oficial de Meta (verificar directo en Meta, no en blogs de terceros)
+- [ ] Evaluar registrar ORVIAN como **Tech Provider** de Meta (no Solution Partner) — investigar requisitos de aprobación
+- [ ] Diseñar el flujo de Embedded Signup dentro del onboarding de colegio (quién conecta el número: el colegio o ORVIAN en su nombre)
+- [ ] Definir qué eventos justifican plantilla de WhatsApp (ya acotado a inasistencias acumuladas y tardanzas múltiples — mantener esa restricción)
+- [ ] Someter plantillas de mensajes a aprobación de Meta con antelación (el proceso de aprobación de templates puede tardar)
+- [ ] Documentar que el consumo se factura directo al colegio — esto debe quedar claro en el contrato/onboarding del piloto, no asumido
+- [ ] Marcar como **fuera de alcance para septiembre**: esta alternativa requiere aprobación de Meta como negocio, no solo configuración técnica — probablemente no cierra a tiempo para el piloto
+
+---
+
+## 2. Alternativa B — Email (Amazon SES u otro)
+
+### 2.1 Amazon SES
+
+- Precio: **~$0.10 por 1,000 emails**, el más barato del mercado con margen amplio.
+- Integra con Laravel vía el transporte de **Symfony Mailer** (Laravel 9+ usa Symfony Mailer internamente) — no requiere paquete especial, solo configuración del driver `ses` y credenciales AWS.
+- Contras reales para un equipo de un solo desarrollador: cuentas nuevas empiezan en **modo sandbox** (solo se puede enviar a direcciones verificadas manualmente) hasta que AWS aprueba salida a producción (24–48h típico). Hay que armar manejo de *bounces* y *complaints* (vía SNS) o el envío se puede suspender automáticamente si la tasa de rebote supera ~5-10%.
+- No trae dashboard, plantillas ni panel de reportes — todo eso se construye aparte.
+
+### 2.2 Alternativas más simples para el volumen de un piloto
+
+Dado que el volumen de un piloto de dos colegios es bajo, el ahorro de SES (fracciones de centavo) probablemente no compensa el tiempo de configurar sandbox exit + SNS + manejo de rebotes. Opciones con integración más directa a Laravel:
+
+| Proveedor | Free tier | Precio pagado (referencia) | Nota |
+|---|---|---|---|
+| **Brevo** | 9,000 emails/mes (300/día), sin tarjeta | — | Sin modo sandbox, SPF/DKIM automático, swap directo vía SMTP relay |
+| **Resend** | 3,000 emails/mes | $20/mes por 50k | SDK oficial de Laravel/PHP, muy buena experiencia de desarrollador |
+| **Postmark** | 100/mes (solo pruebas) | $15/mes por 10,000 | Mejor entregabilidad, sin sandbox |
+| **Amazon SES** | — (dejó de tener free tier ligado a EC2) | ~$0.10/1,000 | Más barato a escala, más trabajo de configuración |
+
+Para el volumen del piloto (dos colegios, notificaciones acotadas a casos importantes), **Brevo o Resend cubren el uso sin costo** y sin la fricción de sandbox de AWS. SES se vuelve la opción correcta solo si el volumen crece de forma sostenida (varios colegios, miles de notificaciones/mes) — momento en el que además ya se justifica invertir el tiempo en el manejo de bounces.
+
+### 2.3 Checklist — Alternativa Email
+
+- [ ] Decidir proveedor para el piloto: recomendación es **Brevo o Resend** por el free tier sin fricción, dejando SES como candidato post-pilot si el volumen lo justifica
+- [ ] Confirmar si el paquete de correo actual de Laravel ya está abstraído detrás de una interfaz propia (para poder cambiar de proveedor sin tocar lógica de negocio)
+- [ ] Verificar dominio propio de ORVIAN o del colegio para SPF/DKIM (afecta entregabilidad, sobre todo si los tutores usan Gmail/Hotmail)
+- [ ] Definir qué eventos disparan email (mismo criterio que WhatsApp: casos importantes, no cada marca de asistencia)
+- [ ] Nota de contexto para el documento: el correo tiene menor uso diario en RD, pero mayor tasa de revisión en usuarios bancarizados — válido como canal secundario, no primario
+
+---
+
+## 3. Alternativa C — App Móvil (Flutter + FCM)
+
+### 3.1 Google Play — restricciones confirmadas
+
+- **Cuenta de desarrollador:** USD $25, pago único (no anual).
+- **Requisito de testing cerrado:** aplica a **cuentas personales creadas después del 13 de noviembre de 2023**. Se necesita un mínimo de **12 testers** con opt-in activo durante **14 días consecutivos** antes de poder solicitar acceso a producción (bajó de 20 a 12 testers en diciembre 2024).
+  - "Consecutivos" es estricto: si el conteo de testers activos cae por debajo de 12 en algún punto, el conteo se puede reiniciar.
+  - Un tester que desinstala sigue contando técnicamente, pero rara vez vuelve a generar actividad — Google evalúa "engagement" real, no solo el número.
+- **Dato importante que cambia el cálculo:** las **cuentas de organización** (registradas como entidad legal) están **exentas** de este requisito de 12 testers/14 días y pueden publicar directo a producción. Si ORVIAN se registra como cuenta de organización (no personal), este obstáculo desaparece.
+  - Vale la pena confirmar el proceso y tiempos de verificación de cuenta de organización en Play Console antes de descartarlo por complejidad.
+- Con el plan piloto (colegio + PREPARA), conseguir 12 testers activos 14 días consecutivos es factible si se recluta con intención (personal administrativo, algunos tutores, tu familiar docente) — pero es una tarea de gestión, no solo técnica: hay que mantenerlos activos, no solo instalados.
+- **Requisito adicional no mencionado en tu mensaje:** Google está desplegando un requisito de **verificación de identidad de desarrollador**, con aplicación obligatoria empezando el 30 de septiembre de 2026 en algunos países (Brasil, Indonesia, Singapur, Tailandia) y expansión global después. Es un requisito separado del testing (confirma quién eres, no si la app funciona) — probablemente no bloquea el piloto de septiembre, pero conviene tenerlo en el radar para 2027.
+
+### 3.2 Apple App Store — restricciones confirmadas y una matizada
+
+- **Cuenta de desarrollador:** USD $99/año (no pago único, a diferencia de Google).
+- **Requiere Mac + Xcode** en el flujo tradicional: no hay forma de compilar y subir un binario iOS sin pasar por herramientas de Apple en algún punto.
+- **Matiz importante:** no necesariamente requiere que **tú** poseas un Mac. Existen servicios de build en la nube que corren Xcode en Macs remotas y suben el binario por ti — la app sigue compilándose "en un Mac", pero no en uno tuyo. Para Flutter, las opciones más usadas son:
+  - **Codemagic** (tiene soporte nativo de Flutter, plan gratuito limitado por minutos de build/mes)
+  - **GitHub Actions con runners macOS** (de pago por minuto, pero predecible)
+  - Servicios equivalentes a EAS de Expo, pero EAS en sí es específico de Expo/React Native, no aplica directo a Flutter.
+- Desde el 28 de abril de 2026, todo build subido a App Store Connect debe compilarse con **Xcode 26 o superior / SDK de iOS 26 o superior** — esto es una política anual de Apple, no algo que afecte solo a ORVIAN, pero hay que construir con herramientas actualizadas desde el inicio.
+- Apple aprueba ~90% de las apps en 24-48h, pero apps que tocan datos de menores (que es exactamente el caso de ORVIAN — información de estudiantes) suelen recibir revisión más estricta en cuanto a privacidad. Esto no es un bloqueo, pero sí algo a prever en el tiempo de revisión.
+
+### 3.3 Restricciones que tú no mencionaste y vale la pena tener en el radar
+
+- **Política de datos de menores** de ambas tiendas (Google Play Families Policy / Apple Kids Category si aplica, o al menos declaración de manejo de datos de estudiantes) — ORVIAN maneja datos de estudiantes, así que aunque la app sea para tutores (adultos), probablemente haya que declarar en el formulario de privacidad que la app procesa datos vinculados a menores.
+- **Costo de firma/certificados**: no hay costo adicional más allá de las cuentas de desarrollador, pero si se usa un servicio de build en la nube (Codemagic, etc.), ese servicio puede tener costo mensual una vez se supera el tier gratuito.
+- **FCM en sí es gratuito** sin límite de notificaciones — el costo real de esta alternativa está casi todo concentrado en las cuentas de desarrollador y el tiempo de cumplir los requisitos de testing, no en la infraestructura de mensajería.
+
+### 3.4 Checklist — Alternativa App Móvil
+
+- [ ] Decidir si la cuenta de Google Play se registra como **personal o de organización** — si es viable como organización, se evita el requisito de 12 testers/14 días
+- [ ] Si queda como cuenta personal: reclutar y comprometer a 12+ testers reales (no solo instalar, usar la app activamente) desde antes del 20 de este mes, para que los 14 días consecutivos corran en paralelo al desarrollo
+- [ ] Evaluar Codemagic (o alternativa) para build de iOS sin necesidad de Mac propio — revisar límites del tier gratuito
+- [ ] Presupuestar: $25 (Google, único) + $99/año (Apple) + posible costo de servicio de build en la nube más allá del free tier
+- [ ] Confirmar declaración de manejo de datos de menores en ambas tiendas antes de enviar a revisión
+- [ ] Construir con Xcode 26 / SDK iOS 26+ desde el inicio del proyecto Flutter para no tener que migrar después
+- [ ] Definir alcance mínimo de la app para el piloto: probablemente solo lectura de notificaciones, sin funciones administrativas
+
+---
+
+## 4. Otras alternativas no mencionadas (excluyendo SMS, ya descartado)
+
+| Opción | Por qué podría servir | Por qué probablemente no aplica todavía |
+|---|---|---|
+| **Web Push (PWA)** | Notificaciones push desde el navegador, sin pasar por App Store ni Google Play — cero cuentas de desarrollador, cero requisito de testers | Menor alcance/confiabilidad en iOS (Apple limita web push en Safari), y el tutor promedio en RD probablemente no sabe "instalar" una PWA |
+| **Telegram Bot API** | Completamente gratuito, sin aprobación de Meta, sin cuentas de desarrollador, notificaciones ilimitadas | Adopción de Telegram en RD es baja comparada con WhatsApp — el canal solo sirve si el tutor ya lo usa |
+| **OneSignal (o similar) como capa sobre FCM** | Simplifica la gestión de tokens/segmentación de FCM sin escribir esa infraestructura desde cero | Solo resuelve un problema técnico menor dentro de la Alternativa C, no es una alternativa independiente |
+
+Ninguna de estas reemplaza las tres alternativas principales, pero **Web Push vía PWA** vale la pena anotarla como opción de bajo costo si la app nativa se atrasa — podría ser el puente entre "nada" y "app en las tiendas" mientras se cumplen los requisitos de testing de Google/Apple.
+
+---
+
+## 5. Tabla comparativa resumen
+
+| Criterio | WhatsApp (Meta) | Email (SES/Brevo/Resend) | App Móvil (Flutter+FCM) |
+|---|---|---|---|
+| Costo de entrada | $0 (pero requiere aprobación de Meta como negocio) | $0 (con Brevo/Resend en el tier gratuito) | $25 (Google) + $99/año (Apple) |
+| Costo recurrente | Por mensaje entregado, pagado por el colegio directo a Meta | $0 hasta escalar, luego centavos por 1,000 | $0 (FCM gratis), solo cuentas de desarrollador |
+| Tiempo hasta viable para piloto de sept. | Alto — depende de aprobación de Meta como Tech Provider y de plantillas | Bajo — configuración de un día | Medio-alto — depende de resolver testers (Google) y build sin Mac (Apple) |
+| Alcance real en tutores de RD | Alto (WhatsApp es el canal más usado) | Medio (solo tutores que revisan correo con frecuencia) | Medio (requiere que el tutor instale la app) |
+| Riesgo de bloqueo por terceros | Meta puede rechazar aprobación o cambiar tarifas | Bajo | Google/Apple pueden rechazar en revisión |
+
+---
+
+## 6. Checklist general de cierre — Fase 6
+
+- [ ] Documentar esta comparación en el repositorio junto con el resto de las decisiones de arquitectura (mismo lugar que REQ-05.x)
+- [ ] Decidir **secuencia**, no solo alternativa: probablemente Email (rápido, barato) como primer canal funcional para el piloto de septiembre, con WhatsApp y App Móvil como líneas de trabajo en paralelo que maduran después
+- [ ] Confirmar con tu familiar docente si el correo es realista como canal para los tutores actuales del colegio piloto (validación de dominio, no solo de arquitectura)
+- [ ] Antes del 20 de julio: si se decide avanzar con la App Móvil, iniciar el reclutamiento de testers de Google Play ese mismo día, porque el reloj de 14 días es la restricción de tiempo más rígida de las tres alternativas
+- [ ] Evaluar si vale la pena registrar la cuenta de Google Play como organización antes de esa fecha, ya que decide si el requisito de testers aplica o no
+- [ ] Mantener la restricción ya acordada: solo casos importantes (inasistencias acumuladas, tardanzas múltiples) se notifican por WhatsApp/Email — el push de "presente/tardanza/ausente" individual queda dentro de la app o del kiosco, no dispara mensajería externa por cada evento
+
+---
+
+*Este documento es un análisis de planificación (Fase 6). No implica implementación de código. Las tarifas y requisitos de Meta, Google y Apple citados aquí deben reverificarse directo en la fuente oficial antes de comprometer presupuesto, ya que son términos que cambian con frecuencia.*
+
+---
+
+## Fase 7 — Rediseño de Navegación de Escuela (Sidebar, Breadcrumbs, Buscador)
+
+**Rama:** `feature/v0.9.0-school-navigation` (separada de cualquier fix cosmético — cambia la arquitectura de navegación, no solo estilos)
+
+**Estado:** Análisis UX/QA completado y decisiones tomadas. **Sin código todavía** — este documento deja constancia técnica de qué se va a construir antes de tocar el layout de escuela, siguiendo el mismo formato de Fase 6/8.
+
+> **Nota de metodología:** el análisis se hizo primero por revisión de código, y luego se **verificó en vivo** (login real como admin y como escuela, vía túnel público sobre el entorno Sail local — el navegador de esta sesión no tiene acceso directo a `localhost`/`orvian.test`). Hallazgos confirmados en esta sesión:
+> - El Sidebar de admin (`aside`) tiene `position: static` y ancho real `288px` (`w-72`) en estado expandido — confirma en runtime que el toggle de ancho empuja el `<main>` por estar dentro del flujo `flex`, la premisa exacta de 7.12.
+> - `breadcrumbs.blade.php` está presente en `/admin/hub` (muestra "Admin Hub") y **ausente** en `/app/academic/courses` (layout de escuela) — confirma 7.2.
+> - El navbar de módulo de escuela muestra el link accesible "Volver al Hub" superpuesto al ícono (el flip 3D solo se revela visualmente en hover) — confirma 7.1.2.
+> - El buscador decorativo ("Buscar en el sistema... Alt K") y el tooltip "Solo para esta sesión..." están efectivamente en producción en el navbar de admin — confirma 7.11.
+> - El botón "Mi Perfil" en el navbar de escuela **sí abre el modal** (`ProfileModal`, con pestañas Información Personal/Seguridad/Preferencias) en vez de navegar a `/app/profile` — confirma 7.7.
+> - Los botones de estado (En línea/Ausente/Ocupado/Desconectado) están visibles en tres lugares distintos: dropdown de admin, navbar de escuela y modal de perfil — confirma el alcance de 7.13.
+> - Los 9 SVG de `assets/icons/modules/` cargan sin error (200 OK) desde el navbar y el dashboard — confirma que el asset base de 7.10 ya existe y funciona.
+> - **Pendiente real:** no se pudo tomar captura de pantalla en esta sesión (el compositor de la herramienta de navegador cuelga en esta página, posiblemente por Laravel Debugbar/`APP_DEBUG=true` activo) — la validación fue por árbol de accesibilidad + red, no visual. Sigue faltando una prueba táctil real en tablet para 7.1.3 (hover no existe en touch).
+> - **Nota operativa fuera de alcance de Fase 7:** se encontró y corrigió un archivo `public/hot` obsoleto (de una sesión anterior de `npm run dev`) que hacía que Laravel sirviera referencias a `localhost:5173` en vez de los assets compilados de `npm run build`, rompiendo el CSS. No relacionado con el rediseño de navegación, solo higiene del entorno de pruebas.
+
+### 7.0 — Por qué se revierte la decisión original ("estilo Odoo")
+
+El layout de escuela (`layouts/app-module.blade.php`) se diseñó copiando el patrón hub-and-spoke de Odoo: un Hub central con tarjetas de módulo, y al entrar a un módulo, un navbar horizontal con pestañas (`moduleLinks`) más un ícono que se voltea en hover para "volver al hub". Ese patrón asume un usuario que ya entiende la metáfora de "apps" como íconos de inicio — válido para contadores/administradores que usan ERPs a diario, **no** para el usuario real de ORVIAN (profesores, padres, directores de colegios dominicanos con poca exposición previa a este tipo de software). El panel de SuperAdmin, en cambio, ya usa Sidebar (`layouts/sidebar.blade.php`) — es decir, hoy el sistema le da **más** orientación permanente al staff interno (más técnico) que a los usuarios finales de escuela (menos técnicos). Es la prioridad invertida.
+
+### 7.1 — Sidebar vs. Navbar horizontal para el panel de escuela
+
+**Decisión: migrar a Sidebar**, replicando el patrón ya construido en `resources/views/components/sidebar/*` y `layouts/sidebar.blade.php`.
+
+1. **Carga cognitiva y permanencia de ubicación.** Con el navbar horizontal + Hub, cambiar de módulo es: volver al Hub → escanear tarjetas → entrar al nuevo módulo (mínimo 2 clics + 1 pantalla de tránsito). Con Sidebar, todos los módulos están siempre visibles y un clic te lleva a cualquiera — sin pantalla intermedia. Para un usuario que no tiene un modelo mental previo de "módulos", ver la lista completa de opciones todo el tiempo reduce la carga de memoria (no tiene que recordar qué hay "detrás" del ícono de home).
+2. **El gesto de "volver" es el punto más frágil del diseño actual.** En desktop, volver al Hub depende de un hover sobre el ícono del módulo que hace un flip 3D a una flecha (`x-data="{ hovered: false }"` en `navbar.blade.php:66-84`) — una animación novedosa, sin label visible, sin precedente en el resto del sistema. **En touch (tablets, que es exactamente el dispositivo esperable en un colegio) no existe hover**, por lo que ese affordance es directamente invisible; el único camino real en touch es el drawer mobile con el link explícito "Volver al Hub" (`navbar.blade.php:234-239`), que solo aparece si el usuario primero encuentra el botón ☰. Es un flujo de descubrimiento en dos pasos para una acción que debería ser la más obvia del sistema.
+3. **Sidebar elimina la necesidad de "volver" como concepto.** Si todos los módulos están en la barra lateral, no hay "adentro" ni "afuera" de un módulo — solo hay "dónde estoy ahora" (ítem resaltado). Esto no es una mejora cosmética al botón de volver: es la eliminación completa del problema que la Fase 7 original intentaba parchar.
+4. **Menos clics a funciones internas.** Hoy, para llegar a un sub-link de un módulo (ej. "Excusas" dentro de Asistencia) desde otro módulo hay que: Hub → Asistencia → esperar el navbar de pestañas → click en "Excusas" (3 clics). Con Sidebar (dropdown expandible, igual que `sidebar/dropdown.blade.php` en admin), es Sidebar → Asistencia (expande) → Excusas (2 clics), y el dropdown puede quedar abierto por contexto de ruta activa.
+5. **Consistencia entre paneles.** Un usuario que además es dueño/administra varias escuelas (o un SuperAdmin que impersona) hoy salta entre dos paradigmas de navegación distintos (Sidebar en admin, navbar+hub en escuela). Unificar el patrón reduce el reaprendizaje al cambiar de contexto.
+
+**Contras a mitigar en la implementación** (no cambian la decisión, pero hay que resolverlos):
+- El Hub (`app.dashboard`) deja de ser el único "home" visual — su rol pasa de "selector de módulos" a "resumen/dashboard", que es un rol más honesto para lo que ya es.
+- El ⌘K / buscador (7.4) se vuelve más importante como atajo, precisamente porque Sidebar por sí sola no resuelve "quiero llegar a algo específico sin escanear la lista".
+- Mobile necesita seguir siendo un drawer/overlay (igual que admin ya lo resuelve con `sidebarOpen` + overlay) — no hay pérdida de patrón ahí, es directamente reusar lo que ya existe.
+
+### 7.2 — Breadcrumbs: globales en el layout, no dentro de `module-toolbar`
+
+**Decisión: agregar `<x-navbar.breadcrumbs />` en `layouts/app-module.blade.php`**, dentro de `<main>` antes de `{{ $slot }}` — el mismo lugar donde vive en `components/admin.blade.php:48`. **No** meterlo dentro de `components/app/module-toolbar.blade.php`.
+
+Razones:
+- `module-toolbar` es un componente **opcional y por-vista** (título, acciones, buscador, secundarias) — su propio comentario dice explícitamente "Solo se incluye en vistas de módulo — no aparece en el hub". Si el breadcrumb vive ahí, el Hub y cualquier vista futura que no use toolbar (o que no lo incluya por decisión de diseño) se queda sin wayfinding, de forma inconsistente vista por vista.
+- Breadcrumb es chrome estructural ("dónde estoy en la jerarquía"), no contenido de la vista. Mezclarlo con acciones (`$actions`, `$search`, `$secondary`) rompe la responsabilidad única del componente y obliga a repetir lógica de breadcrumb en cada Livewire que instancie el toolbar.
+- `breadcrumbs.blade.php` ya está escrito para funcionar en ambos contextos (`$isAdminContext = request()->is('admin*')` con fallback a `app.dashboard`/"Dashboard") — solo nunca se incluyó en el layout de escuela. Es un olvido de integración, no un problema de diseño del componente.
+- Colocarlo en el layout garantiza una sola ubicación consistente para las 32 vistas actuales sin tocar una por una.
+
+### 7.3 — Fin de `config('modules.*')` inyectado por Livewire
+
+Hoy 32 componentes Livewire (`app/Livewire/App/**`) hacen `->layout('layouts.app-module', config('modules.academico'))` para que el navbar sepa qué pestañas mostrar. Con Sidebar, la navegación deja de vivir "por vista" y pasa a vivir en la estructura fija del Sidebar (igual que `layouts/sidebar.blade.php` en admin, que resuelve `:active="request()->routeIs(...)"` directamente contra las rutas, sin recibir nada del componente Livewire que se está renderizando).
+
+- `config/modules.php` **se mantiene** como fuente de verdad de nombre/ícono/sub-links — pero pasa a ser leído *una sola vez* desde el include del Sidebar de escuela (`layouts/sidebar-app.blade.php`, nuevo, análogo a `layouts/sidebar.blade.php`), no repartido en 32 `->layout()` calls.
+- Se elimina el segundo argumento de `->layout()` en los 32 Livewire — la vista deja de necesitar `$module`/`$moduleIcon`/`$moduleLinks` como props.
+- Este es también el mismo dato que alimenta el buscador global (7.4): `config/modules.php` ya tiene `label` + `route` por sub-link, que es exactamente la forma que necesita un índice de búsqueda.
+
+### 7.4 — Buscador global de rutas (rediseñado)
+
+**Decisión revisada:** la primera versión (implementada en la Fase D) indexaba `config('modules.php')` — es decir, la misma estructura del Sidebar ("Académico", "Estudiantes"). Eso no sirve al objetivo real del buscador: un usuario nuevo que no conoce la jerga del sistema no escribe "Administración de Estudiantes", escribe lo que quiere **hacer** — "crear estudiante", "excusa médica", "importar". `config('modules.php')` no tiene ese nivel de detalle (no describe acciones como "Crear Estudiante", solo el link a la lista). Se separan las dos fuentes:
+
+- **`config('modules.php')`** — sigue siendo la fuente única del **Sidebar** (estructura por módulo). No cambia.
+- **Metadatos `->defaults('navigationSearch', [...])` directo en `routes/app/*.php`** — nueva fuente única del **buscador**. Cada ruta indexable declara `title`, `description` y `keywords` en su propia definición, junto a su `->middleware('can:...')` — el permiso que ya protege la ruta es automáticamente el mismo que filtra si aparece en resultados, sin mantener una lista de permisos aparte.
+
+```php
+Route::get('/create', ExcuseForm::class)
+    ->middleware('can:manage_excuses')
+    ->name('create')
+    ->defaults('navigationSearch', [
+        'title'       => 'Registrar Nueva Excusa',
+        'description' => 'Justificar la ausencia o salida temprana de un estudiante',
+        'keywords'    => ['enfermo', 'cita', 'justificar', 'ausencia', 'falta', 'médica'],
+    ]);
 ```
+
+No se indexan todas las ~38 rutas de `routes/app/*.php` — se excluyen a propósito las que requieren un `{parámetro}` de una entidad ya existente (`students.show`, `students.edit`, `teachers.assignments`, `roles.edit`, `courses.show`, `attendance.audit`...): navegar ahí sin un ID específico no tiene sentido en un buscador global. Quedaron indexadas 25 rutas — todas las páginas y acciones de nivel superior con sentido como destino de búsqueda.
+
+**`App\Services\Navigation\GlobalSearchService`** — dos capas, no una:
+- `index()` — escanea `Route::getRoutes()`, filtra las que tienen `defaults['search']`, y cachea el resultado 24h (`Cache::remember`). Caro (recorre todas las rutas de la app), de ahí el caché. Los datos cacheados son "crudos": incluyen la lista de permisos (`can:`) extraída de cada ruta, sin filtrar por usuario — el caché es el mismo para todos.
+- `forUser(User $user)` — filtra `index()` contra `$user->can($permission)` por cada ítem. **No se cachea**: son ~25 items, filtrar es barato, y cachear por usuario/rol sería una capa de invalidación innecesaria para este volumen de datos. Devuelve `[]` si el usuario no tiene `school_id` (mismo alcance que el resto del buscador — sigue sin ser funcional en el panel de admin).
+
+**Extracción de permisos:** `permissionsFor()` recorre `$route->gatherMiddleware()` y toma el primer argumento de cada middleware `can:` (`can:settings.view, settings.update` → solo `settings.view` cuenta, porque así lo interpreta Laravel en runtime: lo que sigue a la primera coma son argumentos extra del Gate, no permisos adicionales). Si una ruta vive dentro de un `Route::middleware('can:x')->group(...)` y además tiene su propio `->middleware('can:y')`, ambos se extraen y **ambos** se exigen (AND) — igual que en runtime.
+
+**Se descartó** la propuesta de un View Composer global (`view()->composer('*', ...)`) inyectando el índice en *todas* las vistas — solo `components/navbar/layout.blade.php` lo necesita; inyectarlo en las ~200 vistas restantes sería trabajo (y payload HTML) sin uso. `GlobalSearchService::forUser()` se llama directo desde ese único archivo.
+
+**Consumo:** `components/navbar/layout.blade.php` — el input de búsqueda (desktop, `Alt+K`) y el modal móvil comparten el mismo `x-data` (`query`, `results` computado filtrando por `title`/`description`/`keywords`). El ícono de cada resultado se resuelve por prefijo del nombre de ruta (`app.attendance.*` → `asistencia.svg`, `app.academic.*` → `academico.svg`, resto → `administracion.svg`) — heurística simple, no depende de `config('modules.php')`.
+
+**Archivos modificados:**
+
+| Archivo | Cambio |
+| :--- | :--- |
+| `routes/app/attendance.php`, `academic.php`, `users.php`, `role.php`, `school.php`, `core.php` | `->defaults('navigationSearch', [...])` en 25 rutas |
+| `app/Services/Navigation/GlobalSearchService.php` | Reescrito: `index()` desde `Route::getRoutes()` (antes `config('modules')`) + `forUser()` nuevo (filtro por permisos) |
+| `resources/views/components/navbar/layout.blade.php` | Consume `title`/`description`/`keywords`/`icon` en vez de `label`/`module` |
+| `config/modules.php` | Comentario de cabecera corregido — ya no se menciona como fuente del buscador |
+
+**Verificado:** `php -l` limpio, `route:list` confirma las 38 rutas siguen registrando igual (ningún `->defaults()` rompe nada), `view:cache` sin errores, render real vía `tinker` con el índice completo (25 ítems, permisos extraídos correctamente incluyendo el caso de permisos anidados como "Crear Estudiante" → `[students.view, students.create]`), y `forUser()` probado con el usuario real de `Politénico Ruth Elvira Aybar` (School Principal, ve los 25). No se pudo probar el caso de un rol con permisos limitados por falta de un usuario Teacher sembrado en la BD de desarrollo — el mecanismo de filtrado (`$user->can($permission)`) es el mismo ya usado por los middleware `can:` de las rutas, no es código nuevo sin probar. `sail artisan test` sin regresiones.
+
+**Bug post-implementación — clave `search` colisionaba con propiedades Livewire:** `->defaults($key, ...)` inyecta un parámetro de ruta, y Livewire vincula automáticamente parámetros de ruta a propiedades públicas del mismo nombre. La clave original, `'search'`, chocaba con `public string $search` que ya existía en `BiometricKiosk`, `EnrollmentHub` y `StudentPrintManager` (sus propios buscadores locales) — Livewire intentaba asignarles el array de metadatos completo, tirando 500 (`TypeError: Cannot assign array to property ...$search of type string`) en las tres rutas. Renombrado a `'navigationSearch'` en las 25 rutas + `GlobalSearchService`. Verificado con `Livewire::test()` en las 3 rutas afectadas, las 3 OK.
+
+### 7.5 — Reemplazo del navbar mobile original: contenido del Dashboard unificado
+
+El punto original de esta fase (3 ajustes cosméticos a `components/app/navbar.blade.php` en mobile) **queda descartado, no "en espera"**: con Sidebar confirmado (7.1) y no como hipótesis, ese navbar horizontal con `moduleLinks`, drawer y flip 3D deja de existir — no hay superficie donde aplicar esos 3 fixes. Se reemplaza por una pregunta más importante que sí queda abierta: **si el Sidebar ya resuelve la navegación entre módulos, ¿qué le queda por hacer a `app.dashboard`?**
+
+Hoy `resources/views/app/dashboard.blade.php` es, en la práctica, un segundo sistema de navegación: una grilla de `x-ui.app-tile` que duplica exactamente lo que el Sidebar va a mostrar (Administración, Académico, Asistencia, Notas, Classroom, Reportes...). Si se deja así, el usuario tiene **dos** formas de llegar a "Académico" (tile del dashboard, ítem del sidebar) que no aportan nada distinto entre sí — es redundancia, no refuerzo.
+
+**Sugerencias para el contenido del dashboard unificado** (a definir en detalle cuando se implemente, no en esta fase de documentación):
+
+- **Resumen operativo del día**, no un menú: cifras que ya tiene el sistema y que hoy nadie ve consolidadas — asistencia del día (presentes/ausentes/tardanzas del Plantel), excusas pendientes de aprobar, matrículas en proceso desde el Hub de Matriculación. Es información que cambia día a día, a diferencia de un menú de módulos que es siempre igual.
+- **"Accesos recientes"** — el placeholder que ya existe en `dashboard.blade.php:142-159` ("Aquí aparecerán tus últimas secciones visitadas") es exactamente el tipo de contenido que sí justifica vivir en un dashboard: es personalizado y cambia por usuario, cosa que un ítem de Sidebar no puede ofrecer.
+- **Alertas y pendientes accionables** — ej. "3 excusas esperando aprobación", "Sesión de asistencia sin cerrar" — con link directo a la acción, no al módulo en general. Esto le da al dashboard una razón de ser distinta a "otra forma de navegar".
+- **Evitar el anti-patrón "un dashboard por módulo".** No crear vistas tipo `academic/dashboard`, `attendance/dashboard` (ya existe `app.attendance.dashboard`, ver `config/modules.php:45` — evaluar si se fusiona su contenido útil hacia el dashboard unificado en vez de mantenerlo como landing duplicada del módulo Asistencia). Un panel de control por módulo repite el mismo error que el Hub actual: fragmenta la vista general en N pantallas que el usuario tiene que recordar visitar por separado.
+- **La grilla de tiles no desaparece necesariamente** — puede quedarse como acceso rápido a 2-3 acciones frecuentes ("Nuevo Estudiante", "Registrar Asistencia"), pero como *acciones*, no como *navegación a módulos completos* — esa responsabilidad pasa 100% al Sidebar.
+
+### 7.6 — Logo dinámico por escuela en el Sidebar
+
+`resources/views/components/application-logo.blade.php` hoy solo sabe mostrar el logo ORVIAN (claro/oscuro, full/icon). Se le agrega lógica de resolución por tenant:
+
+1. `¿Auth::user()->school_id` es null? → usuario sin escuela (SuperAdmin) → logo ORVIAN de siempre, sin cambios.
+2. Si tiene `school_id` → cargar `Auth::user()->school` (ya viene resuelto por `IdentifyTenant` en `app('currentSchool')`, evitar una query extra usando ese binding en vez de la relación) y revisar `school->logo_path` (**el campo ya existe** — `app/Models/Tenant/School.php:44` lo tiene en `$fillable`, no hace falta migración).
+3. Si `logo_path` existe → mostrarlo, respetando el mismo comportamiento responsive que ya tiene el Sidebar (`sidebar/layout.blade.php:13-31`): tamaño reducido cuando `!sidebarOpen && !hasHover`, tamaño completo cuando el sidebar está expandido/en hover.
+4. Si no tiene `logo_path` (o no tiene escuela) → fallback al logo ORVIAN, exactamente como hoy.
+
+**Matiz a documentar para la implementación:** el logo ORVIAN tiene dos variantes reales (`logo-full-*.svg` y `logo-icon-*.svg`) — un ícono cuadrado optimizado para el estado colapsado. Un colegio que sube su logo probablemente solo tiene **un** archivo (su logotipo completo, no una versión cuadrada recortada). Definir antes de codificar: ¿se reescala el mismo archivo en ambos estados (más simple, puede verse mal si el logo es muy horizontal) o se le pide al colegio subir también una variante cuadrada/icono en `SchoolSettings` (más trabajo de UI, mejor resultado visual)? Recomendación: empezar con reescalado simple (`object-contain` dentro de un contenedor cuadrado) y solo agregar el segundo campo si algún colegio piloto reporta que se ve mal.
+
+### 7.7 — Modal de perfil → ruta dedicada
+
+`app/Livewire/Shared/ProfileModal.php` + `resources/views/livewire/shared/profile-modal.blade.php` se crearon para "ahorrar una ruta" pero duplican exactamente lo que ya hace `app/Livewire/Shared/Profile.php` (misma lógica: datos personales, foto, contraseña, preferencias), servido en `routes/app/core.php:7` como `app.profile` — ruta que hoy nadie enlaza desde la navegación de escuela porque el navbar abre el modal en su lugar (`$dispatch('open-modal', 'profile-modal')` en `navbar.blade.php:184`).
+
+**Decisión:** el nuevo bloque de usuario del Sidebar (mismo patrón que ya existe en `sidebar/layout.blade.php:97` para admin, que ya enlaza a `route('admin.profile')` en vez de abrir un modal) apunta a `route('app.profile')` para escuela. Un usuario que edita su perfil un par de veces al año no necesita ahorrarse una navegación completa — el costo de mantener dos componentes Livewire con la misma lógica (y el riesgo de que diverjan, como ya pasó: `ProfileModal` no tiene `sidebar_collapsed` ni algunos campos que sí tiene `Profile`) es mayor que el beneficio de la ruta ahorrada.
+
+**No eliminar `ProfileModal.php` ni su vista** — se deja de referenciar desde el Sidebar/navbar (dead code intencional, mismo criterio que 7.8 con login v1), por si se decide reusar el patrón de modal en otro contexto más adelante.
+
+### 7.8 — Deprecar Login v1 (ocultar, no eliminar)
+
+El sistema hoy decide entre `auth.login` (azul, diseño actual) y `auth.login-v1` (`layouts/guest-v1.blade.php`, diseño "arquitectónico" legado) leyendo una cookie `orvian_login_version` en `AuthenticatedSessionController::create()` (`app/Http/Controllers/Auth/AuthenticatedSessionController.php:20-27`), que a su vez se setea desde el selector visual en Preferencias (`resources/views/livewire/shared/profile.blade.php:406-482`, "Selecciona tu Interfaz de Acceso") y se persiste en `Profile::savePreferences()` (`app/Livewire/Shared/Profile.php:175, 180-184`).
+
+**Decisión:** un usuario que no conoce ERPs no debería tener la opción de elegir entre dos sistemas de login — es una decisión de producto, no una preferencia de usuario. Se deja **un solo login** (el azul, sin prefijo `v1`):
+
+- `AuthenticatedSessionController::create()` deja de leer la cookie y siempre retorna `view('auth.login')`.
+- Se quita el selector de "Interfaz de Acceso" de `profile.blade.php` (bloque completo, líneas 406-482) y las líneas asociadas de `Profile.php` (`$loginVersion`, la validación/guardado de `preferences['login_version']` y el `Cookie::queue('orvian_login_version', ...)`).
+- **No se eliminan los archivos** `resources/views/layouts/guest-v1.blade.php`, `resources/views/auth/login-v1.blade.php` ni `app/View/Components/GuestV1Layout.php` — quedan en el repo sin ruta que los sirva, por si se quiere retomar el diseño más adelante. Mismo criterio de "ocultar, no borrar" que 7.7.
+- El caché de la cookie existente en navegadores de usuarios que ya habían elegido `v1` deja de tener efecto en cuanto el controlador ignore el valor — no hace falta invalidar la cookie activamente, simplemente deja de leerse.
+
+### 7.9 — Preferencia de Sidebar colapsado: de checkbox a persistencia automática (localStorage)
+
+Hoy "colapsar menú lateral por defecto" es un checkbox en Preferencias (`profile.blade.php:384-404`, solo visible `@if($isAdmin)`) que se guarda en `$user->preferences['sidebar_collapsed']` en base de datos y se lee en `components/admin.blade.php:4-6` para fijar el estado inicial de Alpine (`sidebarOpen`). Es decir: para cambiar algo tan simple como "quiero el sidebar cerrado", el usuario tiene que ir a Perfil → Preferencias → marcar un checkbox → Guardar → recargar.
+
+**Decisión:** reemplazar por el patrón que ya usan la mayoría de apps con sidebar colapsable (el que el usuario describe como "tipo Alegra"): el estado se guarda automáticamente en `localStorage` en el momento en que el usuario abre o cierra el sidebar con el propio botón toggle — sin pasos intermedios, sin ir a Preferencias, sin round-trip al servidor.
+
+- `x-data="{ sidebarOpen: ... }"` en `components/admin.blade.php:10` pasa de inicializarse desde `$sidebarInitial` (preferencia PHP) a inicializarse desde `localStorage.getItem('sidebarOpen')`, con `$watch('sidebarOpen', val => localStorage.setItem('sidebarOpen', val))` (mismo patrón que ya usa `layouts/guest.blade.php:3-4` para `darkMode`, que es exactamente este mecanismo aplicado a otra preferencia).
+- Se elimina el checkbox de `profile.blade.php` y el campo `sidebar_collapsed` de `Profile.php` (`public bool $sidebar_collapsed`, su carga en `mount()`, su guardado en `savePreferences()`).
+- **Nota de decisión sobre el `$user->preference('sidebar_collapsed', ...)`:** queda como dato huérfano en el JSON de preferencias existentes — no se migra ni se borra activamente, simplemente deja de leerse. Es dato histórico sin impacto si queda ahí.
+- Esto aplica igual para admin (hoy el único con Sidebar) y para escuela una vez 7.1 esté implementado — mismo mecanismo para ambos, sin diferenciar por tipo de usuario como pedía el checkbox original.
+
+### 7.10 — Iconos de módulo (SVG propio) en vez de Heroicons en el Sidebar
+
+`sidebar/item.blade.php` y `sidebar/dropdown.blade.php` usan `<x-dynamic-component :component="$icon" />` (Heroicons genéricos: `heroicon-s-academic-cap`, `heroicon-s-user-group`, etc. — ver `layouts/sidebar.blade.php:2-51`). Mientras tanto, `public/assets/icons/modules/` ya tiene una suite de íconos propios por módulo (`academico.svg`, `asistencia.svg`, `administracion.svg`, `notas.svg`, `classroom.svg`, `reportes.svg`, `conversaciones.svg`, `horarios.svg`, `web.svg`) consumida hoy solo por `x-ui.module-icon` en el navbar de módulo y en las tiles del dashboard.
+
+**Decisión: sí, vale la pena para este nivel de usuario.** Un ícono de línea genérico (Heroicons) exige que el usuario lea el label para saber qué es "Académico" vs. "Asistencia" — dos conceptos que en Heroicons pueden terminar pareciendo iconografía intercambiable (`academic-cap` vs. `clipboard-document-check`, por poner un ejemplo). Los íconos propios de `assets/icons/modules/` ya están diseñados específicamente para representar cada módulo de ORVIAN — reconocerlos de un vistazo reduce la dependencia de leer texto, que es justamente el objetivo con usuarios de baja alfabetización tecnológica (reconocimiento visual > lectura). Además da consistencia: hoy el mismo módulo "Académico" se representa con un heroicon en el Sidebar de admin pero con `academico.svg` en el navbar/dashboard de escuela — dos íconos distintos para el mismo concepto según en qué panel estés.
+
+**Implementación a futuro (sin código ahora):**
+- `sidebar/item.blade.php` y `sidebar/dropdown.blade.php` agregan un modo alternativo de ícono: mantener `icon` (heroicon) para ítems que no son "módulo" (ej. "Roles del Sistema", "Usuarios Globales" en admin no tienen SVG propio en `assets/icons/modules/`), y agregar un prop nuevo tipo `moduleIcon` que renderice `<x-ui.module-icon :name="..." />` cuando el ítem representa un módulo de la suite existente.
+- No es un reemplazo total de Heroicons en el Sidebar — es un uso dirigido donde ya existe el asset correcto, para no forzar SVGs nuevos en ítems que nunca los tuvieron (login, roles, logs del sistema, etc. siguen con heroicon).
+
+### 7.11 — Limpieza de `components/navbar/layout.blade.php`
+
+Esta barra superior delgada (usada hoy en `components/admin.blade.php:44`, y candidata a reusarse o no según lo que se decida en 7.1/7.5 para escuela) tiene tres problemas independientes:
+
+1. **Botón hamburguesa + tooltip obsoleto** (`navbar/layout.blade.php:6-43`): el tooltip explica "Solo para esta sesión, para que persista cámbialo en Preferencias" — mensaje que deja de tener sentido en cuanto 7.9 elimina el checkbox de Preferencias y hace que el toggle **siempre** persista (vía `localStorage`, automáticamente). Se elimina el bloque completo del tooltip (`x-data="{ showTip, tipTimer }"` y su `<div x-show="showTip">`); el botón de toggle se queda, pero ya no necesita explicar nada porque su comportamiento pasa a ser el esperado por defecto.
+2. **Buscador no funcional y sin los componentes de `docs/ui/ui-forms.md`**: el input de búsqueda (`navbar/layout.blade.php:50-62`) es un `<input>` hecho a mano, sin `x-ui.forms.input` (pierde el manejo de estados/foco/error documentado). El modal de búsqueda móvil (`navbar/layout.blade.php:132-144`) reimplementa su propio contenedor (`<div x-show="show">` con transiciones manuales) en vez de usar `resources/views/components/modal.blade.php`, que ya resuelve foco atrapado, `Escape`, click-fuera y transiciones — exactamente lo que el modal casero reinventa peor. Ambos se corrigen cuando se implemente el buscador real de 7.4: el input pasa a `x-ui.forms.input` con `icon-left="heroicon-s-magnifying-glass"`, y el modal móvil pasa a `<x-modal name="global-search">` reusando la lógica ya existente en `components/modal.blade.php`.
+3. **Botón de pantalla completa** (`navbar/layout.blade.php:72-128`): se elimina por completo. No es una función que un director o profesor vaya a buscar, agrega superficie de interacción sin valor claro para el perfil de usuario objetivo, y ya tiene un historial de necesitar parches (`Fase 7.5` original solo lo ocultaba en mobile — la solución más simple es no tenerlo).
+
+### 7.12 — Sidebar colapsado en desktop: overlay en hover, no "empuje" de contenido
+
+Hoy el estado colapsado del Sidebar (`w-20`, `!sidebarOpen && !hasHover`) se expande a `w-72` en `mouseover` (`sidebar/layout.blade.php:2-11`) — y como el Sidebar es un elemento en el flujo normal (`flex` dentro de `components/admin.blade.php:27`), ese cambio de ancho **empuja** el contenido principal (`<main>`) cada vez que el mouse pasa por encima, incluso sin intención de abrirlo. Es la misma familia de problema que 7.1.2 (el flip 3D del navbar de escuela): una animación que se dispara por accidente y mueve todo el layout, lo cual es exactamente el tipo de "movimiento brusco" que deteriora la percepción de estabilidad de la interfaz.
+
+**Decisión:** el estado colapsado con hover en desktop debe comportarse como el propio Sidebar **ya se comporta en mobile** (`sidebar/layout.blade.php:9-10`: `fixed inset-y-0 left-0 translate-x-0` cuando `sidebarOpen && window.innerWidth < 1024`) — superpuesto (`fixed`/`absolute`, saca del flujo), no empujando el `<main>`. La diferencia explícita que pide el usuario: **sin el overlay oscuro de fondo** que sí tiene el drawer mobile (`components/admin.blade.php:30-39`, el `bg-black/50 backdrop-blur-sm`) — en desktop el hover debe sentirse como una expansión momentánea y liviana, no como abrir un modal que bloquea el resto de la pantalla. Esto significa:
+- Cuando `!sidebarOpen && hasHover` (colapsado + mouse encima) en desktop: el aside se posiciona en `absolute`/`fixed` sobre el contenido (con `shadow-xl` para dar sensación de estar "flotando" sobre el resto, ya presente hoy), en vez de cambiar su `width` dentro del flujo `flex`.
+- El `<main>` mantiene su ancho fijo (basado en el estado real `sidebarOpen`, no en `hasHover`) — no reacciona al hover en absoluto.
+- Cuando `sidebarOpen` es `true` (fijado por el usuario, ver 7.9), el comportamiento actual de "empujar" el contenido sí es correcto — eso es una decisión explícita del usuario (abrir el sidebar), no un efecto secundario del mouse pasando por encima.
+
+### 7.13 — Eliminación del sistema de Status de Usuario (online/away/busy/offline)
+
+Se concluye, con el usuario, que el indicador de presencia (`online`/`away`/`busy`/`offline`) no aporta funcionalidad más allá de "ver quién está o estuvo conectado" — sin chat en tiempo real ni colaboración simultánea dentro de ORVIAN que dependa de saber si alguien está activo ahora mismo, y con `feature/activity-log` como el sustituto correcto para trazabilidad de acciones (que sí es información accionable, a diferencia de un punto de color). Se decide **eliminar por completo**, no ocultar (a diferencia de 7.7/7.8, aquí no hay ambigüedad de "podría reusarse después" — es una feature completa y autocontenida sin dependencias de otras partes del sistema).
+
+**Superficie a eliminar** (confirmado por revisión de código, no solo lo que mencionó el usuario):
+
+| Componente | Acción |
+| :--- | :--- |
+| `database` — columna `status` en `users` (`database/migrations/2026_03_13_004716_add_profile_fields_to_users_table.php:19`) | Nueva migración que la elimina (no editar la migración original) |
+| `app/Models/User.php:28` — `'status'` en `$fillable` | Quitar |
+| `app/Models/User.php` — columna `last_login_at` | **Evaluar aparte**: se usa también para "última conexión" fuera del status en sí; confirmar si tiene otro consumidor antes de tocarla (no estaba en el alcance que describió el usuario) |
+| `app/Livewire/Shared/UserStatus.php` | Eliminar (componente completo: `setStatus()`, `mount()`) |
+| `resources/views/livewire/shared/user-status.blade.php` | Eliminar |
+| `@livewire('shared.user-status')` en `components/admin.blade.php` / futuro Sidebar de escuela / `sidebar/layout.blade.php:93` | Quitar la inclusión |
+| `app/Console/Commands/UpdateUserStatus.php` (`orvian:update-user-status`) | Eliminar comando |
+| `routes/console.php:15` — `Schedule::command('orvian:update-user-status')->everyFiveMinutes()` | Quitar del scheduler |
+| `app/Listeners/UpdateUserStatusListener.php` (`handleLogin`/`handleLogout` que setean `status`) | Eliminar el listener; si el `EventServiceProvider` no tiene más listeners para `Login`/`Logout`, quitar también el registro del evento |
+| `app/View/Components/Ui/Avatar.php` — prop `showStatus`, `$statusColor`, `$statusSize`, `getStatusColor()`, `getStatusSize()` | Quitar toda la lógica de status del componente |
+| `resources/views/components/ui/avatar.blade.php:18-26` — bloque `@if($showStatus)` | Quitar el `<span>` indicador |
+| Todos los `showStatus` en vistas (`navbar.blade.php`, `sidebar/layout.blade.php`, `livewire/shared/profile.blade.php`) | Quitar el prop de cada `<x-ui.avatar>` |
+
+### 7.14 — Deprecar `module-toolbar` (tapaba el breadcrumb)
+
+`components/app/module-toolbar.blade.php` se agregó copiando el patrón de barra secundaria de Odoo, sin un propósito propio más allá de "verse bien". Con el Sidebar como navegación principal (7.1) y los breadcrumbs activos (7.2), el toolbar quedó `sticky top-0` justo encima del breadcrumb, tapándolo visualmente y sin aportar nada que `x-ui.page-header` (ya usado en la mayoría de vistas con tabla) no resuelva mejor.
+
+**Decisión:** eliminar `module-toolbar.blade.php` por completo. Extender `x-ui.page-header` con un slot `$secondary` — acciones que no ameritan botón propio se agrupan en un menú "···" (kebab): dropdown en desktop, bottom sheet en mobile, mismo patrón ya usado en `data-table/column-selector.blade.php` (no se inventó uno nuevo). El slot `$actions` existente de `page-header` absorbe lo que antes era el slot `actions` del toolbar.
+
+**Archivos modificados:**
+
+| Archivo | Acción |
+| :--- | :--- |
+| `resources/views/components/app/module-toolbar.blade.php` | **Eliminado** |
+| `resources/views/components/app/search.blade.php` | **Eliminado** — quedó huérfano (nunca se instanció fuera del toolbar) |
+| `resources/views/components/ui/page-header.blade.php` | Slot `$secondary` nuevo (dropdown desktop / bottom sheet mobile) |
+| `resources/views/livewire/app/attendance/classroom-attendance-live.blade.php` | Toolbar → `page-header` (título dinámico vía `<x-slot:title>`) |
+| `resources/views/livewire/app/attendance/attendance-reports.blade.php` | Toolbar → `page-header` nuevo (no tenía uno); "Historial del Plantel" pasa al slot `secondary` |
+| `resources/views/livewire/app/attendance/classroom-attendance-history.blade.php` | Toolbar eliminado, acciones fusionadas al `page-header` ya existente |
+| `resources/views/livewire/app/academic/students/index.blade.php` | Toolbar eliminado, acciones/secundarias fusionadas al `page-header` ya existente |
+| `resources/views/livewire/app/academic/teachers/teacher-assignments.blade.php` | Toolbar → `page-header` nuevo |
+| `resources/views/livewire/app/academic/teachers/teacher-index.blade.php` | Toolbar eliminado, acciones/secundarias fusionadas al `page-header` ya existente |
+| `resources/views/livewire/app/academic/biometric-kiosk.blade.php` | Toolbar → `page-header` nuevo; su barra de controles sticky pasa de `top-[7rem]` a `top-0` (ya no hay navbar fijo ni toolbar encima) |
+| `resources/views/livewire/app/academic/course-form.blade.php` | Toolbar → `page-header` nuevo |
+| `resources/views/livewire/app/academic/course-index.blade.php` | Toolbar y el `<h1>` duplicado que ya tenía la vista → un solo `page-header` |
+| `resources/views/livewire/app/academic/course-show.blade.php` | Toolbar → `page-header` nuevo |
+| `resources/views/livewire/app/academic/enrollment-hub.blade.php` | Toolbar → `page-header` nuevo; `h-[calc(100vh-9rem)]` ajustado a `14rem` (aproximado, pendiente de verificación visual) |
+| `resources/views/livewire/app/attendance/plantel-attendance-index.blade.php` | Toolbar eliminado, acciones fusionadas al `page-header` ya existente |
+
+**Verificado:** `view:cache` sin errores de sintaxis, `Livewire::test()` en 11 de los 12 componentes (el doceavo, `TeacherAssignments`, no tenía datos de maestro en la BD de prueba para montar la ruta — su cambio es mecánicamente idéntico a los otros 11), `sail artisan test` completo sin regresiones nuevas, y confirmado en vivo vía túnel: breadcrumb ya no tapado, botón "Más acciones" funcionando en `/app/attendance/reports`.
+
+### Checklist de cierre — Fase 7
+
+- [x] Click-through manual en admin y escuela (desktop) — hecho en esta sesión vía túnel público (Cloudflare Tunnel) sobre Sail local; hallazgos listados en la nota de metodología arriba.
+- [ ] Falta el mismo click-through en tablet/touch real para confirmar 7.1.3 (el navegador de esta sesión no simula touch/hover de forma fiable).
+- [x] Deprecar `module-toolbar` y migrar sus 12 usos a `x-ui.page-header` con slot `secondary` (7.14) — hecho.
+- [x] Crear `layouts/sidebar-app.blade.php` a partir de `config/modules.php` (7.1) — hecho.
+- [x] Bug encontrado post-implementación: el Sidebar mostraba todos los links de módulo sin filtrar por permiso (cualquier rol veía todo, algunos llevaban a 403). `config/modules.php` cada `moduleLink` ahora declara `permission` (mismo permiso que protege la ruta vía `can:` middleware); `sidebar-app.blade.php` filtra con `auth()->user()->can(...)` y oculta el módulo entero si queda sin links visibles. Verificado revocando permisos dentro de una transacción revertida.
+- [x] Agregar `<x-navbar.breadcrumbs />` a `layouts/app-module.blade.php` (7.2) — hecho.
+- [x] Quitar el segundo argumento de `->layout()` en los 32 Livewire de `app/Livewire/App/**` (7.3) — hecho.
+- [x] Buscador global funcional (7.4) — hecho, rediseñado. Fuente: `->defaults('navigationSearch', ...)` en `routes/app/*.php` (25 rutas), no `config/modules.php`. Cacheado 24h vía `GlobalSearchService::index()`, filtrado por permisos por usuario vía `forUser()`, consumido en `components/navbar/layout.blade.php` (desktop + modal móvil).
+- [ ] Definir contenido real del dashboard unificado (7.5) antes de tocar `app/dashboard.blade.php` — por ahora solo hay sugerencias, no una spec cerrada. Pendiente a propósito, sin tocar.
+- [x] Implementar resolución de logo por escuela en `application-logo.blade.php` (7.6) — hecho, reescala la única imagen subida.
+- [x] Repuntar el enlace "Mi Perfil" del Sidebar/navbar de escuela hacia `route('app.profile')`; dejar `ProfileModal` sin referencias (7.7) — hecho.
+- [x] `AuthenticatedSessionController::create()` deja de leer la cookie de versión de login; quitar el selector de `profile.blade.php` (7.8) — hecho.
+- [x] Migrar persistencia de `sidebarOpen` de preferencia PHP a `localStorage` (7.9); quitar checkbox de Preferencias — hecho, en admin y escuela.
+- [x] Extender `sidebar/item.blade.php` y `sidebar/dropdown.blade.php` con soporte de `moduleIcon` vía `x-ui.module-icon` (7.10) — hecho.
+- [x] Limpiar `components/navbar/layout.blade.php`: quitar tooltip de sidebar, quitar fullscreen, migrar buscador a `x-ui.forms.input` + `x-modal` (7.11) — hecho. `components/app/navbar.blade.php` (navbar horizontal antiguo, sin referencias tras la Fase B) eliminado.
+- [x] Rehacer el hover del Sidebar colapsado en desktop como overlay sin oscurecer el fondo, sin empujar `<main>` (7.12) — hecho.
+- [x] Eliminar sistema de Status de Usuario completo según la tabla de 7.13 (incluye migración de columna, comando, listener, componente Livewire y prop de Avatar) — hecho. Se encontraron y limpiaron también dos usos no documentados originalmente: el filtro "Estado" y la columna de status en `admin/users/index.blade.php` y `app/users/index.blade.php` (con sus `StatusFilter`, entradas en `TenantUserTableConfig`/`AdminUserTableConfig`, y los helpers `statusColor()`/`statusLabel()` en ambos `UserIndex.php`).
+
 
 ---
 
@@ -2814,7 +3218,33 @@ Patrón canónico de uso (opt-in con `wire:target` explícito):
 | `resources/views/livewire/shared/course-selector-modal.blade.php` | Crear vista modal | 4 |
 | `resources/views/livewire/app/attendance/manual-attendance.blade.php` | Migrar select al Selector Universal | 4 |
 | `resources/views/livewire/app/attendance/classroom-attendance-live.blade.php` | Rediseño con gestos y Selector Universal | 4 + 5 |
-| `resources/views/components/app/navbar.blade.php` | Ajustes visuales mobile | 7 |
+| `resources/views/layouts/sidebar-app.blade.php` | Crear — Sidebar de escuela análogo a `layouts/sidebar.blade.php` | 7.1 |
+| `resources/views/layouts/app-module.blade.php` | Reemplazar navbar horizontal por Sidebar; agregar `<x-navbar.breadcrumbs />` | 7.1, 7.2 |
+| `resources/views/layouts/app.blade.php` | Reemplazar Hub sin sidebar por el mismo shell (Sidebar + `<x-navbar.layout />`), conserva su `<style>` propio | 7.1 |
+| `resources/views/components/app/module-toolbar.blade.php` | `sticky top-[52px]` → `sticky top-0` (el navbar ya no es `fixed`, efecto colateral necesario de 7.1) | 7.1 |
+| `app/Livewire/App/**` (32 componentes) | Quitar segundo argumento `config('modules.*')` de `->layout()` | 7.3 |
+| `app/Services/Navigation/GlobalSearchService.php` | `index()` (scan de rutas + cache 24h) y `forUser()` (filtro por permisos) — ver detalle en 7.4 | 7.4 |
+| `routes/app/*.php` (6 archivos) | `->defaults('navigationSearch', [...])` en 25 rutas indexables | 7.4 |
+| `resources/views/components/navbar/layout.blade.php` | Buscador funcional (desktop + modal móvil), consume el índice de `GlobalSearchService` | 7.4 |
+| `resources/views/app/dashboard.blade.php` | Rediseño: resumen operativo + accesos recientes + pendientes accionables, no grilla de módulos | 7.5 |
+| `resources/views/components/application-logo.blade.php` | Resolución de logo por `school_id` → `logo_path`, con fallback a ORVIAN | 7.6 |
+| `resources/views/components/sidebar/layout.blade.php` | Enlace "Mi Perfil" → `route('app.profile')` / `route('admin.profile')`; quitar `@livewire('shared.user-status')` | 7.7, 7.13 |
+| `app/Livewire/Shared/ProfileModal.php` + `livewire/shared/profile-modal.blade.php` | Dejar de referenciar (dead code intencional, no eliminar) | 7.7 |
+| `resources/views/components/app/navbar.blade.php` | Quitar `$dispatch('open-modal', 'profile-modal')`, enlazar a `route('app.profile')` | 7.7 |
+| `app/Http/Controllers/Auth/AuthenticatedSessionController.php` | `create()` deja de leer cookie `orvian_login_version`, siempre `auth.login` | 7.8 |
+| `resources/views/livewire/shared/profile.blade.php` | Quitar selector "Interfaz de Acceso" (login v1/v2) y checkbox "Colapsar menú lateral" | 7.8, 7.9 |
+| `app/Livewire/Shared/Profile.php` | Quitar `$loginVersion`, `$sidebar_collapsed` y su guardado/cookie en `savePreferences()` | 7.8, 7.9 |
+| `resources/views/components/admin.blade.php` | `sidebarOpen` inicial desde `localStorage` en vez de preferencia PHP | 7.9 |
+| `resources/views/components/sidebar/item.blade.php` + `sidebar/dropdown.blade.php` | Soporte de prop `moduleIcon` vía `x-ui.module-icon` | 7.10 |
+| `resources/views/components/navbar/layout.blade.php` | Quitar tooltip de sidebar y botón fullscreen; buscador con `x-ui.forms.input` + `x-modal` | 7.11 |
+| `resources/views/components/sidebar/layout.blade.php` | Hover colapsado en desktop → overlay (`fixed`/`absolute`) sin empujar `<main>`, sin backdrop oscuro | 7.12 |
+| `database/migrations/xxxx_remove_status_from_users_table.php` | Crear migración — elimina columna `status` de `users` | 7.13 |
+| `app/Models/User.php` | Quitar `'status'` de `$fillable` | 7.13 |
+| `app/Livewire/Shared/UserStatus.php` + `livewire/shared/user-status.blade.php` | **Eliminar** | 7.13 |
+| `app/Console/Commands/UpdateUserStatus.php` | **Eliminar** | 7.13 |
+| `routes/console.php` | Quitar `Schedule::command('orvian:update-user-status')` | 7.13 |
+| `app/Listeners/UpdateUserStatusListener.php` | **Eliminar** (+ revisar registro de eventos Login/Logout si queda vacío) | 7.13 |
+| `app/View/Components/Ui/Avatar.php` + `components/ui/avatar.blade.php` | Quitar prop `showStatus` y toda la lógica/UI de color de estado | 7.13 |
 | `resources/views/errors/403.blade.php` | Crear página de error | 9 |
 | `resources/views/errors/404.blade.php` | Crear página de error | 9 |
 | `resources/views/errors/500.blade.php` | Crear página de error | 9 |
