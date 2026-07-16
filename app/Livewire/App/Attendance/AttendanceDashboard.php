@@ -312,6 +312,6 @@ class AttendanceDashboard extends Component
             'calendarLabel' => Carbon::parse($this->calendarMonth)->isoFormat('MMMM YYYY'),
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
+        return $view->layout('layouts.app-module');
     }
 }

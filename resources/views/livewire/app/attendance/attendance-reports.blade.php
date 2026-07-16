@@ -34,46 +34,22 @@
     </script>
     @endscript
 
-    {{-- ── Toolbar ─────────────────────────────────────────────────────────── --}}
-    <x-app.module-toolbar>
-        <x-slot:actions>
-            @if($reportGenerated && !empty($reportData))
-                <x-ui.button variant="secondary" type="ghost" size="sm" iconLeft="heroicon-s-table-cells"
-                    wire:click="exportExcel" wire:loading.attr="disabled">
-                    Excel
-                </x-ui.button>
-                <x-ui.button variant="secondary" type="ghost" size="sm" iconLeft="heroicon-s-document-arrow-down"
-                    wire:click="exportPdf" wire:loading.attr="disabled">
-                    PDF
-                </x-ui.button>
-            @endif
-        </x-slot:actions>
-
-        <x-slot:secondary>
-            <x-ui.button 
-                href="{{ route('app.attendance.plantel.index') }}"
-                variant="primary" 
-                type="outline" 
-                size="sm" 
-                icon="heroicon-o-building-office-2"
-                
-            > 
-                Historial del Plantel
-            </x-ui.button>
-
-            {{-- <x-ui.button 
-                href="{{ route('app.attendance.classroom.history') }}"
-                variant="primary" 
-                type="outline" 
-                size="sm" 
-                icon="heroicon-o-academic-cap"
-            > 
-                Historial por Sección
-            </x-ui.button> --}}
-        </x-slot:secondary>
-    </x-app.module-toolbar>
-
     <div class="p-4 md:p-6 flex flex-col gap-6">
+
+        <x-ui.page-header title="Reportes de Asistencia" description="Genera reportes de asistencia por período o por estudiante.">
+            <x-slot:actions>
+                @if($reportGenerated && !empty($reportData))
+                    <x-ui.button variant="secondary" type="ghost" size="sm" iconLeft="heroicon-s-table-cells"
+                        wire:click="exportExcel" wire:loading.attr="disabled">
+                        Excel
+                    </x-ui.button>
+                    <x-ui.button variant="secondary" type="ghost" size="sm" iconLeft="heroicon-s-document-arrow-down"
+                        wire:click="exportPdf" wire:loading.attr="disabled">
+                        PDF
+                    </x-ui.button>
+                @endif
+            </x-slot:actions>
+        </x-ui.page-header>
 
         {{-- ── Selector de tipo de reporte ────────────────────────────────── --}}
         <div class="bg-white dark:bg-dark-card rounded-3xl p-1.5 shadow-sm border border-slate-100 dark:border-dark-border">

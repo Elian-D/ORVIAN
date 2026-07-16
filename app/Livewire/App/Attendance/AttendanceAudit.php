@@ -367,6 +367,6 @@ class AttendanceAudit extends Component
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.attendance.attendance-audit');
 
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
+        return $view->layout('layouts.app-module');
     }
 }

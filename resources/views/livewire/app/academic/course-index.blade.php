@@ -1,41 +1,29 @@
 {{-- resources/views/livewire/app/academic/course-index.blade.php --}}
 <div>
-    <x-app.module-toolbar>
-        <x-slot:title>Gestión de Cursos</x-slot:title>
-        <x-slot:actions>
-            <x-ui.button href="{{ route('app.academic.courses.create') }}"
-                variant="primary" size="sm" iconLeft="heroicon-o-plus">
-                Nuevo Curso
-            </x-ui.button>
-        </x-slot:actions>
-    </x-app.module-toolbar>
-
     <div class="p-4 md:p-6">
-        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-            <div>
-                <h1 class="text-2xl font-black text-slate-900 dark:text-white leading-tight">
-                    Gestión de Cursos
-                </h1>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                    Supervisión y organización de niveles académicos.
-                </p>
-            </div>
+        <x-ui.page-header title="Gestión de Cursos" description="Supervisión y organización de niveles académicos.">
+            <x-slot:actions>
+                <x-ui.button href="{{ route('app.academic.courses.create') }}"
+                    variant="primary" size="sm" iconLeft="heroicon-o-plus">
+                    Nuevo Curso
+                </x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
-            {{-- Selector de Tanda (Centrado y Prioritario) --}}
-            <div class="inline-flex items-center bg-slate-200/50 dark:bg-white/5 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-white/10">
-                @foreach($this->shifts as $shift)
-                    <button 
-                        wire:click="$set('selectedShiftId', {{ $shift->id }})"
-                        @class([
-                            'px-6 py-2 rounded-lg text-xs font-bold transition-all duration-200',
-                            'bg-white dark:bg-orvian-orange shadow-md text-orvian-orange dark:text-white scale-100' => $selectedShiftId == $shift->id,
-                            'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-300/30 dark:hover:bg-white/5' => $selectedShiftId != $shift->id
-                        ])
-                    >
-                        {{ $shift->type }}
-                    </button>
-                @endforeach
-            </div>
+        {{-- Selector de Tanda (Centrado y Prioritario) --}}
+        <div class="inline-flex items-center bg-slate-200/50 dark:bg-white/5 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-white/10 mb-8">
+            @foreach($this->shifts as $shift)
+                <button
+                    wire:click="$set('selectedShiftId', {{ $shift->id }})"
+                    @class([
+                        'px-6 py-2 rounded-lg text-xs font-bold transition-all duration-200',
+                        'bg-white dark:bg-orvian-orange shadow-md text-orvian-orange dark:text-white scale-100' => $selectedShiftId == $shift->id,
+                        'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-300/30 dark:hover:bg-white/5' => $selectedShiftId != $shift->id
+                    ])
+                >
+                    {{ $shift->type }}
+                </button>
+            @endforeach
         </div>
 
         <div class="flex gap-6 items-start">

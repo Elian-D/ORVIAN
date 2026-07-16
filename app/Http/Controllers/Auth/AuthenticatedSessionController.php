@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use App\Models\User; // Asegúrate de importar tu modelo
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -17,12 +16,6 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(Request $request): View
     {
-        $version = $request->cookie('orvian_login_version', 'v2');
-
-        if ($version === 'v1') {
-            return view('auth.login-v1');
-        }
-
         return view('auth.login');
     }
 
@@ -32,28 +25,6 @@ class AuthenticatedSessionController extends Controller
 
     public function store(LoginRequest $request): RedirectResponse
     {
-        if ($request->filled('qr_code')) {
-            $qrCode = $request->input('qr_code');
-
-            $user = \App\Models\User::whereHas('teacher', fn($q) => $q->where('qr_code', $qrCode))
-                ->orWhereHas('student', fn($q) => $q->where('qr_code', $qrCode))
-                ->first();
-
-            if ($user) {
-                Auth::login($user, $request->boolean('remember'));
-                $request->session()->regenerate();
-                
-                return redirect()->intended(
-                    is_null($user->school_id)
-                        ? route('admin.hub')
-                        : route('app.dashboard')
-                )->with('success', '¡Sesión iniciada vía QR!');
-            }
-
-            return back()->withErrors(['email' => 'Código QR no reconocido.']);
-        }
-
-        // SOLO si no hay QR o el flujo falló arriba, ejecutamos esto:
         $request->authenticate();
         $request->session()->regenerate();
 

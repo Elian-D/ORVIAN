@@ -14,7 +14,7 @@
             <div class="p-6 flex-shrink-0">
                 <div class="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
                     <div class="relative group">
-                        <x-ui.avatar :user="auth()->user()" size="xl" showStatus />
+                        <x-ui.avatar :user="auth()->user()" size="xl" />
                         
                         <label class="absolute inset-0 z-10 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer">
                             <x-heroicon-s-camera class="w-6 h-6 text-white" />

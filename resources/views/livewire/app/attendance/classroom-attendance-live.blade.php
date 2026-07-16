@@ -5,34 +5,33 @@
 --}}
 <div class="flex flex-col bg-slate-50 dark:bg-dark-bg">
 
-    {{-- ══ Toolbar ══════════════════════════════════════════════ --}}
-    <x-app.module-toolbar>
-        <x-slot:title>
-            <span class="font-bold">Pase de Lista</span>
-            @if($selectedAssignment)
-                <span class="hidden sm:inline text-slate-400 dark:text-slate-500 font-normal mx-1">—</span>
-                <span class="hidden sm:inline font-semibold truncate max-w-[120px] md:max-w-none">{{ $selectedAssignment->subject->name }}</span>
-                <span class="hidden md:inline text-[11px] font-normal text-slate-400 dark:text-slate-500 ml-1">
-                    {{ $selectedAssignment->section->full_label }}
-                    · {{ now()->isoFormat('D MMM YYYY') }}
-                </span>
-            @endif
-        </x-slot:title>
-        <x-slot:actions>
-            <button wire:click="toggleSubstituteMode"
-                    @class([
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                        'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-400/60' => $isSubstituteMode,
-                        'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700' => ! $isSubstituteMode,
-                    ])>
-                <x-heroicon-s-arrows-right-left class="w-3.5 h-3.5" />
-                {{ $isSubstituteMode ? 'Modo Sustituto' : 'Mis Clases' }}
-            </button>
-        </x-slot:actions>
-    </x-app.module-toolbar>
-
     {{-- ══ Área scrolleable ═════════════════════════════════════ --}}
     <div class="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-4 md:py-6 space-y-4">
+
+        <x-ui.page-header>
+            <x-slot:title>
+                <span class="font-bold">Pase de Lista</span>
+                @if($selectedAssignment)
+                    <span class="hidden sm:inline text-slate-400 dark:text-slate-500 font-normal mx-1">—</span>
+                    <span class="hidden sm:inline font-semibold truncate max-w-[120px] md:max-w-none">{{ $selectedAssignment->subject->name }}</span>
+                    <span class="hidden md:inline text-[11px] font-normal text-slate-400 dark:text-slate-500 ml-1">
+                        {{ $selectedAssignment->section->full_label }}
+                        · {{ now()->isoFormat('D MMM YYYY') }}
+                    </span>
+                @endif
+            </x-slot:title>
+            <x-slot:actions>
+                <button wire:click="toggleSubstituteMode"
+                        @class([
+                            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                            'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-400/60' => $isSubstituteMode,
+                            'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700' => ! $isSubstituteMode,
+                        ])>
+                    <x-heroicon-s-arrows-right-left class="w-3.5 h-3.5" />
+                    {{ $isSubstituteMode ? 'Modo Sustituto' : 'Mis Clases' }}
+                </button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
         {{-- ── Gate de sesión: bloqueo total o interfaz normal ─────────── --}}
         @if(($selectedAssignmentId || $substituteSectionId) && $this->sessionGate['locked'])

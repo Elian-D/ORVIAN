@@ -155,7 +155,7 @@ class ExcuseIndex extends DataTable
             'excuses' => $excuses,
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
+        return $view->layout('layouts.app-module');
     }
 
     public function clearFilter(string $key): void

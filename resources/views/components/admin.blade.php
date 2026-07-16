@@ -1,13 +1,7 @@
-@php
-    /** @var \App\Models\User|null $authUser */
-    $authUser = auth()->user();
-    $sidebarInitial = $authUser
-        ? ($authUser->preference('sidebar_collapsed', false) ? 'false' : 'true')
-        : 'true';
-@endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
-      x-data="{ sidebarOpen: window.innerWidth >= 1024 ? {{ $sidebarInitial }} : false }">
+      x-data="{ sidebarOpen: window.innerWidth >= 1024 ? (localStorage.getItem('sidebarOpen') !== null ? localStorage.getItem('sidebarOpen') === 'true' : true) : false }"
+      x-init="$watch('sidebarOpen', val => { if (window.innerWidth >= 1024) localStorage.setItem('sidebarOpen', val) })">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -35,7 +29,7 @@
              x-transition:leave="transition-opacity ease-linear duration-300"
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
-             class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden">
+             class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 sm:hidden">
         </div>
 
         @include('layouts.sidebar')

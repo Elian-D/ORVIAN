@@ -1,17 +1,20 @@
 <div>
-    <x-app.module-toolbar>
-        <x-slot:title>Hub de Matriculación</x-slot:title>
-        <x-slot:actions>
-            @if($this->unassignedStudents->total() > 0)
-                <x-ui.badge variant="warning" size="sm">
-                    {{ $this->unassignedStudents->total() }} en Sala de Espera
-                </x-ui.badge>
-            @endif
-        </x-slot:actions>
-    </x-app.module-toolbar>
+    <div class="px-4 md:px-6 pt-4">
+        <x-ui.page-header title="Hub de Matriculación">
+            <x-slot:actions>
+                @if($this->unassignedStudents->total() > 0)
+                    <x-ui.badge variant="warning" size="sm">
+                        {{ $this->unassignedStudents->total() }} en Sala de Espera
+                    </x-ui.badge>
+                @endif
+            </x-slot:actions>
+        </x-ui.page-header>
+    </div>
 
-    {{-- Contenedor Principal: flex-col en móviles, flex-row en lg. Altura auto en móvil, fija en escritorio --}}
-    <div class="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-9rem)] p-4 md:p-6">
+    {{-- Contenedor Principal: flex-col en móviles, flex-row en lg. Altura auto en móvil, fija en escritorio.
+         h-[calc(100vh-Nrem)]: aproximación tras quitar el navbar fijo + module-toolbar (Fase 7, REQ-07.14) —
+         verificar visualmente y ajustar si sobra/falta espacio. --}}
+    <div class="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-14rem)] p-4 md:p-6">
 
         {{-- ══ PANEL IZQUIERDO: Sala de Espera ══ --}}
         {{-- w-full en móvil, w-1/2 en lg. Altura fija en móvil para que el scroll interno funcione --}}

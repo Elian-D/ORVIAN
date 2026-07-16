@@ -167,6 +167,6 @@ class RoleIndex extends DataTable
             'roles' => $roles,
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return $view->layout('layouts.app-module');
     }
 }

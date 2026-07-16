@@ -375,6 +375,6 @@ class SchoolSettings extends Component
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.settings.school-settings');
 
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return $view->layout('layouts.app-module');
     }
 }

@@ -55,6 +55,17 @@
                 :active="true" />
         </div>
 
+        {{-- Académico - Basado en academic_grades --}}
+        <div class="tile-animate" style="animation-delay: 0.20s;">
+            <x-ui.app-tile
+                module="academico"
+                title="Académico"
+                subtitle="Gestión"
+                :active="in_array('academic_grades', $activeModules)"
+                url="{{ route('app.academic.courses.index') }}"
+                />
+        </div>
+
         {{-- Asistencia - Basado en attendance_qr --}}
         <div class="tile-animate" style="animation-delay: 0.10s;">
             <x-ui.app-tile
@@ -66,26 +77,15 @@
         </div>
 
         {{-- Conversaciones - Ahora envía fuera de Orvian --}}
-        <div class="tile-animate" style="animation-delay: 0.15s;">
+        {{-- <div class="tile-animate" style="animation-delay: 0.15s;">
             <x-ui.app-tile
                 module="conversaciones"
                 title="Mensajería"
                 subtitle="Chatwoot"
-                {{-- Aquí la URL de tu VPS --}}
                 url="https://chat.orvian.com.do" 
                 />
-        </div>
+        </div> --}}
 
-        {{-- Académico - Basado en academic_grades --}}
-        <div class="tile-animate" style="animation-delay: 0.20s;">
-            <x-ui.app-tile
-                module="academico"
-                title="Académico"
-                subtitle="Gestión"
-                :active="in_array('academic_grades', $activeModules)"
-                url="{{ route('app.academic.courses.index') }}"
-                />
-        </div>
 
         {{-- Notas - Dependiente de academic_grades (Mismo permiso) --}}
         <div class="tile-animate" style="animation-delay: 0.25s;">
@@ -98,14 +98,14 @@
         </div>
 
         {{-- Classroom - Basado en classroom_internal --}}
-        {{-- <div class="tile-animate" style="animation-delay: 0.30s;">
+        <div class="tile-animate" style="animation-delay: 0.30s;">
             <x-ui.app-tile
                 module="classroom"
                 title="Classroom"
                 subtitle="Virtual"
                 :active="in_array('classroom_internal', $activeModules)"
                 comingSoon="true" />
-        </div> --}}
+        </div>
 
         {{-- Horarios - Global --}}
         {{-- <div class="tile-animate" style="animation-delay: 0.35s;">

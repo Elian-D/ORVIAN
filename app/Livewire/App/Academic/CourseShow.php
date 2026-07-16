@@ -112,6 +112,6 @@ class CourseShow extends Component
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.academic.course-show');
 
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return $view->layout('layouts.app-module');
     }
 }

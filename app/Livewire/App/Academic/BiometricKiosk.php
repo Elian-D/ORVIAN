@@ -131,6 +131,6 @@ class BiometricKiosk extends Component
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.academic.biometric-kiosk');
 
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return $view->layout('layouts.app-module');
     }
 }
