@@ -195,6 +195,6 @@ class StudentImportWizard extends Component
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.app.academic.students.student-import-wizard');
         
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return $view->layout('layouts.app-module');
     }
 }

@@ -151,13 +151,9 @@ class RolePermissions extends Component
     {
         $layout = $this->isGlobal ? 'components.admin' : 'layouts.app-module';
 
-        $layoutProps = $this->isGlobal
-            ? []
-            : config('modules.configuracion');
-
         /** @var \Livewire\Features\SupportPageComponents\View $view */
         $view = view('livewire.shared.roles.role-permissions');
 
-        return $view->layout($layout, $layoutProps ?? []);
+        return $view->layout($layout);
     }
 }
