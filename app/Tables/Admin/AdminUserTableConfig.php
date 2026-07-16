@@ -15,7 +15,6 @@ class AdminUserTableConfig implements TableConfig
             'name'          => 'Nombre',
             'email'         => 'Correo Electrónico',
             'role'          => 'Rol',
-            'status'        => 'Estado',
             'last_login_at' => 'Último Acceso',
             'position'      => 'Cargo',
         ];
@@ -23,7 +22,7 @@ class AdminUserTableConfig implements TableConfig
 
     public static function defaultDesktop(): array
     {
-        return ['name', 'email', 'role', 'status', 'last_login_at'];
+        return ['name', 'email', 'role', 'last_login_at'];
     }
 
     public static function defaultMobile(): array
@@ -36,7 +35,6 @@ class AdminUserTableConfig implements TableConfig
         return [
             'search' => 'Búsqueda',
             'role'   => 'Rol',
-            'status' => 'Estado',
             'trashed' => 'Eliminados',
         ];
     }

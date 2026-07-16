@@ -27,7 +27,6 @@ class UserIndex extends DataTable
     public array $filters = [
         'search' => '',
         'role'   => '',
-        'status' => '',
     ];
 
     // ── Estado formulario ──────────────────────────────────────────────────
@@ -132,7 +131,7 @@ class UserIndex extends DataTable
             'atLimit'     => $atLimit,
         ]);
 
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return $view->layout('layouts.app-module');
     }
 
     // ── Formulario ─────────────────────────────────────────────────────────
@@ -297,25 +296,5 @@ class UserIndex extends DataTable
         $this->role      = '';
         $this->position  = '';
         $this->resetErrorBag();
-    }
-
-    public static function statusColor(string $status): string
-    {
-        return match ($status) {
-            'online' => 'bg-green-500',
-            'away'   => 'bg-amber-400',
-            'busy'   => 'bg-red-500',
-            default  => 'bg-slate-400',
-        };
-    }
-
-    public static function statusLabel(string $status): string
-    {
-        return match ($status) {
-            'online' => 'En línea',
-            'away'   => 'Ausente',
-            'busy'   => 'Ocupado',
-            default  => 'Desconectado',
-        };
     }
 }

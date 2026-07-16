@@ -25,7 +25,6 @@ class User extends Authenticatable
         'avatar_color',
         'phone',
         'position',
-        'status',
         'last_login_at',
         'preferences',
     ];

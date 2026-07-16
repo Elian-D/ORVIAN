@@ -62,16 +62,6 @@
                     filterKey="role"
                     :options="$roleOptions"
                     placeholder="Todos los roles" />
-                <x-data-table.filter-select
-                    label="Estado"
-                    filterKey="status"
-                    :options="[
-                        'online'  => 'En línea',
-                        'away'    => 'Ausente',
-                        'busy'    => 'Ocupado',
-                        'offline' => 'Desconectado',
-                    ]"
-                    placeholder="Todos los estados" />
             </x-data-table.filter-container>
         </x-slot:filterSlot>
 
@@ -81,7 +71,7 @@
 
                 <x-data-table.cell column="name" :visible="$visibleColumns">
                     <div class="flex items-center gap-3">
-                        <x-ui.avatar :user="$user" size="sm" :showStatus="true" />
+                        <x-ui.avatar :user="$user" size="sm" />
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-slate-800 dark:text-white truncate">
                                 {{ $user->name }}
@@ -121,17 +111,6 @@
                     @else
                         <span class="text-slate-400 dark:text-slate-600 text-sm">—</span>
                     @endif
-                </x-data-table.cell>
-
-                <x-data-table.cell column="status" :visible="$visibleColumns">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full flex-shrink-0 whitespace-nowrap
-                            {{ \App\Livewire\Admin\Users\UserIndex::statusColor($user->status ?? 'offline') }}">
-                        </span>
-                        <span class="text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                            {{ \App\Livewire\Admin\Users\UserIndex::statusLabel($user->status ?? 'offline') }}
-                        </span>
-                    </div>
                 </x-data-table.cell>
 
                 <x-data-table.cell column="last_login_at" :visible="$visibleColumns">
