@@ -43,23 +43,23 @@
 | REQ-04 | 4 | UI / Componentes | Selector Universal de Cursos — componente Livewire reutilizable | Alta | A FUTURO |
 | REQ-05 | 5 | Asistencia Aula | Rediseño completo del pase de lista con gestos de deslizamiento | Alta | Completado |
 | REQ-06 | 6 | Mobile | Planificación de app móvil Flutter para tutores (sin código) | Media | Planificación  |
-| REQ-07 | 7 | UX / Navegación | Rediseño de navegación de escuela: Sidebar en vez de navbar horizontal, breadcrumbs globales, fin de `config/modules.php` inyectado por Livewire, buscador global de rutas | Alta | En Análisis (decidido, sin código) |
-| REQ-07.1 | 7 | UX / Navegación | Migrar layout de escuela de navbar horizontal a Sidebar (mismo patrón que admin) | Alta | Decidido |
-| REQ-07.2 | 7 | UX / Navegación | Breadcrumbs globales en `layouts.app-module` (no dentro de `module-toolbar`) | Media | Decidido |
-| REQ-07.3 | 7 | Arquitectura | Eliminar inyección de `config('modules.*')` vía `->layout()` en los 32 Livewire de escuela | Media | Decidido |
+| REQ-07 | 7 | UX / Navegación | Rediseño de navegación de escuela: Sidebar en vez de navbar horizontal, breadcrumbs globales, fin de `config/modules.php` inyectado por Livewire, buscador global de rutas | Alta | Completado |
+| REQ-07.1 | 7 | UX / Navegación | Migrar layout de escuela de navbar horizontal a Sidebar (mismo patrón que admin) | Alta | Completado |
+| REQ-07.2 | 7 | UX / Navegación | Breadcrumbs globales en `layouts.app-module` (no dentro de `module-toolbar`) | Media | Completado |
+| REQ-07.3 | 7 | Arquitectura | Eliminar inyección de `config('modules.*')` vía `->layout()` en los 32 Livewire de escuela | Media | Completado |
 | REQ-07.4 | 7 | UX / Navegación | Buscador global de rutas — índice desde `->defaults('navigationSearch', ...)` en `routes/app/*.php` (no `config/modules.php`), cache 24h, filtrado por permisos por usuario | Alta | Hecho |
 | REQ-07.5 | 7 | UX / Navegación | Contenido del dashboard unificado (reemplaza navbar-mobile original; evitar "un dashboard por módulo") | Media | Sugerencias documentadas — sin spec cerrada |
-| REQ-07.6 | 7 | UI | Logo dinámico por escuela en el Sidebar (`application-logo.blade.php`) | Media | Decidido |
-| REQ-07.7 | 7 | Arquitectura | Modal de perfil (`ProfileModal`) → ruta dedicada `app.profile` (ocultar, no eliminar) | Media | Decidido |
-| REQ-07.8 | 7 | UX | Deprecar Login v1 — un solo login (azul), quitar selector y cookie (ocultar, no eliminar) | Media | Decidido |
-| REQ-07.9 | 7 | UX | Preferencia de Sidebar colapsado: de checkbox en Perfil a persistencia automática en `localStorage` | Media | Decidido |
-| REQ-07.10 | 7 | UI | Íconos de módulo propios (`assets/icons/modules/*.svg`) en `sidebar.item`/`sidebar.dropdown` en vez de Heroicons | Baja | Decidido |
-| REQ-07.11 | 7 | UI | Limpieza de `navbar/layout.blade.php`: quitar tooltip de sidebar y botón fullscreen; buscador con `x-ui.forms.*` + `x-modal` | Media | Decidido |
-| REQ-07.12 | 7 | UX | Sidebar colapsado en desktop: hover como overlay (sin empujar `<main>`, sin oscurecer fondo) | Alta | Decidido |
-| REQ-07.13 | 7 | Arquitectura | Eliminación completa del sistema de Status de Usuario (online/away/busy/offline) | Media | Decidido |
+| REQ-07.6 | 7 | UI | Logo dinámico por escuela en el Sidebar (`application-logo.blade.php`) | Media | Completado |
+| REQ-07.7 | 7 | Arquitectura | Modal de perfil (`ProfileModal`) → ruta dedicada `app.profile` (ocultar, no eliminar) | Media | Completado |
+| REQ-07.8 | 7 | UX | Deprecar Login v1 — un solo login (azul), quitar selector y cookie (ocultar, no eliminar) | Media | Completado |
+| REQ-07.9 | 7 | UX | Preferencia de Sidebar colapsado: de checkbox en Perfil a persistencia automática en `localStorage` | Media | Completado |
+| REQ-07.10 | 7 | UI | Íconos de módulo propios (`assets/icons/modules/*.svg`) en `sidebar.item`/`sidebar.dropdown` en vez de Heroicons | Baja | Completado |
+| REQ-07.11 | 7 | UI | Limpieza de `navbar/layout.blade.php`: quitar tooltip de sidebar y botón fullscreen; buscador con `x-ui.forms.*` + `x-modal` | Media | Completado |
+| REQ-07.12 | 7 | UX | Sidebar colapsado en desktop: hover como overlay (sin empujar `<main>`, sin oscurecer fondo) | Alta | Completado |
+| REQ-07.13 | 7 | Arquitectura | Eliminación completa del sistema de Status de Usuario (online/away/busy/offline) | Media | Completado |
 | REQ-07.14 | 7 | UX / Navegación | Deprecar `module-toolbar` (tapaba el breadcrumb, sticky bajo el navbar) — reemplazado por `x-ui.page-header` extendido con menú de acciones secundarias (dropdown desktop / bottom sheet mobile) | Alta | Hecho |
 | REQ-08 | 8 | Arquitectura | Evaluación del dominio de tutores y padres (sin código) | Media | Análisis |
-| REQ-09 | 9 | UI | Páginas de error personalizadas (403, 404, 500) | Baja | Pendiente |
+| REQ-09 | 9 | UI | Páginas de error personalizadas (403, 404, 500) | Baja | Completado |
 | REQ-10 | 10 | UI Kit | Toasts acumulativos, swipe-to-dismiss y refinamiento visual | Media | Pendiente |
 | REQ-11 | 11 | UI Kit | Corrección de `wire:loading` global en `x-ui.button` | Alta | Pendiente |
 

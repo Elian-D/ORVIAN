@@ -21,6 +21,6 @@ class PublicLayout extends Component
      */
     public function render(): View|Closure|string
     {
-        return view('layout.public');
+        return view('layouts.public-minimal');
     }
 }
