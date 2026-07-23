@@ -26,10 +26,12 @@
 | `SchoolShift` con `start_time` y `end_time` | v0.4.0 | ⚠️ Extender con ventanas de registro configurables (REQ-03) |
 | `PlantelAttendanceService::determineStatus()` | v0.4.0 | ⚠️ Integrar con nueva configuración de ventanas horarias (REQ-03) |
 | Selects de secciones en múltiples vistas | v0.3.0+ | ⚠️ Reemplazar con Selector Universal de Cursos (REQ-04) |
-| `x-ui.button` con `wire:loading.class` global | v0.3.0 | ⚠️ Corregir — dispara en cualquier acción Livewire (REQ-11) |
+| `x-ui.button` con `wire:loading.class` global | v0.3.0 | ⚠️ Corregir — dispara en cualquier acción Livewire (REQ-11.1) |
 | `x-ui.toasts` con `toastManager` Alpine | v0.3.0 | ⚠️ Modernizar — stack, swipe-to-dismiss y refinamiento (REQ-10) |
 | Páginas de error de Laravel (genéricas) | v0.1.0 | ⚠️ Crear vistas personalizadas 403, 404 y 500 (REQ-09) |
 | Navbar de módulos en mobile | v0.8.0 | ✅ Funcional, ajustes visuales menores (REQ-07) |
+| Elementos `x-show`/`x-data` sin `x-cloak` en layouts raíz | v0.3.0+ | ⚠️ Corregir FOUC — la regla CSS ya existe, falta el atributo (REQ-11.2) |
+| `layouts/app-module.blade.php` — casi idéntico a `layouts/app.blade.php` desde que REQ-07.1 quitó el navbar | v0.8.0 | 🗑️ **ELIMINAR** — unificar en `layouts/app.blade.php` (REQ-11.3) |
 
 ---
 
@@ -61,7 +63,10 @@
 | REQ-08 | 8 | Arquitectura | Evaluación del dominio de tutores y padres (sin código) | Media | Análisis |
 | REQ-09 | 9 | UI | Páginas de error personalizadas (403, 404, 500) | Baja | Completado |
 | REQ-10 | 10 | UI Kit | Toasts acumulativos, swipe-to-dismiss y refinamiento visual | Media | Pendiente |
-| REQ-11 | 11 | UI Kit | Corrección de `wire:loading` global en `x-ui.button` | Alta | Pendiente |
+| REQ-11 | 11 | UI Kit / Arquitectura | Correcciones de UI Kit: `wire:loading` global, FOUC de Alpine, unificación de layouts | Alta | Completado |
+| REQ-11.1 | 11 | UI Kit | Corrección de `wire:loading` global en `x-ui.button` | Alta | Completado |
+| REQ-11.2 | 11 | UI Kit | Eliminar FOUC de Alpine.js mediante `x-cloak` | Alta | Completado |
+| REQ-11.3 | 11 | Arquitectura | Unificar `layouts.app-module` y `components.admin` en `layouts.app` | Media | Completado |
 
 ---
 
@@ -3206,15 +3211,17 @@ if (app()->environment('local')) {
 
 ---
 
-## Fase 11 — Corrección del Kit de Botones
+## Fase 11 — Correcciones de UI Kit y Unificación de Layout
 
-**Rama:** `feature/v0.9.0-button-loading-fix`
+**Rama:** `feature/v0.9.0-ui-kit-fixes` (reemplaza a `feature/v0.9.0-button-loading-fix` — el alcance creció más allá del botón)
 
-### Diagnóstico
+**Objetivo:** Además de la corrección original de `wire:loading` (REQ-11.1), esta fase absorbe dos hallazgos adicionales detectados durante la validación manual de v0.9.0: (1) el parpadeo por FOUC de Alpine.js en elementos que usan `x-show`/`x-data` sin `x-cloak` (REQ-11.2), y (2) la constatación de que, tras eliminar el navbar horizontal en la Fase 7, `layouts/app-module.blade.php` quedó prácticamente idéntico a `layouts/app.blade.php` — se unifican en un solo layout (REQ-11.3).
 
-`wire:loading.class` en `button.blade.php` sin `wire:target` reactiva al estado de carga global del componente Livewire, haciendo que botones no relacionados parpadeen durante operaciones de guardado.
+---
 
-### Corrección
+### 11.1 — Corrección de `wire:loading` global en `x-ui.button`
+
+**Diagnóstico (confirmado en código):** `resources/views/components/ui/button.blade.php:44` sigue teniendo `'wire:loading.class' => 'opacity-60 pointer-events-none'` en el `$attributes->merge()`, sin `wire:target`. Esto reactiva la clase en **cualquier** botón de la página ante **cualquier** request Livewire en curso, no solo el que originó la acción — de ahí el parpadeo de botones no relacionados.
 
 ```blade
 {{-- ANTES en button.blade.php --}}
@@ -3247,15 +3254,129 @@ Patrón canónico de uso (opt-in con `wire:target` explícito):
 </x-ui.button>
 ```
 
-### Componentes a Revisar
+**Alcance real (auditado, no estimado):** `<x-ui.button` aparece en **56 vistas**. De esas, **46** combinan el componente con al menos un `wire:click` en el mismo archivo. De esas 46, **13 no tienen ningún `wire:loading` propio todavía** — es decir, hoy dependen por completo del comportamiento global que se va a eliminar, y se quedarán **sin ningún feedback de carga** si no se les agrega el patrón opt-in de arriba:
 
-| Componente | Acción a revisar |
+| Archivo |
+| :--- |
+| `resources/views/components/ui/plan-card.blade.php` |
+| `resources/views/components/ui/empty-state.blade.php` |
+| `resources/views/livewire/app/settings/school-partials/_danger-zone.blade.php` |
+| `resources/views/livewire/app/attendance/shift-window-manager.blade.php` |
+| `resources/views/livewire/app/attendance/manual-attendance.blade.php` |
+| `resources/views/livewire/app/attendance/attendance-session-hub.blade.php` |
+| `resources/views/livewire/app/academic/course-show.blade.php` |
+| `resources/views/livewire/app/academic/teachers/teacher-assignments.blade.php` |
+| `resources/views/livewire/auth/register-install.blade.php` |
+| `resources/views/livewire/admin/plans/plan-features.blade.php` |
+| `resources/views/livewire/tenant/wizard/_intro.blade.php` |
+| `resources/views/livewire/tenant/wizard/steps/_step-3-academic.blade.php` |
+| `resources/views/livewire/tenant/wizard/steps/_step-4-plan.blade.php` |
+
+No todos requieren necesariamente feedback de carga (algunos son navegación simple o toggles instantáneos) — esta lista es el punto de partida para decidir, botón por botón, cuáles sí lo necesitan antes de mergear el cambio.
+
+---
+
+### 11.2 — Eliminar FOUC de Alpine.js mediante `x-cloak`
+
+**Diagnóstico:** Alpine.js evalúa `x-show`/`x-data` después de que el HTML ya se pintó, así que cualquier elemento con `x-show="false"` (o que depende de un valor inicial de Alpine) se ve brevemente en su estado "crudo" antes de que Alpine lo oculte — el clásico *Flash of Unchanged Content*. La regla CSS que lo previene:
+
+```css
+[x-cloak] { display: none !important; }
+```
+
+**ya existe** en `resources/css/app.css:7` — el proyecto simplemente no está usando el atributo `x-cloak` donde más FOUC produce. Ya hay 22 archivos que sí usan `x-cloak` correctamente (ej. `resources/views/components/navbar/layout.blade.php`), así que el patrón está establecido; falta aplicarlo en los layouts raíz y en el toast.
+
+**Archivos a actualizar (agregar `x-cloak` a los elementos `x-show`):**
+
+| Archivo | Elemento a marcar |
 | :--- | :--- |
-| `teacher-form.blade.php` | Botón `save()` del formulario de maestro |
-| `student-form.blade.php` | Botón `save()` del formulario de estudiante |
-| `excuse-index.blade.php` | Botones `submit()`, `approve()`, `reject()` |
-| `session-manager.blade.php` | Botones `openSession()` y `closeSession()` |
-| `shift-window-manager.blade.php` | Botón `applyAdjustment()` (nuevo en v0.9.0) |
+| `resources/views/layouts/app.blade.php` | Overlay del sidebar móvil (`x-show="sidebarOpen"`) |
+| `resources/views/layouts/app-module.blade.php` | Overlay del sidebar móvil (`x-show="sidebarOpen"`) — ver 11.3, este archivo se elimina y el fix se hereda del unificado |
+| `resources/views/components/ui/toasts.blade.php` | Revisar si algún elemento con `x-show` sin cloak parpadea al primer render (ej. el chip `+N más`) |
+| `docs/ui/toast.md` | Documentar la recomendación de `x-cloak` para quien extienda el componente |
+
+No hace falta tocar `resources/css/app.css` — la regla ya está. Sí conviene revisar, de forma general, cualquier otro `x-show` del proyecto que no esté en la lista de los 22 archivos ya conformes, por si aparecen más casos de FOUC no reportados aún.
+
+---
+
+### 11.3 — Unificación de `layouts.app-module` **y** `components.admin` en `layouts.app`
+
+**Contexto:** En la Fase 7 (REQ-07.1) se reemplazó el navbar horizontal de escuela por el Sidebar, y `layouts/app-module.blade.php` pasó a compartir exactamente el mismo shell (`sidebar-app` + `x-navbar.layout`) que `layouts/app.blade.php` ya usaba para el Hub. Comparando ambos archivos, la diferencia real está en el `<main>`:
+
+| Diferencia | `layouts/app.blade.php` (Hub) | `layouts/app-module.blade.php` (módulos) |
+| :--- | :--- | :--- |
+| Wrapper del `<main>` | `flex-1 overflow-y-auto ... relative` con `<div class="relative z-10 flex flex-col items-center py-12 md:py-16 px-4 sm:px-6">` | `flex-1 overflow-y-auto ... flex flex-col` |
+| Breadcrumbs | No tiene | `<div class="p-4 md:p-6 pb-0"><x-navbar.breadcrumbs /></div>` |
+| Footer | No tiene | `<x-ui.footer />` |
+| Título por defecto | `Hub` | `App` |
+| `@stack('scripts')` | No tiene | Sí, después de `@livewireScripts` |
+
+**Ampliación del alcance:** revisando `resources/views/components/admin.blade.php` (el layout de SuperAdmin), su `<main>` es prácticamente idéntico al de `app-module.blade.php` (breadcrumbs + footer), así que se suma a la unificación. Ojo: **no es solo el título** — hay tres diferencias, no una:
+
+| Diferencia | `components/admin.blade.php` (SuperAdmin) | `layouts/app-module.blade.php` (escuela) |
+| :--- | :--- | :--- |
+| Sidebar incluido | `@include('layouts.sidebar')` — navegación fija de SuperAdmin (escuelas, usuarios globales, planes, roles, Pulse, Log Viewer) | `@include('layouts.sidebar-app')` — navegación generada desde `config('modules')`, filtrada por permisos del usuario |
+| Título | `{{ $title ?? config('app.name') }} \| SuperAdmin` | `{{ $title ?? 'App' }} \| {{ config('app.name') }}` |
+| Wrapper del `<main>` | `<div class="flex-1 p-4 md:p-6 pb-4 md:pb-4 relative">` + breadcrumbs + `<div class="animate-fade-in">{{ $slot }}</div>` + footer | `<div class="p-4 md:p-6 pb-0">` breadcrumbs, luego `<div class="flex-1">{{ $slot }}</div>` sin animación, luego footer |
+
+El include del sidebar **sí es una diferencia funcional real** (contenido de navegación distinto, no una variante cosmética) — hay que resolverla con una condición en el layout unificado, no asumir que solo cambia el título.
+
+**Plan actualizado:** un único `layouts/app.blade.php` sirve a Hub, módulos de escuela y SuperAdmin, decidiendo por contexto:
+
+```blade
+{{-- Sidebar: la misma condición que ya usa Profile.php (`request()->routeIs('admin.profile')`) --}}
+@include(request()->routeIs('admin.*') ? 'layouts.sidebar' : 'layouts.sidebar-app')
+...
+<title>{{ $title ?? config('app.name') }} | {{ request()->routeIs('admin.*') ? 'SuperAdmin' : config('app.name') }}</title>
+```
+
+El wrapper del `<main>` adopta el tratamiento más completo (padding + `animate-fade-in` + breadcrumbs + footer) que hoy solo tiene `components/admin.blade.php`, aplicado a los tres contextos por igual.
+
+`resources/views/layouts/app-module.blade.php`, `app/View/Components/AppModuleLayout.php` **y** `resources/views/components/admin.blade.php` se eliminan.
+
+**Nota sobre `AppModuleLayout.php`:** no se encontró ningún uso de `<x-app-module-layout>` en todo el proyecto — la clase existe pero no se invoca como componente Blade en ningún lado. Se puede eliminar sin reemplazo, no hay que "migrarla". (`components/admin.blade.php` sí se invoca, vía el atributo `#[Layout('components.admin')]` en los 7 componentes admin de abajo — a diferencia de `AppModuleLayout.php`, no es código muerto, solo queda redundante tras la unificación).
+
+**Hallazgo adicional — simplificar el mecanismo de layout con el atributo `#[Layout(...)]`:** los 29 componentes de escuela fijan el layout así:
+
+```php
+public function render()
+{
+    /** @var \Livewire\Features\SupportPageComponents\View $view */
+    $view = view('livewire.app.settings.school-settings');
+
+    return $view->layout('layouts.app-module');
+}
+```
+
+El comentario `/** @var ... View $view */` es un parche para que intelephense no marque el tipo de retorno de `view()` como incompatible con `->layout()` — de ahí el diagnóstico `P1131` que arrastran estos 29 archivos. Ahora que REQ-07.3 (Fase 7) ya quitó el segundo argumento `config('modules.*')` de estas llamadas a `->layout()`, no queda ninguna razón para seguir fijando el layout dentro de `render()`: Livewire 3 soporta el atributo de clase `#[Layout('layouts.app')]` (`use Livewire\Attributes\Layout;`), que ya se usa consistentemente en los 7 componentes de `app/Livewire/Admin/*` (ninguno de ellos usa el patrón `render()`+`->layout()`). Adoptar el mismo atributo en el lado de escuela:
+
+- Elimina la llamada `->layout(...)` y el docblock `@var` que dispara `P1131` — en los **29 archivos**, no solo en `SchoolSettings.php`.
+- En los componentes donde `render()` no hace nada más que devolver la vista (ej. `SchoolSettings.php`, `CourseIndex.php`), `render()` se reduce a `return view('livewire.app.settings.school-settings');` — a verificar caso por caso si incluso puede omitirse por completo apoyándose en la resolución de vista por convención de Livewire.
+- En los componentes que sí pasan datos a la vista (ej. `AttendanceDashboard.php`, que arma `shifts`, `sections`, `calendarDays`, `calendarLabel`), `render()` se conserva pero sin el paso intermedio de `$view->layout(...)`: `return view('livewire.app.attendance.attendance-dashboard', [...]);`.
+
+**Efecto sobre los 3 archivos con layout condicional:** `Profile.php`, `RoleForm.php` y `RolePermissions.php` eligen hoy entre `'components.admin'` y `'layouts.app-module'` según `$isAdmin`/`$isGlobal`. Con la unificación completa (admin + escuela = el mismo `layouts.app`), **ambas ramas del condicional resuelven al mismo valor** — la lógica de selección de layout queda muerta y se reemplaza por un simple `#[Layout('layouts.app')]` de clase. La propiedad `$isAdmin`/`$isGlobal` en sí **no se elimina**: en `Profile.php` se sigue usando en otras partes del componente (líneas 67 y 82, para lógica ajena al layout).
+
+**Archivos a modificar — cambiar `'layouts.app-module'` por `'layouts.app'`, y migrar de `render()`+`->layout()` a `#[Layout('layouts.app')]` (29 archivos):**
+
+`app/Livewire/App/Academic/BiometricKiosk.php` · `CourseForm.php` · `CourseIndex.php` · `CourseShow.php` · `EnrollmentHub.php` · `Students/StudentForm.php` · `Students/StudentImportWizard.php` · `Students/StudentIndex.php` · `Students/StudentPrintManager.php` · `Students/StudentShow.php` · `Teachers/TeacherAssignments.php` · `Teachers/TeacherForm.php` · `Teachers/TeacherIndex.php` · `Teachers/TeacherShow.php` · `app/Livewire/App/Attendance/AttendanceAudit.php` · `AttendanceDashboard.php` · `AttendanceReports.php` · `AttendanceSessionHub.php` · `AttendanceSessionManager.php` · `ClassroomAttendanceHistory.php` · `ClassroomAttendanceLive.php` · `ExcuseForm.php` · `ExcuseIndex.php` · `ManualAttendance.php` · `PlantelAttendanceIndex.php` · `ShiftWindowManager.php` · `app/Livewire/App/Roles/RoleIndex.php` · `app/Livewire/App/Settings/SchoolSettings.php` · `app/Livewire/App/Users/UserIndex.php`
+
+**Archivos a modificar — layout condicional colapsa a `#[Layout('layouts.app')]` fijo, `$isAdmin`/`$isGlobal` se conserva para el resto de su lógica (3 archivos):**
+
+`app/Livewire/Shared/Profile.php` · `app/Livewire/Shared/Roles/RoleForm.php` · `app/Livewire/Shared/Roles/RolePermissions.php`
+
+**Archivos a modificar — cambiar el string del atributo existente `#[Layout('components.admin')]` → `#[Layout('layouts.app')]` (7 archivos, ya usan el patrón de atributo, cambio trivial):**
+
+`app/Livewire/Admin/Users/UserIndex.php` · `app/Livewire/Admin/Dashboard/StatsOverview.php` · `app/Livewire/Admin/Schools/SchoolIndex.php` · `app/Livewire/Admin/Schools/SchoolShow.php` · `app/Livewire/Admin/Plans/PlanFeatures.php` · `app/Livewire/Admin/Plans/PlanIndex.php` · `app/Livewire/Admin/Roles/RoleIndex.php`
+
+**Archivos a eliminar:**
+
+- `resources/views/layouts/app-module.blade.php`
+- `resources/views/components/admin.blade.php`
+- `app/View/Components/AppModuleLayout.php`
+
+**Limpieza menor (no funcional):** `resources/views/components/sidebar/layout.blade.php` tiene un comentario que menciona `layouts/app-module.blade.php` como ejemplo — actualizar la referencia a `layouts/app.blade.php` al pasar por el archivo.
+
+**Verificación pendiente tras implementar:** confirmar que (1) el parpadeo de botones desaparece con el fix de `wire:loading`, (2) no hay FOUC visible al cargar cualquier vista con `x-cloak` aplicado, (3) toda vista que antes usaba `layouts.app-module` o `components.admin` renderiza igual (sidebar correcto según contexto, título correcto, breadcrumbs, footer) bajo el `layouts.app` unificado, y (4) el diagnóstico intelephense `P1131` desaparece en los 29 archivos migrados al atributo `#[Layout(...)]`.
 
 ---
 
@@ -3323,9 +3444,18 @@ Patrón canónico de uso (opt-in con `wire:target` explícito):
 | `resources/views/errors/404.blade.php` | Crear página de error | 9 |
 | `resources/views/errors/500.blade.php` | Crear página de error | 9 |
 | `resources/views/components/ui/toasts.blade.php` | Stack visual + swipe-to-dismiss | 10 |
-| `docs/ui/toast.md` | Crear documentación | 10 |
-| `resources/views/components/ui/button.blade.php` | Eliminar `wire:loading.class` global | 11 |
-| `docs/ui/buttons.md` | Actualizar sección de estados de carga | 11 |
+| `docs/ui/toast.md` | Actualizar documentación | 10 |
+| `resources/views/components/ui/button.blade.php` | Eliminar `wire:loading.class` global | 11.1 |
+| `docs/ui/buttons.md` | Actualizar sección de estados de carga | 11.1 |
+| 13 vistas sin `wire:loading` propio (ver detalle en 11.1) | Agregar patrón opt-in donde aplique feedback de carga | 11.1 |
+| `resources/views/layouts/app.blade.php` | Agregar `x-cloak` al overlay del sidebar; absorbe breadcrumbs/footer/`@stack('scripts')` del layout unificado | 11.2, 11.3 |
+| `resources/views/components/ui/toasts.blade.php` | Revisar/agregar `x-cloak` en elementos `x-show` | 11.2 |
+| `docs/ui/toast.md` | Documentar recomendación de `x-cloak` | 11.2 |
+| `resources/views/layouts/app-module.blade.php` | **🗑️ ELIMINAR** — unificado en `layouts/app.blade.php` | 11.3 |
+| `app/View/Components/AppModuleLayout.php` | **🗑️ ELIMINAR** — sin uso como componente Blade | 11.3 |
+| 29 componentes Livewire con `->layout('layouts.app-module')` (ver detalle en 11.3) | Cambiar a `->layout('layouts.app')` | 11.3 |
+| `app/Livewire/Shared/Profile.php`, `Shared/Roles/RoleForm.php`, `Shared/Roles/RolePermissions.php` | Cambiar rama `else` del layout condicional a `'layouts.app'` | 11.3 |
+| `resources/views/components/sidebar/layout.blade.php` | Actualizar comentario que referencia `layouts/app-module.blade.php` | 11.3 (cosmético) |
 
 ## Archivos a Crear — Repositorio `orvian-kiosk-electron` (nuevo)
 

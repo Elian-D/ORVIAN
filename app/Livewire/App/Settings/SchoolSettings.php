@@ -15,8 +15,10 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Layout;
 
 #[Title('Configuración Institucional')]
+#[Layout('layouts.app')]
 class SchoolSettings extends Component
 {
     use WithFileUploads;
@@ -372,9 +374,6 @@ class SchoolSettings extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.settings.school-settings');
-
-        return $view->layout('layouts.app-module');
+        return view('livewire.app.settings.school-settings');
     }
 }

@@ -10,9 +10,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
+#[Layout('layouts.app')]
 class TeacherForm extends Component
 {
     use WithFileUploads, AuthorizesRequests;
@@ -194,9 +196,6 @@ class TeacherForm extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.teachers.teacher-form');
-
-        return $view->layout('layouts.app-module');
+        return view('livewire.app.academic.teachers.teacher-form');
     }
 }

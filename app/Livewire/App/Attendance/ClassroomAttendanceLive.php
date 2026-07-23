@@ -13,8 +13,10 @@ use App\Services\Attendance\ClassroomAttendanceService;
 use App\Services\Attendance\ExcuseService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('layouts.app')]
 class ClassroomAttendanceLive extends Component
 {
     // ── Selección de clase ────────────────────────────────────────
@@ -362,8 +364,7 @@ class ClassroomAttendanceLive extends Component
             ])
         ));
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.classroom-attendance-live', [
+        return view('livewire.app.attendance.classroom-attendance-live', [
             'myAssignments'            => $myAssignments,
             'substituteSections'       => $substituteSections,
             'sectionAssignments'       => $sectionAssignments,
@@ -373,7 +374,5 @@ class ClassroomAttendanceLive extends Component
             'lockedStudentIds'         => $lockedStudentIds,
             'hasPlantelRecordsToday'   => $hasPlantelRecordsToday,
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 }

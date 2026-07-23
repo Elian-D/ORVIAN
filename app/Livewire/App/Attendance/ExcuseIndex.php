@@ -10,8 +10,10 @@ use App\Tables\App\Attendance\ExcuseTableConfig;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Layout;
 
 #[Title('Gestión de Excusas')]
+#[Layout('layouts.app')]
 class ExcuseIndex extends DataTable
 {
     // ── Filtros (Sync con URL) ────────────────────────────────────
@@ -150,12 +152,9 @@ class ExcuseIndex extends DataTable
             ->latest()
             ->paginate($this->perPage);
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.excuse-index', [
+        return view('livewire.app.attendance.excuse-index', [
             'excuses' => $excuses,
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 
     public function clearFilter(string $key): void

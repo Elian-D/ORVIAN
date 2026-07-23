@@ -9,11 +9,13 @@ use App\Models\Tenant\StudentImportRecord;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+#[Layout('layouts.app')]
 class StudentImportWizard extends Component
 {
     use WithFileUploads, AuthorizesRequests;
@@ -192,9 +194,6 @@ class StudentImportWizard extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.students.student-import-wizard');
-        
-        return $view->layout('layouts.app-module');
+        return view('livewire.app.academic.students.student-import-wizard');
     }
 }

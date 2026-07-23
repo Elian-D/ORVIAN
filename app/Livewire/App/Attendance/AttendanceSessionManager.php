@@ -9,8 +9,10 @@ use App\Models\Tenant\PlantelAttendanceRecord;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Carbon\Carbon;
 
+#[Layout('layouts.app')]
 class AttendanceSessionManager extends Component
 {
     public bool $showStatsModal = false;
@@ -124,10 +126,6 @@ class AttendanceSessionManager extends Component
 
     public function render()
     {
-
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.session-manager');
-
-        return $view->layout('layouts.app-module');
+        return view('livewire.app.attendance.session-manager');
     }
 }

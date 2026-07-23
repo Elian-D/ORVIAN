@@ -9,7 +9,9 @@ use App\Tables\App\Academic\TeacherTableConfig;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Layout;
 
+#[Layout('layouts.app')]
 class TeacherIndex extends DataTable
 {
     use AuthorizesRequests;
@@ -115,12 +117,9 @@ class TeacherIndex extends DataTable
             ->paginate($this->perPage);
 
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.teachers.teacher-index', [
+        return view('livewire.app.academic.teachers.teacher-index', [
             'teachers' => $teachers,
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 
     protected function formatFilterValue(string $key, mixed $value): string
