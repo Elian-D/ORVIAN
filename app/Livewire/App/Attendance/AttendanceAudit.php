@@ -5,11 +5,13 @@ namespace App\Livewire\App\Attendance;
 use App\Models\Tenant\DailyAttendanceSession;
 use App\Models\Tenant\PlantelAttendanceRecord;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
+#[Layout('layouts.app')]
 class AttendanceAudit extends Component
 {
     public DailyAttendanceSession $session;
@@ -364,9 +366,6 @@ class AttendanceAudit extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.attendance-audit');
-
-        return $view->layout('layouts.app-module');
+        return view('livewire.app.attendance.attendance-audit');
     }
 }

@@ -7,9 +7,11 @@ use App\Models\Tenant\Academic\SchoolSection;
 use App\Models\Tenant\Student;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use App\Models\Tenant\Academic\SchoolShift;
 
+#[Layout('layouts.app')]
 class CourseIndex extends Component
 {
     // ── Confirmación de eliminación ────────────────────────────────
@@ -148,9 +150,6 @@ class CourseIndex extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.course-index');
-
-        return $view->layout('layouts.app-module');
+        return view('livewire.app.academic.course-index');
     }
 }

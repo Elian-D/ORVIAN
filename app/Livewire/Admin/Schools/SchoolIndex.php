@@ -13,7 +13,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 
 #[Title('Gestión de Centros Educativos')]
-#[Layout('components.admin')]
+#[Layout('layouts.app')]
 class SchoolIndex extends DataTable
 {
     // ── Filtros ────────────────────────────────────────────

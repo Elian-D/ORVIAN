@@ -13,8 +13,10 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Layout;
 
 #[Title('Usuarios')]
+#[Layout('layouts.app')]
 class UserIndex extends DataTable
 {
     // ── Estado del tenant ──────────────────────────────────────────────────
@@ -120,18 +122,15 @@ class UserIndex extends DataTable
             ->pluck('name', 'name')
             ->toArray();
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.users.index', [
+        return view('livewire.app.users.index', [
             'users'       => $users,
-            'globalRoles' => $roleOptions, 
-            'roleOptions' => $roleOptions, 
+            'globalRoles' => $roleOptions,
+            'roleOptions' => $roleOptions,
             'total'       => $total,
             'limit'       => $limit,
             'pct'         => $pct,
             'atLimit'     => $atLimit,
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 
     // ── Formulario ─────────────────────────────────────────────────────────

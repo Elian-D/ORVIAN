@@ -7,8 +7,10 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('layouts.app')]
 class ShiftWindowManager extends Component
 {
     use AuthorizesRequests;
@@ -106,9 +108,6 @@ class ShiftWindowManager extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.shift-window-manager');
-
-        return $view->layout('layouts.app-module');
+        return view('livewire.app.attendance.shift-window-manager');
     }
 }

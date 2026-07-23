@@ -6,9 +6,11 @@ use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 #[Title('Asignar permisos al rol')]
+#[Layout('layouts.app')]
 class RolePermissions extends Component
 {
     public Role $role;
@@ -149,11 +151,6 @@ class RolePermissions extends Component
     
     public function render()
     {
-        $layout = $this->isGlobal ? 'components.admin' : 'layouts.app-module';
-
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.shared.roles.role-permissions');
-
-        return $view->layout($layout);
+        return view('livewire.shared.roles.role-permissions');
     }
 }

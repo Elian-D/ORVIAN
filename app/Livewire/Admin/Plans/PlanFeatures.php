@@ -10,7 +10,7 @@ use Livewire\Attributes\Layout;
 use Illuminate\Support\Facades\DB;
 
 #[Title('Configurar Plan & Features')]
-#[Layout('components.admin')]
+#[Layout('layouts.app')]
 class PlanFeatures extends Component
 {
     public Plan $plan;

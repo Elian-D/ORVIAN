@@ -15,7 +15,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 
 #[Title('Usuarios del Sistema')]
-#[Layout('components.admin')]
+#[Layout('layouts.app')]
 class UserIndex extends DataTable
 {
     // ── Filtros ────────────────────────────────────────────

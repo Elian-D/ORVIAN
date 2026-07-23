@@ -8,10 +8,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 #[Title('Mi Perfil')]
+#[Layout('layouts.app')]
 class Profile extends Component
 {
     use WithFileUploads;
@@ -184,11 +186,6 @@ class Profile extends Component
      */
     public function render()
     {
-        $layout = $this->isAdmin ? 'components.admin' : 'layouts.app-module';
-
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.shared.profile');
-
-        return $view->layout($layout);
+        return view('livewire.shared.profile');
     }
 }

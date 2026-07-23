@@ -9,10 +9,12 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 #[Title('Excusa')]
+#[Layout('layouts.app')]
 class ExcuseForm extends Component
 {
     use WithFileUploads;
@@ -175,12 +177,9 @@ class ExcuseForm extends Component
             ? $students->firstWhere('id', (int) $this->student_id)
             : null;
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.excuse-form', [
+        return view('livewire.app.attendance.excuse-form', [
             'students'        => $students,
             'selectedStudent' => $selectedStudent,
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 }

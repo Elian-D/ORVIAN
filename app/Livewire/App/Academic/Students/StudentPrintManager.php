@@ -9,8 +9,10 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 
 #[Title('Gestión de Carnets')]
+#[Layout('layouts.app')]
 class StudentPrintManager extends Component
 {
     use WithPagination;
@@ -142,12 +144,9 @@ class StudentPrintManager extends Component
     {
         $students = $this->getFilteredStudents()->paginate($this->perPage);
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.students.student-print-manager', [
+        return view('livewire.app.academic.students.student-print-manager', [
             'students' => $students,
             'totalSelected' => count($this->selectedStudents),
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 }

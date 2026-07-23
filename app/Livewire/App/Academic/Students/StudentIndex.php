@@ -9,9 +9,11 @@ use App\Tables\App\Academic\StudentTableConfig;
 use App\Livewire\Base\DataTable;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 
+#[Layout('layouts.app')]
 class StudentIndex extends DataTable
 {
     use AuthorizesRequests;
@@ -167,13 +169,10 @@ class StudentIndex extends DataTable
                 return [$item->id => $item->full_label];
             });
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.students.index', [
+        return view('livewire.app.academic.students.index', [
             'students' => $students,
             'sections' => $sections,
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 
     protected function formatFilterValue(string $key, mixed $value): string

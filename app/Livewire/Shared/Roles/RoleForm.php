@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 #[Title('Formulario de Rol')]
+#[Layout('layouts.app')]
 class RoleForm extends Component
 {
     public ?Role $role = null;
@@ -76,11 +77,6 @@ class RoleForm extends Component
 
     public function render()
     {
-        $layout = $this->isGlobal ? 'components.admin' : 'layouts.app-module';
-
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.shared.roles.role-form');
-
-        return $view->layout($layout);
+        return view('livewire.shared.roles.role-form');
     }
 }

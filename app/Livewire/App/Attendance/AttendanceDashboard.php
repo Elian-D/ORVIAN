@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-
+#[Layout('layouts.app')]
 class AttendanceDashboard extends Component
 {
     use AuthorizesRequests;
@@ -304,14 +304,11 @@ class AttendanceDashboard extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.attendance-dashboard', [
+        return view('livewire.app.attendance.attendance-dashboard', [
             'shifts'        => Auth::user()->school->shifts,
             'sections'      => SchoolSection::withFullRelations()->get(),
             'calendarDays'  => $this->buildCalendarDays(),
             'calendarLabel' => Carbon::parse($this->calendarMonth)->isoFormat('MMMM YYYY'),
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 }

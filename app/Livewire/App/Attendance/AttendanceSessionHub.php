@@ -14,6 +14,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Title('Control Diario de Asistencia')]
+#[Layout('layouts.app')]
 class AttendanceSessionHub extends Component
 {
     #[Url(as: 'fecha')]
@@ -225,12 +226,9 @@ class AttendanceSessionHub extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.attendance-session-hub', [
+        return view('livewire.app.attendance.attendance-session-hub', [
             'currentMonth' => Carbon::parse($this->date)->isoFormat('MMMM YYYY'),
             'selectedDateLabel' => ucfirst(Carbon::parse($this->date)->isoFormat('dddd D [de] MMMM, YYYY')),
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 }

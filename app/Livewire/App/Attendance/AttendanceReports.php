@@ -14,9 +14,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Maatwebsite\Excel\Facades\Excel;
 
+#[Layout('layouts.app')]
 class AttendanceReports extends Component
 {
     use AuthorizesRequests;
@@ -326,8 +328,7 @@ class AttendanceReports extends Component
     {
         $schoolId = Auth::user()->school_id;
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.attendance-reports', [
+        return view('livewire.app.attendance.attendance-reports', [
             'sectionOptions' => SchoolSection::withFullRelations()->get()
                 ->pluck('full_label', 'id')
                 ->toArray(),
@@ -344,7 +345,5 @@ class AttendanceReports extends Component
                 ->pluck('full_name', 'id')
                 ->toArray(),
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 }

@@ -7,11 +7,13 @@ use App\Models\Tenant\Academic\SchoolSection;
 use App\Services\Academic\Students\StudentService;
 use App\Services\FacialRecognition\FaceEncodingManager;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+#[Layout('layouts.app')]
 class StudentForm extends Component
 {
     use WithFileUploads;
@@ -167,16 +169,12 @@ class StudentForm extends Component
 
     public function render()
     {
-
         $sections = SchoolSection::with(['grade', 'shift', 'technicalTitle'])
             ->get()
             ->pluck('fullLabel', 'id');
-        
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.students.student-form', [
+
+        return view('livewire.app.academic.students.student-form', [
             'sections' => $sections,
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 }

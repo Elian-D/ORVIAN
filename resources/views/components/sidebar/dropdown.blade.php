@@ -34,17 +34,17 @@
                            {{ $isActive ? 'text-orvian-orange' : 'text-gray-400 dark:text-gray-500 group-hover:text-orvian-orange' }}" />
             @endif
 
-            <span x-show="sidebarOpen || hasHover" class="text-sm font-medium whitespace-nowrap tracking-wide">
+            <span x-show="sidebarOpen || hasHover" x-cloak class="text-sm font-medium whitespace-nowrap tracking-wide">
                 {{ $label }}
             </span>
         </div>
 
-        <x-heroicon-s-chevron-right x-show="sidebarOpen || hasHover"
+        <x-heroicon-s-chevron-right x-show="sidebarOpen || hasHover" x-cloak
             class="w-4 h-4 transition-transform duration-200 {{ $isActive ? 'text-orvian-orange' : 'text-gray-400' }}"
             ::class="{ 'rotate-90': openDropdown === '{{ $id }}' }" />
     </button>
 
-    <div x-show="openDropdown === '{{ $id }}' && (sidebarOpen || hasHover)"
+    <div x-show="openDropdown === '{{ $id }}' && (sidebarOpen || hasHover)" x-cloak
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0 -translate-y-2"
         x-transition:enter-end="opacity-100 translate-y-0"

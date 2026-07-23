@@ -13,8 +13,10 @@ use App\Tables\App\Attendance\ClassroomAttendanceTableConfig;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Layout;
 use Maatwebsite\Excel\Facades\Excel;
 
+#[Layout('layouts.app')]
 class ClassroomAttendanceHistory extends DataTable
 {
     use AuthorizesRequests;
@@ -138,8 +140,7 @@ class ClassroomAttendanceHistory extends DataTable
             ->orderBy('class_time')
             ->paginate($this->perPage);
 
-            /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.classroom-attendance-history', [
+        return view('livewire.app.attendance.classroom-attendance-history', [
             'records'        => $records,
             'isTeacher'      => (bool) $this->teacherScope,
             'sectionOptions' => SchoolSection::withFullRelations()->get()
@@ -156,7 +157,5 @@ class ClassroomAttendanceHistory extends DataTable
                 ->pluck('full_name', 'id')
                 ->toArray(),
         ]);
-
-        return $view->layout('layouts.app-module');
     }
 }

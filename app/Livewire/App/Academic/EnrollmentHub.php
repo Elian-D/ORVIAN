@@ -9,9 +9,11 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+#[Layout('layouts.app')]
 class EnrollmentHub extends Component
 {
     use WithPagination;
@@ -184,9 +186,6 @@ class EnrollmentHub extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.enrollment-hub');
-
-        return $view->layout('layouts.app-module');
+        return view('livewire.app.academic.enrollment-hub');
     }
 }
