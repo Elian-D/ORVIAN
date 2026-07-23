@@ -3082,41 +3082,90 @@ Crear bajo `resources/views/errors/`: `403.blade.php`, `404.blade.php` y `500.bl
 
 **Rama:** `feature/v0.9.0-toasts-v2`
 
-### 10.1 — Stack Visual (Toasts Acumulativos)
+### Contexto y Decisión de Diseño
+
+El motivador original de esta fase fue una molestia de uso propio (acumulación de toasts completos apilados, sin agrupar). Antes de codificar se hizo un análisis dual: (1) desde la experiencia de un usuario avanzado de ERPs, y (2) desde el usuario real de Orvian (directores, maestros, padres), cuyo perfil técnico es mixto — no homogéneamente experto ni homogéneamente novato — y que interactúa **solo por tap**, sin `hover` disponible en móvil. Ese segundo ángulo impone dos restricciones duras sobre cualquier solución:
+
+1. Cualquier affordance visual (que "hay más toasts") debe ser **auto-explicativo por diseño**, no dependiente de descubrir un gesto o de un tooltip por hover.
+2. El mecanismo de descarte principal debe seguir siendo el botón "X" (tap directo, cero curva de aprendizaje). Gestos como swipe son una mejora secundaria, no el único camino.
+
+Referencia de patrón: EasyPanel apila hasta 3 toasts completos en cascada (con las tarjetas de atrás asomando ligeramente, lo cual ya comunica visualmente "hay más" sin texto ni hover) y agrupa el resto a partir del 4to en un chip contador.
+
+### 10.1 — Stack Visual en Cascada (máx. 3 + agrupación)
+
+Se muestran hasta **3 toasts completos** en cascada (offset visual decreciente, bordes de las tarjetas de atrás visibles — ese asomo es el affordance, no requiere hover ni texto). Del 4to toast en adelante, se agrupan en un chip contador (`+N`) al pie de la pila.
 
 ```js
 Alpine.data('toastManager', () => ({
     toasts: [],
-    stackExpanded: false,
 
-    get visibleToast()  { return this.toasts[this.toasts.length - 1] ?? null; },
-    get stackedToasts() { return this.toasts.slice(0, -1); },
+    get cascadeToasts() { return this.toasts.slice(-3); },       // hasta 3 tarjetas completas, en cascada
+    get overflowCount()  { return Math.max(0, this.toasts.length - 3); }, // resto agrupado
     // addToast, saveForRedirect, removeToast — sin cambios
 }));
 ```
 
-### 10.2 — Swipe-to-Dismiss
+**Interacción del chip `+N`:** un tap descarta *todos* los toasts agrupados de una vez ("Descartar todo"). Se decide intencionalmente **no** abrir una lista expandible — resolvería la acumulación pero reintroduciría la misma fricción que motivó esta fase (obligar a leer/cerrar uno por uno). Si en el futuro se necesita revisar el historial de toasts, debe ser una vista aparte, no una expansión inline del stack.
+
+### 10.2 — Timers y Política de Duración por Tipo
+
+| Tipo | Duración | Razón |
+| :--- | :--- | :--- |
+| `success` / `info` | 5000ms | Sin cambio — mensajes de confirmación, lectura rápida |
+| `warning` | 7000ms | Uso poco frecuente pero requiere más tiempo de lectura que un success |
+| `error` | 10000ms | Se usa mayormente en fallos de request (POST/GET); tiempo suficiente para leer sin necesidad de cerrarlo manualmente |
+
+Los valores son **fijos por tipo**, no dinámicos según longitud del mensaje — evita complejidad innecesaria y mantiene el comportamiento predecible.
+
+**Regla de pausa por posición en la cascada:** el countdown de un toast solo corre mientras es una de las 3 tarjetas visibles en cascada. Si un toast queda agrupado en el chip `+N` (por llegar toasts nuevos encima), su timer se pausa y no se reanuda — permanece agrupado hasta que el usuario lo descarte vía el chip, nunca expira solo estando oculto. Esto evita que un error con duración larga desaparezca sin haber sido leído, que era justamente el problema que la duración extendida buscaba resolver.
+
+### 10.3 — Swipe-to-Dismiss (gesto secundario, no reemplaza el botón "X")
 
 ```js
 Alpine.data('toastItem', (toast) => ({
-    touchStartX: 0,
+    touchStartX: 0, touchStartY: 0,
     swipeOffset: 0,
+    swipeAxis: null, // 'x' | 'y' | null — se determina en el primer movimiento
 
-    onSwipeStart(e) { this.touchStartX = e.touches[0].clientX; this.pause(); },
-    onSwipeMove(e)  { this.swipeOffset = Math.max(0, e.touches[0].clientX - this.touchStartX); },
-    onSwipeEnd()    {
-        if (this.swipeOffset > 100) this.close();
+    onSwipeStart(e) {
+        this.touchStartX = e.touches[0].clientX;
+        this.touchStartY = e.touches[0].clientY;
+        this.swipeAxis = null;
+        this.pause();
+    },
+    onSwipeMove(e) {
+        const dx = e.touches[0].clientX - this.touchStartX;
+        const dy = e.touches[0].clientY - this.touchStartY;
+
+        if (!this.swipeAxis) {
+            // Determina el eje dominante una sola vez, para no competir con scroll vertical
+            this.swipeAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        }
+        if (this.swipeAxis === 'x') {
+            this.swipeOffset = dx; // ambos sentidos permitidos (izquierda y derecha)
+        }
+    },
+    onSwipeEnd() {
+        if (Math.abs(this.swipeOffset) > 100) this.close();
         else { this.swipeOffset = 0; this.resume(); }
     },
     get swipeStyle() {
-        return this.swipeOffset > 0
-            ? `transform: translateX(${this.swipeOffset}px); opacity: ${1 - this.swipeOffset / 200}; transition: none;`
+        return this.swipeOffset !== 0
+            ? `transform: translateX(${this.swipeOffset}px); opacity: ${1 - Math.abs(this.swipeOffset) / 200}; transition: none;`
             : 'transition: transform 0.3s ease, opacity 0.3s ease;';
     },
 }));
 ```
 
-### 10.3 — Refinamiento Visual
+El botón "X" (tap) sigue siendo el mecanismo de descarte principal y documentado; swipe es un atajo opcional para quien lo descubra. La detección de eje dominante (`swipeAxis`) evita que un scroll vertical cerca del toast se interprete como un swipe horizontal parcial.
+
+### 10.4 — Redundancia con Errores de Formulario Inline
+
+El bloque de ingesta de `$errors->any()` (ver `resources/views/components/ui/toasts.blade.php`) dispara hoy un toast genérico "Error de validación" en **todo** envío de formulario con errores. Esto duplica la información que `x-ui.forms.input`/`select`/`textarea` ya muestran inline bajo cada campo (ver `docs/ui/ui-forms.md`, sección "Props de Mensaje") — el usuario ve el mismo error dos veces, una en el campo y otra en el toast.
+
+**Cambio:** limitar el toast automático de validación a los casos donde el campo con error no está visible en el formulario actual (ej. un paso anterior de un wizard, un tab no activo, o un campo fuera del viewport de un formulario largo). Si todos los errores corresponden a campos visibles en el mismo formulario, no se dispara el toast — el error inline es suficiente.
+
+### 10.5 — Refinamiento Visual
 
 ```blade
 {{-- ANTES --}}
@@ -3126,9 +3175,34 @@ class="relative w-full max-w-sm overflow-hidden rounded-lg border-l-4 shadow-xl 
 class="relative w-full max-w-sm overflow-hidden rounded-xl border-l-[3px] shadow-lg transition-all pointer-events-auto bg-white dark:bg-dark-card"
 ```
 
-### 10.4 — Documentación
+### 10.6 — Documentación
 
-Crear `docs/ui/toast.md` con descripción de eventos (`@notify`, `@notify-redirect`, `@remove-toast`), formato del payload, ejemplos de uso desde Livewire y Alpine, comportamiento del stack y del swipe, y guía de integración con sesiones PHP.
+Actualizar `docs/ui/toast.md` con descripción de eventos (`@notify`, `@notify-redirect`, `@remove-toast`), formato del payload, ejemplos de uso desde Livewire y Alpine, comportamiento de la cascada (3 + agrupación), política de duración por tipo, swipe como gesto secundario, y guía de integración con sesiones PHP.
+
+### 10.7 — Rutas de Showcase del UI Kit (`/demo/*`)
+
+`resources/views/examples/` ya contenía varios showcases interactivos (`toast-components-demo`, `module-icons-demo`, `form-components-demo`, `badge-components-demo`, `button-components-demo`), pero solo un par tenían su ruta realmente registrada. Se registran todas en `routes/web.php`, agrupadas y **restringidas a `app()->environment('local')`** — son páginas de desarrollo interno, no deben quedar accesibles en producción:
+
+```php
+// routes/web.php
+
+// ── Showcase del UI Kit (solo entorno local) ────────────────────────
+if (app()->environment('local')) {
+    Route::view('/demo/toasts', 'examples.toast-components-demo');
+    Route::view('/demo/module-icons', 'examples.module-icons-demo');
+    Route::view('/demo/form', 'examples.form-components-demo');
+    Route::view('/demo/badges', 'examples.badge-components-demo');
+    Route::view('/demo/buttons', 'examples.button-components-demo');
+}
+```
+
+| Ruta | Vista | Componente |
+| :--- | :--- | :--- |
+| `/demo/toasts` | `examples.toast-components-demo` | `x-ui.toasts` (esta fase) |
+| `/demo/module-icons` | `examples.module-icons-demo` | Íconos de módulo (REQ-07.10) |
+| `/demo/form` | `examples.form-components-demo` | `x-ui.forms.*` |
+| `/demo/badges` | `examples.badge-components-demo` | `x-ui.badge` |
+| `/demo/buttons` | `examples.button-components-demo` | `x-ui.button` |
 
 ---
 

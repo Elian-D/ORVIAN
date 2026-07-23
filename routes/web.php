@@ -56,5 +56,14 @@ Route::middleware(['auth', 'verified', 'admin.global'])
         }
     });
 
+// ── Showcase del UI Kit (solo entorno local) ────────────────────────
+if (app()->environment('local')) {
+    Route::view('/demo/toasts', 'examples.toast-components-demo');
+    Route::view('/demo/module-icons', 'examples.module-icons-demo');
+    Route::view('/demo/form', 'examples.form-components-demo');
+    Route::view('/demo/badges', 'examples.badge-components-demo');
+    Route::view('/demo/buttons', 'examples.button-components-demo');
+}
+
 require __DIR__.'/auth.php';
 
