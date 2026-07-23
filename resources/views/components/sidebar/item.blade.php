@@ -20,7 +20,7 @@
                    {{ $active ? 'text-orvian-orange' : 'text-gray-400 dark:text-gray-500 group-hover:text-orvian-orange' }}" />
     @endif
 
-    <span x-show="sidebarOpen || hasHover"
+    <span x-show="sidebarOpen || hasHover" x-cloak
           x-transition:enter="transition ease-out duration-150 delay-150"
           x-transition:enter-start="opacity-0"
           x-transition:enter-end="opacity-100"
@@ -32,7 +32,7 @@
     </span>
 
     {{-- Tooltip para estado colapsado --}}
-    <div x-show="!sidebarOpen && !hasHover" 
+    <div x-show="!sidebarOpen && !hasHover" x-cloak
          class="absolute left-full ml-4 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-xl border border-white/10">
         {{ $slot }}
     </div>

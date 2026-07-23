@@ -7,7 +7,7 @@
     el ancho del <aside> — solo expande el <div> interno (absolute) como un
     overlay flotante sobre el contenido, sin empujar nada y sin oscurecer
     el fondo (a diferencia del drawer mobile, que sí usa backdrop en el
-    layout — ver components/admin.blade.php / layouts/app-module.blade.php).
+    layout — ver layouts/app.blade.php).
 --}}
 <aside
     x-data="{ hasHover: false }"
@@ -27,7 +27,7 @@
     >
         <div class="h-20 flex items-center px-4 border-b border-white/5 overflow-hidden flex-shrink-0">
             <a href="{{ route($homeRoute) }}" class="flex items-center w-full justify-center transition-all duration-300">
-                <div x-show="sidebarOpen || hasHover"
+                <div x-show="sidebarOpen || hasHover" x-cloak
                     x-transition:enter="transition ease-out duration-150 delay-150"
                     x-transition:enter-start="opacity-0"
                     x-transition:enter-end="opacity-100"
@@ -39,7 +39,7 @@
                 </div>
 
                 {{-- Icono - Forzado a DARK --}}
-                <div x-show="!sidebarOpen && !hasHover"
+                <div x-show="!sidebarOpen && !hasHover" x-cloak
                     x-transition:enter="transition ease-out duration-150 delay-150"
                     x-transition:enter-start="opacity-0"
                     x-transition:enter-end="opacity-100"
@@ -66,7 +66,7 @@
 
                 <x-ui.avatar :user="Auth::user()" size="sm" />
 
-                <div x-show="sidebarOpen || hasHover"
+                <div x-show="sidebarOpen || hasHover" x-cloak
                     x-transition:enter="transition ease-out duration-150 delay-150"
                     x-transition:enter-start="opacity-0"
                     x-transition:enter-end="opacity-100"
@@ -81,13 +81,13 @@
                 </div>
 
                 <button @click="userMenuOpen = !userMenuOpen"
-                        x-show="sidebarOpen || hasHover"
+                        x-show="sidebarOpen || hasHover" x-cloak
                         class="p-1.5 rounded-lg text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10 hover:text-gray-700 dark:hover:text-white transition-colors duration-200 flex-shrink-0">
                     <x-heroicon-s-chevron-up-down class="w-5 h-5" />
                 </button>
             </div>
 
-            <div x-show="userMenuOpen && (sidebarOpen || hasHover)"
+            <div x-show="userMenuOpen && (sidebarOpen || hasHover)" x-cloak
                 @click.away="userMenuOpen = false"
                 x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 translate-y-2"

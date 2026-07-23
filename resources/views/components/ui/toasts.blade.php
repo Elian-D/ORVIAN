@@ -84,7 +84,7 @@
     </div>
 
     {{-- 3. Chip de Agrupación — a partir del 4to toast --}}
-    <button x-show="overflowCount > 0"
+    <button x-show="overflowCount > 0" x-cloak
             @click="dismissOverflow()"
             class="mt-2 pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-800/90 dark:bg-white/10 text-white shadow-md hover:opacity-90 transition-all">
         <span>+<span x-text="overflowCount"></span> más</span>
