@@ -161,16 +161,26 @@ Usa `icon` (o deja el slot vacío con `iconLeft`/`iconRight`). El componente asu
 
 ## Estados de Carga (Livewire)
 
-El componente añade de forma nativa soporte para Livewire. Al disparar una acción, agrega automáticamente `wire:loading.class="opacity-60 pointer-events-none"`.
+> [!IMPORTANT]
+> Antes de v0.9.0 el componente aplicaba `wire:loading.class="opacity-60 pointer-events-none"` automáticamente a **todos** los botones. Sin `wire:target`, eso reactivaba la opacidad en cualquier botón de la página ante **cualquier** request Livewire en curso, no solo el que originó la acción — el parpadeo de "botones no relacionados" reportado en REQ-11.1. Ese comportamiento automático se eliminó: `x-ui.button` ya **no** aplica ningún `wire:loading` por defecto.
 
-Solo necesitas definir el `wire:target` y gestionar el reemplazo del texto si lo deseas:
+El feedback de carga ahora es **opt-in explícito**: cada botón que lo necesite debe declarar su propio `wire:loading` con `wire:target` apuntando a la acción exacta.
 
 ```blade
-<x-ui.button variant="primary" wire:click="save" wire:loading.attr="disabled" wire:target="save">
+<x-ui.button
+    variant="primary"
+    wire:click="save"
+    wire:loading.class.add="opacity-60 pointer-events-none"
+    wire:loading.attr="disabled"
+    wire:target="save">
     <span wire:loading.remove wire:target="save">Guardar cambios</span>
-    <span wire:loading wire:target="save">Guardando...</span>
+    <span wire:loading wire:target="save" class="flex items-center gap-2">
+        <x-ui.loading size="sm" /> Guardando...
+    </span>
 </x-ui.button>
 ```
+
+Si tu botón no declara `wire:loading`/`wire:target`, no tendrá ningún feedback visual de carga — esto es intencional (evita el parpadeo global), pero significa que debes agregarlo tú mismo en cada botón que dispare una acción cuya duración valga la pena comunicar.
 
 -----
 
