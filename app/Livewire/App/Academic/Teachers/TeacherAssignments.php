@@ -10,8 +10,10 @@ use App\Models\Tenant\Academic\AcademicYear;
 use App\Models\Tenant\Teacher;
 use App\Services\Academic\Teachers\TeacherAssignmentService;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('layouts.app')]
 class TeacherAssignments extends Component
 {
     public Teacher $teacher;
@@ -142,9 +144,6 @@ class TeacherAssignments extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.teachers.teacher-assignments');
-
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return view('livewire.app.academic.teachers.teacher-assignments');
     }
 }

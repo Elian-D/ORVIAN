@@ -2,22 +2,46 @@
     {{-- Header con Información de Sesión --}}
     <div class="mb-6 space-y-4">
         {{-- Banner de Advertencia Minimalista --}}
-        <div class="flex items-center gap-2.5 rounded-orvian border border-amber-300 bg-amber-50 p-2.5 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
-            {{-- Icono con efecto de pulso sutil para llamar la atención --}}
-            <div class="flex shrink-0 items-center justify-center rounded-lg bg-amber-100 p-1.5 dark:bg-amber-500/20">
-                <x-heroicon-s-exclamation-triangle class="h-4 w-4 text-amber-600 animate-pulse dark:text-amber-400" />
+        @if($session->date->isToday())
+            <div class="flex items-start gap-2.5 rounded-orvian border border-amber-300 bg-amber-50 p-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+                {{-- Icono con efecto de pulso sutil para llamar la atención --}}
+                <div class="flex shrink-0 items-center justify-center rounded-lg bg-amber-100 p-1.5 dark:bg-amber-500/20">
+                    <x-heroicon-s-exclamation-triangle class="h-4 w-4 text-amber-600 animate-pulse dark:text-amber-400" />
+                </div>
+
+                {{-- Título + las dos transiciones separadas, para que se lean de un vistazo --}}
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold text-amber-950 dark:text-amber-100">
+                        Modo Auditoría Activo
+                    </p>
+                    <ul class="mt-1 space-y-1 text-xs font-medium text-amber-900/80 dark:text-amber-200/80">
+                        <li class="flex items-center gap-1.5">
+                            <x-heroicon-s-arrow-long-right class="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
+                            <span><strong class="font-semibold">Ausente → Tardanza</strong>, si llegó tarde sin haber avisado.</span>
+                        </li>
+                        <li class="flex items-center gap-1.5">
+                            <x-heroicon-s-arrow-long-right class="h-3.5 w-3.5 flex-shrink-0 text-amber-500" />
+                            <span><strong class="font-semibold">Excusado → Presente</strong>, si el kiosko no alcanzó a registrar su llegada.</span>
+                        </li>
+                    </ul>
+                </div>
             </div>
-            
-            {{-- Texto unificado y más fino --}}
-            <div class="text-xs flex-1 min-w-0">
-                <p class="text-amber-950 dark:text-amber-100">
-                    <span class="font-bold">Modo Auditoría Activo:</span>
-                    <span class="font-medium text-amber-900/80 dark:text-amber-200/80">
-                        Los cambios afectan el reporte final. Modifica registros solo si es necesario.
-                    </span>
-                </p>
+        @else
+            <div class="flex items-center gap-2.5 rounded-orvian border border-slate-200 bg-slate-50 p-2.5 shadow-sm dark:border-dark-border dark:bg-white/5">
+                <div class="flex shrink-0 items-center justify-center rounded-lg bg-slate-100 p-1.5 dark:bg-white/10">
+                    <x-heroicon-s-lock-closed class="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                </div>
+
+                <div class="text-xs flex-1 min-w-0">
+                    <p class="text-slate-700 dark:text-slate-300">
+                        <span class="font-bold">Solo Lectura:</span>
+                        <span class="font-medium text-slate-600/80 dark:text-slate-400/80">
+                            Esta sesión ya no es de hoy. Los registros de fechas pasadas no pueden modificarse.
+                        </span>
+                    </p>
+                </div>
             </div>
-        </div>
+        @endif
 
         <div class="flex items-start justify-between">
             <div>
@@ -239,66 +263,30 @@
                     </div>
                 </div>
 
-                {{-- Overlay Flotante (Aparece en Hover o Focus) --}}
-                <div class="absolute inset-0 z-10 flex items-center justify-center opacity-0 backdrop-blur-[2px] transition-all duration-300 group-hover:opacity-100 group-focus:opacity-100 bg-white/50 dark:bg-slate-900/60">
-                    
-                    @if($record->status !== 'excused')
-                        {{-- Controles de Cambio de Estado (Menú Píldora) --}}
-                        <div class="flex scale-95 items-center gap-1 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-slate-900/5 transition-transform duration-300 group-hover:scale-100 group-focus:scale-100 dark:bg-dark-bg dark:ring-white/10">
-                            
-                            {{-- Botón Presente --}}
+                {{-- Overlay Flotante (Aparece en Hover o Focus) — únicas acciones permitidas --}}
+                @if($this->canMarkAsLate($record))
+                    <div class="absolute inset-0 z-10 flex items-center justify-center opacity-0 backdrop-blur-[2px] transition-all duration-300 group-hover:opacity-100 group-focus:opacity-100 bg-white/50 dark:bg-slate-900/60">
+                        <button
+                            wire:click="confirmMarkAsLate({{ $record->id }})"
+                            class="flex scale-95 h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-bold text-amber-600 shadow-xl ring-1 ring-slate-900/5 transition-all duration-300 hover:bg-amber-50 group-hover:scale-100 group-focus:scale-100 dark:bg-dark-bg dark:text-amber-400 dark:ring-white/10 dark:hover:bg-amber-500/10"
+                            title="Marcar como Tardanza">
+                            <x-heroicon-s-clock class="h-4 w-4" />
+                            <span>Marcar como Tardanza</span>
+                        </button>
+                    </div>
+                @elseif($this->canMarkAsPresent($record))
+                    @can('manage_excuses')
+                        <div class="absolute inset-0 z-10 flex items-center justify-center opacity-0 backdrop-blur-[2px] transition-all duration-300 group-hover:opacity-100 group-focus:opacity-100 bg-white/50 dark:bg-slate-900/60">
                             <button
-                                wire:click="updateStatus({{ $record->id }}, 'present')"
-                                @class([
-                                    'flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all',
-                                    'bg-emerald-500 text-white shadow-sm' => $record->status === 'present',
-                                    'text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 dark:text-slate-300 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-400' => $record->status !== 'present',
-                                ])
+                                wire:click="confirmMarkAsPresent({{ $record->id }})"
+                                class="flex scale-95 h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-bold text-blue-600 shadow-xl ring-1 ring-slate-900/5 transition-all duration-300 hover:bg-blue-50 group-hover:scale-100 group-focus:scale-100 dark:bg-dark-bg dark:text-blue-400 dark:ring-white/10 dark:hover:bg-blue-500/10"
                                 title="Marcar como Presente">
                                 <x-heroicon-s-check-circle class="h-4 w-4" />
-                                <span>P</span>
-                            </button>
-
-                            {{-- Botón Tardanza --}}
-                            <button
-                                wire:click="updateStatus({{ $record->id }}, 'late')"
-                                @class([
-                                    'flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all',
-                                    'bg-amber-500 text-white shadow-sm' => $record->status === 'late',
-                                    'text-slate-600 hover:bg-amber-50 hover:text-amber-600 dark:text-slate-300 dark:hover:bg-amber-500/10 dark:hover:text-amber-400' => $record->status !== 'late',
-                                ])
-                                title="Marcar como Tardanza">
-                                <x-heroicon-s-clock class="h-4 w-4" />
-                                <span>T</span>
-                            </button>
-
-                            {{-- Botón Ausente --}}
-                            <button
-                                wire:click="updateStatus({{ $record->id }}, 'absent')"
-                                @class([
-                                    'flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-all',
-                                    'bg-red-500 text-white shadow-sm' => $record->status === 'absent',
-                                    'text-slate-600 hover:bg-red-50 hover:text-red-600 dark:text-slate-300 dark:hover:bg-red-500/10 dark:hover:text-red-400' => $record->status !== 'absent',
-                                ])
-                                title="Marcar como Ausente">
-                                <x-heroicon-s-x-circle class="h-4 w-4" />
-                                <span>A</span>
+                                <span>Marcar como Presente</span>
                             </button>
                         </div>
-                    @else
-                        {{-- Mensaje Flotante para Excusados --}}
-                        <div class="mx-4 flex scale-95 flex-col items-center justify-center rounded-xl bg-white p-3 shadow-xl ring-1 ring-blue-500/20 transition-transform duration-300 group-hover:scale-100 group-focus:scale-100 dark:bg-dark-bg text-center">
-                            <p class="text-xs font-bold text-blue-600 dark:text-blue-400">
-                                Registro de Solo Lectura
-                            </p>
-                            @if($record->notes)
-                                <p class="mt-1 text-[10px] leading-tight text-slate-500 dark:text-slate-400">
-                                    {{ Str::limit($record->notes, 40) }}
-                                </p>
-                            @endif
-                        </div>
-                    @endif
-                </div>
+                    @endcan
+                @endif
             </div>
         @empty
             {{-- Estado Vacío --}}
@@ -313,4 +301,137 @@
             </div>
         @endforelse
     </div>
+
+    {{-- ══════════════════════════════════════════
+        MODAL: Confirmar corrección a Tardanza (tipo advertencia)
+    ══════════════════════════════════════════ --}}
+    <x-modal wire:model="showMarkLateModal" name="confirm-mark-late" maxWidth="md">
+        <div class="px-6 py-5 bg-white dark:bg-dark-card">
+            <div class="flex items-center gap-4">
+                {{-- Foto grande del estudiante — ayuda a identificarlo de un vistazo --}}
+                <div class="w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-amber-200 dark:ring-amber-500/30 shadow-sm bg-slate-100 dark:bg-dark-bg flex-shrink-0">
+                    @if($this->recordToMarkLate?->student?->photo_path)
+                        <img
+                            src="{{ asset('storage/' . $this->recordToMarkLate->student->photo_path) }}"
+                            alt="{{ $this->recordToMarkLate->student->full_name }}"
+                            class="w-full h-full object-cover"
+                        >
+                    @else
+                        <div class="w-full h-full flex items-center justify-center text-2xl font-black text-slate-300 dark:text-slate-600 uppercase">
+                            {{ $this->recordToMarkLate ? Illuminate\Support\Str::substr($this->recordToMarkLate->student->first_name, 0, 1) . Illuminate\Support\Str::substr($this->recordToMarkLate->student->last_name, 0, 1) : '?' }}
+                        </div>
+                    @endif
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="flex-shrink-0 w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                            <x-heroicon-s-exclamation-triangle class="w-3.5 h-3.5" />
+                        </span>
+                        <h3 class="text-base font-bold text-slate-800 dark:text-white leading-tight">
+                            ¿Marcar como Tardanza?
+                        </h3>
+                    </div>
+                    @if($this->recordToMarkLate)
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 truncate">
+                            {{ $this->recordToMarkLate->student->full_name }}
+                        </p>
+                    @endif
+                </div>
+            </div>
+
+            <div class="mt-4 flex items-start gap-2.5 rounded-orvian border border-amber-300 bg-amber-50 p-3 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+                <x-heroicon-s-light-bulb class="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <p class="text-xs text-amber-900 dark:text-amber-200">
+                    Antes de confirmar, asegúrate de tener al estudiante frente a ti — esta corrección
+                    es solo para quien llegó tarde sin avisar, no para justificar una ausencia real.
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
+                <x-ui.button
+                    variant="secondary"
+                    size="sm"
+                    x-on:click="show = false"
+                >
+                    Cancelar
+                </x-ui.button>
+                <x-ui.button
+                    variant="warning"
+                    size="sm"
+                    wire:click="markAsLate"
+                    wire:loading.attr="disabled"
+                    iconLeft="heroicon-s-clock"
+                >
+                    Sí, marcar como Tardanza
+                </x-ui.button>
+            </div>
+        </div>
+    </x-modal>
+
+    {{-- ══════════════════════════════════════════
+        MODAL: Confirmar corrección de Excusado a Presente
+    ══════════════════════════════════════════ --}}
+    <x-modal wire:model="showMarkPresentModal" name="confirm-mark-present" maxWidth="md">
+        <div class="px-6 py-5 bg-white dark:bg-dark-card">
+            <div class="flex items-center gap-4">
+                {{-- Foto grande del estudiante — ayuda a identificarlo de un vistazo --}}
+                <div class="w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-blue-200 dark:ring-blue-500/30 shadow-sm bg-slate-100 dark:bg-dark-bg flex-shrink-0">
+                    @if($this->recordToMarkPresent?->student?->photo_path)
+                        <img
+                            src="{{ asset('storage/' . $this->recordToMarkPresent->student->photo_path) }}"
+                            alt="{{ $this->recordToMarkPresent->student->full_name }}"
+                            class="w-full h-full object-cover"
+                        >
+                    @else
+                        <div class="w-full h-full flex items-center justify-center text-2xl font-black text-slate-300 dark:text-slate-600 uppercase">
+                            {{ $this->recordToMarkPresent ? Illuminate\Support\Str::substr($this->recordToMarkPresent->student->first_name, 0, 1) . Illuminate\Support\Str::substr($this->recordToMarkPresent->student->last_name, 0, 1) : '?' }}
+                        </div>
+                    @endif
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="flex-shrink-0 w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                            <x-heroicon-s-check-circle class="w-3.5 h-3.5" />
+                        </span>
+                        <h3 class="text-base font-bold text-slate-800 dark:text-white leading-tight">
+                            ¿Marcar como Presente?
+                        </h3>
+                    </div>
+                    @if($this->recordToMarkPresent)
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 truncate">
+                            {{ $this->recordToMarkPresent->student->full_name }}
+                        </p>
+                    @endif
+                </div>
+            </div>
+
+            <div class="mt-4 flex items-start gap-2.5 rounded-orvian border border-blue-300 bg-blue-50 p-3 shadow-sm dark:border-blue-500/30 dark:bg-blue-500/10">
+                <x-heroicon-s-light-bulb class="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <p class="text-xs text-blue-900 dark:text-blue-200">
+                    Antes de confirmar, verifica que el estudiante esté frente a ti — este ajuste es para
+                    cuando la sesión cerró antes de registrar su llegada real, no para invalidar una excusa
+                    que ya no aplica.
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
+                <x-ui.button
+                    variant="secondary"
+                    size="sm"
+                    x-on:click="show = false"
+                >
+                    Cancelar
+                </x-ui.button>
+                <x-ui.button
+                    variant="info"
+                    size="sm"
+                    wire:click="markAsPresent"
+                    wire:loading.attr="disabled"
+                    iconLeft="heroicon-s-check-circle"
+                >
+                    Sí, marcar como Presente
+                </x-ui.button>
+            </div>
+        </div>
+    </x-modal>
 </div>

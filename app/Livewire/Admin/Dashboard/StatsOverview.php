@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('components.admin')]
+#[Layout('layouts.app')]
 class StatsOverview extends Component
 {
     public function render()

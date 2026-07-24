@@ -78,32 +78,6 @@
     </script>
     @endscript
 
-    {{-- ── Toolbar ─────────────────────────────────────────────────────────── --}}
-    <x-app.module-toolbar>
-        <x-slot:actions>
-            <x-ui.button
-                variant="secondary"
-                type="ghost"
-                size="sm"
-                iconLeft="heroicon-s-table-cells"
-                wire:click="exportExcel"
-                wire:loading.attr="disabled"
-            >
-                Excel
-            </x-ui.button>
-            <x-ui.button
-                variant="secondary"
-                type="ghost"
-                size="sm"
-                iconLeft="heroicon-s-document-arrow-down"
-                wire:click="exportPdf"
-                wire:loading.attr="disabled"
-            >
-                PDF
-            </x-ui.button>
-        </x-slot:actions>
-    </x-app.module-toolbar>
-
     <div class="p-4 md:p-6 flex flex-col gap-6">
 
         {{-- ── Selector de período (fuera del dropdown, siempre visible) ──── --}}
@@ -266,7 +240,30 @@
             description="Registros de entrada y verificación de asistencia institucional."
             :count="$records->total()"
             countLabel="registros"
-        />
+        >
+            <x-slot:actions>
+                <x-ui.button
+                    variant="secondary"
+                    type="ghost"
+                    size="sm"
+                    iconLeft="heroicon-s-table-cells"
+                    wire:click="exportExcel"
+                    wire:loading.attr="disabled"
+                >
+                    Excel
+                </x-ui.button>
+                <x-ui.button
+                    variant="secondary"
+                    type="ghost"
+                    size="sm"
+                    iconLeft="heroicon-s-document-arrow-down"
+                    wire:click="exportPdf"
+                    wire:loading.attr="disabled"
+                >
+                    PDF
+                </x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
         {{-- ── Tabla ────────────────────────────────────────────────────────── --}}
         <x-data-table.base-table

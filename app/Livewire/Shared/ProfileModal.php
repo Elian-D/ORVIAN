@@ -34,8 +34,7 @@ class ProfileModal extends Component
     public string $theme = 'system';
     public string $roleName = '';
     public string $roleColor = '#64748b'; // Color por defecto (slate-500)
-    public string $loginVersion = 'v2';
-    public bool $audioFeedback = true;
+    // public string $loginVersion = 'v2';
 
     protected $listeners = ['open-profile-modal' => 'loadUserData'];
 
@@ -60,8 +59,7 @@ class ProfileModal extends Component
         $this->phone    = $user->phone    ?? '';
         $this->position = $user->position ?? '';
         $this->theme    = $user->preference('theme', 'system');
-        $this->loginVersion = $user->preference('login_version', 'v2');
-        $this->audioFeedback = (bool) $user->preference('audio_feedback', true);
+        // $this->loginVersion = $user->preference('login_version', 'v2');
         
         // Obtener el primer rol y su color
         $role = $user->roles->first();
@@ -168,19 +166,18 @@ class ProfileModal extends Component
         $preferences = $user->preferences ?? [];
         
         $preferences['theme'] = $this->theme;
-        $preferences['login_version'] = $this->loginVersion; // Nuevo
-        $preferences['audio_feedback'] = $this->audioFeedback;
+        // $preferences['login_version'] = $this->loginVersion; // Nuevo
 
         $user->update(['preferences' => $preferences]);
 
-        // Sincronizar Cookie para la pre-autenticación (1 año)
-        \Illuminate\Support\Facades\Cookie::queue(
-            'orvian_login_version', 
-            $this->loginVersion, 
-            60 * 24 * 365
-        );
+        // // Sincronizar Cookie para la pre-autenticación (1 año)
+        // \Illuminate\Support\Facades\Cookie::queue(
+        //     'orvian_login_version', 
+        //     $this->loginVersion, 
+        //     60 * 24 * 365
+        // );
 
-        $this->refreshWithModal('Preferencias aplicadas. El login cambiará en tu próxima sesión.');
+        $this->refreshWithModal('Preferencias aplicadas.');
     }
 
     public function render()

@@ -13,7 +13,8 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-#[Title('Hub de Asistencia')]
+#[Title('Control Diario de Asistencia')]
+#[Layout('layouts.app')]
 class AttendanceSessionHub extends Component
 {
     #[Url(as: 'fecha')]
@@ -64,7 +65,6 @@ class AttendanceSessionHub extends Component
                 'is_current_month' => $cursor->month === $current->month,
                 'is_today' => $cursor->isToday(),
                 'is_selected' => $cursor->isSameDay(Carbon::parse($this->date)),
-                'has_sessions' => $sessions->isNotEmpty(),
                 'status' => $status, // 'success', 'warning', 'error', null
             ]);
 
@@ -134,6 +134,7 @@ class AttendanceSessionHub extends Component
     {
         $this->date = $date;
         $this->setDefaultSession();
+        $this->dispatch('calendar-date-selected');
     }
 
     /**
@@ -225,11 +226,9 @@ class AttendanceSessionHub extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.attendance-session-hub', [
+        return view('livewire.app.attendance.attendance-session-hub', [
             'currentMonth' => Carbon::parse($this->date)->isoFormat('MMMM YYYY'),
+            'selectedDateLabel' => ucfirst(Carbon::parse($this->date)->isoFormat('dddd D [de] MMMM, YYYY')),
         ]);
-
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

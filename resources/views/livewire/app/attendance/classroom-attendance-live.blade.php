@@ -5,133 +5,148 @@
 --}}
 <div class="flex flex-col bg-slate-50 dark:bg-dark-bg">
 
-    {{-- ══ Toolbar ══════════════════════════════════════════════ --}}
-    <x-app.module-toolbar>
-        <x-slot:title>
-            <span class="font-bold">Pase de Lista</span>
-            @if($selectedAssignment)
-                <span class="hidden sm:inline text-slate-400 dark:text-slate-500 font-normal mx-1">—</span>
-                <span class="hidden sm:inline font-semibold truncate max-w-[120px] md:max-w-none">{{ $selectedAssignment->subject->name }}</span>
-                <span class="hidden md:inline text-[11px] font-normal text-slate-400 dark:text-slate-500 ml-1">
-                    {{ $selectedAssignment->section->full_label }}
-                    · {{ now()->isoFormat('D MMM YYYY') }}
-                </span>
-            @endif
-        </x-slot:title>
-        <x-slot:actions>
-            <button wire:click="toggleSubstituteMode"
-                    @class([
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                        'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-400/60' => $isSubstituteMode,
-                        'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700' => ! $isSubstituteMode,
-                    ])>
-                <x-heroicon-s-arrows-right-left class="w-3.5 h-3.5" />
-                {{ $isSubstituteMode ? 'Modo Sustituto' : 'Mis Clases' }}
-            </button>
-        </x-slot:actions>
-    </x-app.module-toolbar>
-
     {{-- ══ Área scrolleable ═════════════════════════════════════ --}}
     <div class="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-4 md:py-6 space-y-4">
 
-        {{-- ── Barra compacta: clase seleccionada / selector ──── --}}
-        <div class="bg-white dark:bg-dark-card rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-between px-4 py-3">
+        <x-ui.page-header>
+            <x-slot:title>
+                <span class="font-bold">Pase de Lista</span>
+                @if($selectedAssignment)
+                    <span class="hidden sm:inline text-slate-400 dark:text-slate-500 font-normal mx-1">—</span>
+                    <span class="hidden sm:inline font-semibold truncate max-w-[120px] md:max-w-none">{{ $selectedAssignment->subject->name }}</span>
+                    <span class="hidden md:inline text-[11px] font-normal text-slate-400 dark:text-slate-500 ml-1">
+                        {{ $selectedAssignment->section->full_label }}
+                        · {{ now()->isoFormat('D MMM YYYY') }}
+                    </span>
+                @endif
+            </x-slot:title>
+            <x-slot:actions>
+                <button wire:click="toggleSubstituteMode"
+                        @class([
+                            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                            'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-400/60' => $isSubstituteMode,
+                            'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700' => ! $isSubstituteMode,
+                        ])>
+                    <x-heroicon-s-arrows-right-left class="w-3.5 h-3.5" />
+                    {{ $isSubstituteMode ? 'Modo Sustituto' : 'Mis Clases' }}
+                </button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
-            @if($selectedAssignment)
-                <div class="flex items-center gap-3 min-w-0">
-                    <div class="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                         style="background-color: {{ $selectedAssignment->subject->color ?? '#6366f1' }}"></div>
-                    <div class="min-w-0">
-                        <p class="text-sm font-semibold text-slate-800 dark:text-white truncate">
-                            {{ $selectedAssignment->subject->name }}
+        {{-- ── Gate de sesión: bloqueo total o interfaz normal ─────────── --}}
+        @if(($selectedAssignmentId || $substituteSectionId) && $this->sessionGate['locked'])
+            {{-- Bloqueo agresivo: reemplaza toda la interfaz, incluida la barra
+                 de selección de clase — no hay forma de abrir el selector de
+                 clases (slide-over) mientras la sesión de la tanda no esté lista. --}}
+            <div class="flex flex-col items-center justify-center text-center gap-4 min-h-[70vh] px-4">
+                <div class="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <x-heroicon-s-lock-closed class="w-10 h-10 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div class="max-w-sm">
+                    <p class="text-base font-bold text-slate-800 dark:text-white">
+                        {{ $this->sessionGate['message'] }}
+                    </p>
+                    <p class="text-sm text-slate-400 dark:text-slate-500 mt-2">
+                        @if($this->sessionGate['reason'] === 'no_session')
+                            El pase de lista se habilita en cuanto la portería registre entradas y se abra la sesión del día.
+                        @else
+                            El pase de lista se habilita automáticamente en cuanto la sesión sea cerrada.
+                        @endif
+                    </p>
+                    @if($selectedAssignment)
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-4">
+                            {{ $selectedAssignment->subject->name }} · {{ $selectedAssignment->section->full_label }}
                         </p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                            {{ $selectedAssignment->section->full_label }}
-                            @if($isSubstituteMode)
-                                <span class="text-amber-500 ml-1">(sustituto)</span>
-                            @endif
+                    @endif
+                </div>
+                <button wire:click="clearAssignment"
+                        class="text-xs font-medium text-orvian-orange hover:text-orvian-orange/80 transition-colors">
+                    Elegir otra clase
+                </button>
+            </div>
+        @else
+            {{-- ── Barra compacta: clase seleccionada / selector ──── --}}
+            <div class="bg-white dark:bg-dark-card rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-between px-4 py-3">
+
+                @if($selectedAssignment)
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                             style="background-color: {{ $selectedAssignment->subject->color ?? '#6366f1' }}"></div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-slate-800 dark:text-white truncate">
+                                {{ $selectedAssignment->subject->name }}
+                            </p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                {{ $selectedAssignment->section->full_label }}
+                                @if($isSubstituteMode)
+                                    <span class="text-amber-500 ml-1">(sustituto)</span>
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+                    <button @click="$dispatch('open-modal', 'class-selector')"
+                            class="flex-shrink-0 ml-3 text-xs font-medium text-orvian-orange hover:text-orvian-orange/80 transition-colors">
+                        Cambiar
+                    </button>
+
+                @elseif($isSubstituteMode && $substituteSectionId)
+                    {{-- Sección escogida pero sin asignación todavía --}}
+                    <div class="flex items-center gap-3 min-w-0">
+                        <x-heroicon-o-academic-cap class="w-4 h-4 text-amber-500 flex-shrink-0" />
+                        <p class="text-sm text-slate-600 dark:text-slate-300">
+                            Sección seleccionada — elige la materia a sustituir
+                        </p>
+                    </div>
+                    <button @click="$dispatch('open-modal', 'class-selector')"
+                            class="flex-shrink-0 ml-3 flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition-all">
+                        Ver clases
+                    </button>
+
+                @else
+                    <p class="text-sm text-slate-400 dark:text-slate-500">
+                        {{ $isSubstituteMode ? 'Busca la sección a cubrir' : 'Ninguna clase seleccionada' }}
+                    </p>
+                    <button @click="$dispatch('open-modal', 'class-selector')"
+                            class="flex-shrink-0 ml-3 flex items-center gap-1.5 px-3 py-1.5 bg-orvian-orange hover:bg-orvian-orange/90 text-white rounded-lg text-xs font-semibold transition-all">
+                        <x-heroicon-s-academic-cap class="w-3.5 h-3.5" />
+                        {{ $isSubstituteMode ? 'Buscar Sección' : 'Seleccionar Clase' }}
+                    </button>
+                @endif
+            </div>
+
+            {{-- ── Botón Cargar Lista ──────────────────────────────── --}}
+            @if($selectedAssignmentId && ! $studentsLoaded)
+                <div class="flex justify-center pt-2">
+                    <button wire:click="loadStudents" wire:loading.attr="disabled"
+                            class="flex items-center gap-2 px-6 py-2.5 bg-orvian-orange hover:bg-orvian-orange/90 disabled:opacity-60 text-white rounded-xl font-semibold text-sm transition-all shadow-sm">
+                        <x-heroicon-s-users class="w-4 h-4" />
+                        <span wire:loading.remove>Cargar Lista de Estudiantes</span>
+                        <span wire:loading class="hidden" wire:loading.class.remove="hidden">Cargando...</span>
+                    </button>
+                </div>
+            @endif
+
+            {{-- ── Alerta de Pasilleo ──────────────────────────────── --}}
+            @if($studentsLoaded && $pasilleoCount > 0)
+                <div class="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700/50 rounded-xl">
+                    <x-heroicon-s-exclamation-triangle class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                            Alerta de pasilleo:
+                            {{ $pasilleoCount }} {{ $pasilleoCount === 1 ? 'estudiante marcado' : 'estudiantes marcados' }}
+                            como Ausente en el aula, pero registrado en el plantel.
+                        </p>
+                        <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                            Estos estudiantes entraron al colegio pero no aparecen en tu clase. Verifica antes de guardar.
                         </p>
                     </div>
                 </div>
-                <button @click="$dispatch('open-modal', 'class-selector')"
-                        class="flex-shrink-0 ml-3 text-xs font-medium text-orvian-orange hover:text-orvian-orange/80 transition-colors">
-                    Cambiar
-                </button>
-
-            @elseif($isSubstituteMode && $substituteSectionId)
-                {{-- Sección escogida pero sin asignación todavía --}}
-                <div class="flex items-center gap-3 min-w-0">
-                    <x-heroicon-o-academic-cap class="w-4 h-4 text-amber-500 flex-shrink-0" />
-                    <p class="text-sm text-slate-600 dark:text-slate-300">
-                        Sección seleccionada — elige la materia a sustituir
-                    </p>
-                </div>
-                <button @click="$dispatch('open-modal', 'class-selector')"
-                        class="flex-shrink-0 ml-3 flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition-all">
-                    Ver clases
-                </button>
-
-            @else
-                <p class="text-sm text-slate-400 dark:text-slate-500">
-                    {{ $isSubstituteMode ? 'Busca la sección a cubrir' : 'Ninguna clase seleccionada' }}
-                </p>
-                <button @click="$dispatch('open-modal', 'class-selector')"
-                        class="flex-shrink-0 ml-3 flex items-center gap-1.5 px-3 py-1.5 bg-orvian-orange hover:bg-orvian-orange/90 text-white rounded-lg text-xs font-semibold transition-all">
-                    <x-heroicon-s-academic-cap class="w-3.5 h-3.5" />
-                    {{ $isSubstituteMode ? 'Buscar Sección' : 'Seleccionar Clase' }}
-                </button>
             @endif
-        </div>
 
-        {{-- ── Botón Cargar Lista ──────────────────────────────── --}}
-        @if($selectedAssignmentId && ! $studentsLoaded)
-            <div class="flex justify-center pt-2">
-                <button wire:click="loadStudents" wire:loading.attr="disabled"
-                        class="flex items-center gap-2 px-6 py-2.5 bg-orvian-orange hover:bg-orvian-orange/90 disabled:opacity-60 text-white rounded-xl font-semibold text-sm transition-all shadow-sm">
-                    <x-heroicon-s-users class="w-4 h-4" />
-                    <span wire:loading.remove>Cargar Lista de Estudiantes</span>
-                    <span wire:loading class="hidden" wire:loading.class.remove="hidden">Cargando...</span>
-                </button>
-            </div>
-        @endif
-
-        {{-- ── Aviso: sin registros de plantel hoy ───────────────── --}}
-        @if(! $hasPlantelRecordsToday)
-            <div class="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl">
-                <x-heroicon-s-information-circle class="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                <div>
-                    <p class="text-sm font-semibold text-blue-800 dark:text-blue-300">
-                        Sin registros de entrada hoy
-                    </p>
-                    <p class="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                        No se han registrado entradas en el plantel para la fecha de hoy.
-                        Los estudiantes aparecerán como presentes por defecto hasta que el portero registre la sesión.
-                    </p>
-                </div>
-            </div>
-        @endif
-
-        {{-- ── Alerta de Pasilleo ──────────────────────────────── --}}
-        @if($studentsLoaded && $pasilleoCount > 0)
-            <div class="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700/50 rounded-xl">
-                <x-heroicon-s-exclamation-triangle class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                <div>
-                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                        Alerta de pasilleo:
-                        {{ $pasilleoCount }} {{ $pasilleoCount === 1 ? 'estudiante marcado' : 'estudiantes marcados' }}
-                        como Ausente en el aula, pero registrado en el plantel.
-                    </p>
-                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                        Estos estudiantes entraron al colegio pero no aparecen en tu clase. Verifica antes de guardar.
-                    </p>
-                </div>
-            </div>
-        @endif
-
-        {{-- ── Lista de Estudiantes (Cards) ────────────────────── --}}
-        @if($studentsLoaded)
-            <div class="space-y-2">
-                @forelse($students as $student)
+            {{-- ── Lista de Estudiantes (Cards) ────────────────────── --}}
+            @if($studentsLoaded)
+                <div class="space-y-2">
+                    @forelse($students as $student)
                     @php
                         $current       = $studentStatuses[$student->id] ?? 'present';
                         $plantelStatus = $plantelStatuses[$student->id] ?? null;
@@ -212,6 +227,7 @@
                 @endforelse
             </div>
         @endif
+        @endif{{-- fin gate de sesión --}}
 
     </div>{{-- fin área scrolleable --}}
 

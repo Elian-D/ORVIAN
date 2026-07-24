@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 #[Title('Planes y Suscripciones')]
-#[Layout('components.admin')]
+#[Layout('layouts.app')]
 class PlanIndex extends Component
 {
     public bool $showPanel = false;

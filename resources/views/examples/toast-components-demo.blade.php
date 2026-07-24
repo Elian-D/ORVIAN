@@ -60,13 +60,12 @@
                     <div class="w-2 h-2 rounded-full bg-red-500"></div>
                     <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Error</p>
                 </div>
-                <p class="text-[11px] text-slate-400">Fallos críticos, errores de servidor, acciones bloqueadas.</p>
+                <p class="text-[11px] text-slate-400">Fallos críticos, errores de servidor, acciones bloqueadas. Duración por defecto: 10s.</p>
                 <button
                     @click="$dispatch('notify', {
                         type: 'error',
                         title: 'Error al procesar',
-                        message: 'No se pudo guardar el registro. Verifica tu conexión e intenta nuevamente.',
-                        duration: 8000
+                        message: 'No se pudo guardar el registro. Verifica tu conexión e intenta nuevamente.'
                     })"
                     class="w-full px-4 py-2.5 rounded-xl text-xs font-bold border-2 border-red-500 text-red-600 dark:text-red-400 bg-red-500/5 hover:bg-red-500/10 transition-all"
                 >
@@ -80,13 +79,12 @@
                     <div class="w-2 h-2 rounded-full bg-amber-500"></div>
                     <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Warning</p>
                 </div>
-                <p class="text-[11px] text-slate-400">Advertencias, acciones irreversibles, precauciones.</p>
+                <p class="text-[11px] text-slate-400">Advertencias, acciones irreversibles, precauciones. Duración por defecto: 7s.</p>
                 <button
                     @click="$dispatch('notify', {
                         type: 'warning',
                         title: 'Atención requerida',
-                        message: 'Este registro será eliminado permanentemente. Esta acción no puede deshacerse.',
-                        duration: 8000
+                        message: 'Este registro será eliminado permanentemente. Esta acción no puede deshacerse.'
                     })"
                     class="w-full px-4 py-2.5 rounded-xl text-xs font-bold border-2 border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 transition-all"
                 >
@@ -100,7 +98,7 @@
                     <div class="w-2 h-2 rounded-full bg-blue-500"></div>
                     <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Info</p>
                 </div>
-                <p class="text-[11px] text-slate-400">Mensajes informativos, estados del sistema, contexto.</p>
+                <p class="text-[11px] text-slate-400">Mensajes informativos, estados del sistema, contexto. Duración por defecto: 5s.</p>
                 <button
                     @click="$dispatch('notify', {
                         type: 'info',
@@ -181,7 +179,7 @@
         </div>
 
         <div class="p-5 rounded-2xl border border-slate-100 dark:border-dark-border bg-white dark:bg-dark-card space-y-4">
-            <p class="text-xs text-slate-500">Los toasts se apilan verticalmente en el orden de aparición. Cada uno tiene su propio temporizador independiente.</p>
+            <p class="text-xs text-slate-500">Solo se muestran hasta 3 toasts en cascada (el más reciente al frente, con temporizador activo; los de atrás quedan colapsados y con el temporizador en pausa). Del 4to toast en adelante se agrupan en un chip — tócalo para descartarlos todos de una vez.</p>
             <div class="flex flex-wrap gap-3">
 
                 <button
@@ -208,6 +206,21 @@
                     class="px-5 py-2.5 rounded-xl text-xs font-bold border-2 border-orvian-orange text-orvian-orange bg-orvian-orange/5 hover:bg-orvian-orange/10 transition-all"
                 >
                     Disparar todos los tipos
+                </button>
+
+                <button
+                    @click="
+                        ['info','success','warning','error','info','success'].forEach((type, i) => {
+                            setTimeout(() => $dispatch('notify', {
+                                type,
+                                title: `Notificación ${i + 1}`,
+                                message: 'Probando la agrupación del chip a partir del 4to toast.'
+                            }), i * 250)
+                        })
+                    "
+                    class="px-5 py-2.5 rounded-xl text-xs font-bold border-2 border-slate-300 dark:border-dark-border text-slate-600 dark:text-slate-300 hover:border-slate-400 transition-all"
+                >
+                    Disparar 6 toasts (probar chip +N)
                 </button>
 
             </div>
@@ -255,8 +268,7 @@
                         @click="$dispatch('notify', {
                             type: 'warning',
                             title: 'Tiempo límite próximo',
-                            message: 'Tu cuenta de configuración expira en menos de 2 horas.',
-                            duration: 8000
+                            message: 'Tu cuenta de configuración expira en menos de 2 horas.'
                         })"
                         class="w-full px-4 py-2 rounded-xl text-xs font-bold border-2 border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 transition-all text-left"
                     >
@@ -293,8 +305,7 @@
                         @click="$dispatch('notify', {
                             type: 'warning',
                             title: 'Registro eliminado',
-                            message: 'El año escolar 2024-2025 fue removido. No es posible recuperarlo.',
-                            duration: 8000
+                            message: 'El año escolar 2024-2025 fue removido. No es posible recuperarlo.'
                         })"
                         class="w-full px-4 py-2 rounded-xl text-xs font-bold border-2 border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 transition-all text-left"
                     >
@@ -304,8 +315,7 @@
                         @click="$dispatch('notify', {
                             type: 'error',
                             title: 'Error de validación',
-                            message: 'El código SIGERD ingresado ya existe en el sistema.',
-                            duration: 8000
+                            message: 'El código SIGERD ingresado ya existe en el sistema.'
                         })"
                         class="w-full px-4 py-2 rounded-xl text-xs font-bold border-2 border-red-500/40 text-red-600 dark:text-red-400 bg-red-500/5 hover:bg-red-500/10 transition-all text-left"
                     >
@@ -442,7 +452,7 @@
                 <svg class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
                 </svg>
-                <p class="text-[11px] text-amber-500/80">Los errores de validación de Laravel (<code>$errors</code>) también se muestran automáticamente. Si hay múltiples errores, el título indica la cantidad: <strong>"Error de validación (+2 más)"</strong>.</p>
+                <p class="text-[11px] text-amber-500/80">Los errores de validación de Laravel (<code>$errors</code>) también se muestran automáticamente. Si hay múltiples errores, el título indica la cantidad: <strong>"Error de validación (+2 más)"</strong>. Si la vista ya muestra el error inline bajo cada campo (<code>x-ui.forms.*</code>), pasa <code>&lt;x-ui.toasts :suppress-validation-toast="true" /&gt;</code> para no duplicar el mensaje.</p>
             </div>
         </div>
     </div>

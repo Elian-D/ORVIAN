@@ -4,8 +4,10 @@ namespace App\Livewire\App\Academic\Teachers;
 
 use App\Models\Tenant\Teacher;
 use Illuminate\Support\Facades\Hash;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('layouts.app')]
 class TeacherShow extends Component
 {
     public Teacher $teacher;
@@ -57,9 +59,6 @@ class TeacherShow extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.teachers.teacher-show');
-
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return view('livewire.app.academic.teachers.teacher-show');
     }
 }

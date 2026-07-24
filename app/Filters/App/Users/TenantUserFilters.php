@@ -11,7 +11,6 @@ class TenantUserFilters extends QueryFilter
         return [
             'search' => SearchFilter::class,
             'role'   => RoleFilter::class,
-            'status' => StatusFilter::class,
         ];
     }
 }

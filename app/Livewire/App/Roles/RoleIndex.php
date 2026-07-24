@@ -12,6 +12,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 
 #[Title('Roles y Permisos')]
+#[Layout('layouts.app')]
 class RoleIndex extends DataTable
 {
     #[Url]
@@ -162,11 +163,8 @@ class RoleIndex extends DataTable
             ->latest()
             ->paginate($this->perPage);
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.roles.role-index', [
+        return view('livewire.app.roles.role-index', [
             'roles' => $roles,
         ]);
-
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
     }
 }

@@ -11,6 +11,85 @@ Tengo todo lo que necesito.
 
 ---
 
+## [0.9.0] - 2026-07-23
+
+### Added
+
+#### Fase 0 — The Purge: Eliminación del Kiosko Web (Slim Client)
+- Eliminados `AttendanceScanner.php`, `attendance-scanner.blade.php`, `scanner-stats.blade.php` y `scanner-visor.blade.php` — el kiosko web basado en face-api.js/MediaPipe WASM deja de existir.
+- Eliminado el directorio `public/vendor/face-api/` (~840KB) y los archivos de audio `success.wav`/`error.wav` del frontend web.
+- Removidas la propiedad `$audioFeedback` de `ProfileModal`, su sección en `profile-modal.blade.php` y el componente Alpine `audioFeedback` (con la meta tag `audio-feedback`) de `layouts/app-module.blade.php`.
+- Ruta `/attendance/scanner` y entrada de navbar de scanner eliminadas de `routes/app/attendance.php` y `config/modules.php`.
+- `docs/features/version_0.9.0.md` — documento maestro del pivote arquitectónico Fat Client, con la justificación técnica del abandono del procesamiento de visión en navegador (bloqueo de WASM por firewalls Fortinet, inconsistencia de inferencia en CPU, fugas de memoria en sesiones largas).
+
+#### Fase 1 — API Gateway del Kiosko (REQ-01)
+- Integración de `laravel/sanctum`; el modelo `School` implementa `HasApiTokens` — el token se emite sobre la escuela (tokenable), no sobre un usuario.
+- Rutas `routes/api.php` bajo `/api/v1/kiosk/*` protegidas por `auth:sanctum` + `ability:kiosk`: `GET status`, `POST record/qr`, `POST record/facial`.
+- Controllers `KioskStatusController`, `KioskQrRecordController`, `KioskFacialRecordController` (`app/Http/Controllers/Api/Kiosk/`) y Form Requests `RecordQrRequest`/`RecordFacialRequest` con validación de `session_id` y payload de foto (`mimes:jpeg,jpg,png`, máx. 5MB).
+- `PlantelAttendanceService` extendido con `recordByQr()` y `recordByFacial()`; nuevo value object `AttendanceResult` para normalizar éxito/error (`NOT_FOUND`, `ALREADY_RECORDED`, `SESSION_CLOSED`, `NO_MATCH`, `MULTIPLE_FACES`, `LOW_CONFIDENCE`, `INVALID_TOKEN`).
+- `KioskStatusController` responde además el logo del centro educativo, para que el cliente Electron lo muestre en pantalla sin llamadas adicionales.
+- Interfaz de generación de token en `SchoolSettings`/`school-settings.blade.php` — token mostrado una única vez para copiar al dispositivo.
+
+#### Fase 2.5 — Gestión Multi-Dispositivo y PIN de Técnico
+- Migración `add_kiosk_pin_to_schools_table`: columna `kiosk_pin` (bcrypt, nullable) en `schools`, agregada a `$fillable` y `$hidden` del modelo `School`.
+- `SchoolSettings` reemplaza el flujo de token único por gestión multi-dispositivo: modal de creación (`createDeviceToken()`, con guard de nombre duplicado), modal de revocación con confirmación tipeando el nombre del dispositivo, y formulario de configuración/confirmación de PIN técnico.
+- `KioskStatusController` expone `pin_hash` en la respuesta de `/status` para que Electron lo cachee localmente y valide el PIN técnico incluso con el token revocado.
+- `school-settings.blade.php` partializado en subvistas (`school-partials/*`), incluyendo nueva sección `_physical-location.blade.php`.
+
+#### Fase 3 — Ventanas Horarias Configurables por Tanda (REQ-03)
+- Migración `add_attendance_windows_to_school_shifts`: columnas de ventana de entrada/tardanza/cierre y `late_threshold_minutes` en `school_shifts`.
+- `SchoolShift` extendido con lógica de resolución de ventanas horarias; `AttendanceSessionManager` restringe la apertura de sesiones según validación temporal contra la tanda.
+- `shift-window-manager.blade.php` — nuevo componente de gestión visual de ventanas por tanda, integrado a `session-manager.blade.php` con tooltips de estado.
+
+#### Asistencia de Plantel y Excusas — Dominio Simplificado (Fase 5)
+- `ExcuseService` refactorizado a una máquina de estados simplificada; nuevas vistas `excuse-form.blade.php` e `excuse-index.blade.php` para listado y edición.
+- `attendance-audit.blade.php`: auditoría de asistencia de plantel con transiciones de estado restringidas al día en curso; migración de campos adicionales en `plantel_attendance_records`.
+- Módulo de Aula (`classroom-attendance-live.blade.php`) oculto del menú principal y sus rutas restringidas — el pase de lista de aula queda en pausa operativa mientras se define su rediseño (ver Notes).
+
+#### Fase 7 — Rediseño de Navegación de Escuela (REQ-07)
+- Panel de escuela migrado de navbar horizontal a **Sidebar** (`layouts/sidebar-app.blade.php`), unificando el patrón ya usado en el panel admin.
+- Breadcrumbs globales en `layouts.app-module`, independientes del `module-toolbar` (que queda deprecado — ver Removed).
+- Buscador global de rutas indexado desde metadatos `->defaults('navigationSearch', ...)` en `routes/app/*.php`, con filtrado por permisos del usuario autenticado.
+- Resolución de logo por escuela unificada en el Sidebar; login único (se retira el selector v1/v2 y su cookie, sin eliminar las vistas legadas); preferencia de sidebar colapsado migrada de checkbox en Perfil a persistencia automática en `localStorage`.
+- Eliminado por completo el sistema de estatus de presencia de usuario (online/away/busy/offline), incluyendo `user-status.blade.php` y el job programado en `routes/console.php`.
+
+#### Fase 9 — Páginas de Error Personalizadas (REQ-09)
+- Vistas 403, 404 y 500 rediseñadas con soporte de modo oscuro, integradas al design system de ORVIAN.
+- Nuevo `layouts/public-minimal.blade.php` — layout público minimalista reservado para contextos de excepción, usado por `PublicLayout`.
+
+#### Fase 10 — Toasts v2 (REQ-10)
+- Sistema de toasts evolucionado: apilamiento en cascada, swipe-to-dismiss táctil y políticas de temporizador diferenciadas por tipo de notificación.
+- Rutas de laboratorio/showcase de componentes UI (`toast-components-demo.blade.php`) registradas solo en entorno local.
+- `docs/ui/toast.md` actualizado con las especificaciones de eventos y comportamiento del nuevo sistema.
+
+#### Fase 11 — Correcciones de UI Kit (REQ-11)
+- `x-ui.button`: eliminado el `wire:loading.class` global por defecto — ya no se dispara visualmente ante cualquier acción Livewire de la página.
+- `x-cloak` aplicado a componentes Alpine.js en layouts raíz para eliminar el FOUC (Flash of Unstyled Content) al cargar.
+- `layouts/app-module.blade.php` unificado dentro de `layouts/app.blade.php`; componentes Livewire migrados al atributo `#[Layout]` en lugar de `->layout()` encadenado.
+
+### Changed
+- `FaceEncodingManager`: caché de encodings faciales para reducir consultas redundantes durante la verificación 1:1.
+- `Feature@getIcon()` / `plan-features.blade.php`: uso consistente de `x-ui.module-icon`.
+- `database/factories/Tenant/SchoolFactory.php` ampliada para soportar los nuevos escenarios de prueba de asistencia facial.
+
+### Fixed
+- Corregida la lógica de registro de fotos y el enrutamiento del API Gateway del kiosko (URLs de foto en `KioskQrRecordController`).
+- Ajustes de entorno para PHP 8.4 en la integración de Sanctum.
+
+### Removed
+- `module-toolbar` deprecado como componente sticky bajo el navbar; reemplazado por `x-ui.page-header` extendido con menú de acciones secundarias (dropdown en desktop, bottom sheet en mobile).
+
+### Tests
+- Nueva suite de integración `FacialAttendanceThroughputTest` para el flujo de asistencia facial vía API Kiosko.
+
+### Notes
+- **REQ-02 (cliente de escritorio Electron):** vive en el repositorio independiente `orvian-kiosk-electron`; no genera cambios en este repositorio más allá del API Gateway que consume (Fase 1).
+- **REQ-04 (Selector Universal de Cursos), REQ-06 (app móvil Flutter) y REQ-08 (dominio de tutores):** quedan como planificación/análisis — sin código en esta versión.
+- **REQ-05 (rediseño de pase de lista con gestos):** el módulo de Aula fue ocultado y restringido en lugar de rediseñado con gestos de deslizamiento; el rediseño con gestos táctiles queda pendiente para una iteración futura.
+- **Login v1 y `ProfileModal` como modal:** ocultos, no eliminados — se conservan en el código para revertir rápidamente si el nuevo flujo presenta regresiones.
+
+---
+
 ## [0.8.0] - 2026-05-10
 
 ### Added

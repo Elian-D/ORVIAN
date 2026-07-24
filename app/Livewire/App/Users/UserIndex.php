@@ -13,8 +13,10 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Layout;
 
 #[Title('Usuarios')]
+#[Layout('layouts.app')]
 class UserIndex extends DataTable
 {
     // ── Estado del tenant ──────────────────────────────────────────────────
@@ -27,7 +29,6 @@ class UserIndex extends DataTable
     public array $filters = [
         'search' => '',
         'role'   => '',
-        'status' => '',
     ];
 
     // ── Estado formulario ──────────────────────────────────────────────────
@@ -121,18 +122,15 @@ class UserIndex extends DataTable
             ->pluck('name', 'name')
             ->toArray();
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.users.index', [
+        return view('livewire.app.users.index', [
             'users'       => $users,
-            'globalRoles' => $roleOptions, 
-            'roleOptions' => $roleOptions, 
+            'globalRoles' => $roleOptions,
+            'roleOptions' => $roleOptions,
             'total'       => $total,
             'limit'       => $limit,
             'pct'         => $pct,
             'atLimit'     => $atLimit,
         ]);
-
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
     }
 
     // ── Formulario ─────────────────────────────────────────────────────────
@@ -297,25 +295,5 @@ class UserIndex extends DataTable
         $this->role      = '';
         $this->position  = '';
         $this->resetErrorBag();
-    }
-
-    public static function statusColor(string $status): string
-    {
-        return match ($status) {
-            'online' => 'bg-green-500',
-            'away'   => 'bg-amber-400',
-            'busy'   => 'bg-red-500',
-            default  => 'bg-slate-400',
-        };
-    }
-
-    public static function statusLabel(string $status): string
-    {
-        return match ($status) {
-            'online' => 'En línea',
-            'away'   => 'Ausente',
-            'busy'   => 'Ocupado',
-            default  => 'Desconectado',
-        };
     }
 }

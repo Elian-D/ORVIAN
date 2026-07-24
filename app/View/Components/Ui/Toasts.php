@@ -10,9 +10,13 @@ class Toasts extends Component
 {
     /**
      * Create a new component instance.
+     *
+     * @param bool $suppressValidationToast Omite el toast automático de $errors->any() —
+     *   úsalo en vistas donde x-ui.forms.* ya muestra el error inline bajo cada campo.
      */
-    public function __construct()
-    {
+    public function __construct(
+        public bool $suppressValidationToast = false,
+    ) {
         //
     }
 

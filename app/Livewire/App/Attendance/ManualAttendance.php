@@ -14,11 +14,13 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Services\Attendance\ExcuseService;
 
 #[Title('Registro Manual de Asistencia')]
+#[Layout('layouts.app')]
 class ManualAttendance extends Component
 {
     use WithPagination;
@@ -318,12 +320,9 @@ class ManualAttendance extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.manual-attendance', [
+        return view('livewire.app.attendance.manual-attendance', [
             'students' => $this->students,
             'stats' => $this->statistics,
         ]);
-
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

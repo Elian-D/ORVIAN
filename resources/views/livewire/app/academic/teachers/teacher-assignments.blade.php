@@ -1,13 +1,14 @@
 <div>
-    <x-app.module-toolbar>
-        <x-slot:title>Asignación de Materias</x-slot:title>
-        <x-slot:actions>
-            <x-ui.button :href="route('app.academic.teachers.show', $teacher)" variant="ghost" size="sm"
-                iconLeft="heroicon-o-arrow-left">
-                Volver
-            </x-ui.button>
-        </x-slot:actions>
-    </x-app.module-toolbar>
+    <div class="px-4 md:px-6 pt-4">
+        <x-ui.page-header title="Asignación de Materias">
+            <x-slot:actions>
+                <x-ui.button :href="route('app.academic.teachers.show', $teacher)" variant="ghost" size="sm"
+                    iconLeft="heroicon-o-arrow-left">
+                    Volver
+                </x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
+    </div>
 
     {{-- Banner del maestro --}}
     <div class="mx-4 mt-4 md:mx-6 mb-4 flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-dark-card border border-slate-200 dark:border-white/10 shadow-sm">

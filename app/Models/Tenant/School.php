@@ -13,10 +13,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\DB;
+use Laravel\Sanctum\HasApiTokens;
 
 class School extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApiTokens;
 
     /** @var string REGIMEN_CONSTANTS */
     const REGIMEN_PUBLIC      = 'Público';
@@ -41,6 +42,7 @@ class School extends Model
         'sigerd_code', 
         'name', 
         'logo_path',
+        'kiosk_pin',
         'regimen_gestion',
         'modalidad',  
         'phone',
@@ -65,6 +67,9 @@ class School extends Model
     'stub_expires_at' => 'datetime',
 ];
 
+    protected $hidden = [
+        'kiosk_pin',
+    ];
 
     /*
     |--------------------------------------------------------------------------

@@ -11,7 +11,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 
 #[Title('Roles Globales')]
-#[Layout('components.admin')]
+#[Layout('layouts.app')]
 class RoleIndex extends DataTable
 {
     #[Url]

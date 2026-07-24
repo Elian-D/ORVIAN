@@ -18,7 +18,7 @@
         </div>
     @endif
 
-    <span x-show="sidebarOpen || hasHover" class="tracking-wide">
+    <span x-show="sidebarOpen || hasHover" x-cloak class="tracking-wide">
         {{ $slot }}
     </span>
 </a>

@@ -8,7 +8,6 @@ use App\Models\Tenant\School;
 use App\Models\Tenant\Student;
 use App\Models\Tenant\Teacher;
 use App\Models\User;
-use App\Observers\Tenant\AttendanceExcuseObserver;
 use App\Observers\Tenant\PlanObserver;
 use App\Observers\Tenant\SchoolObserver;
 use App\Observers\Tenant\StudentObserver;
@@ -51,7 +50,6 @@ class AppServiceProvider extends ServiceProvider
         Plan::observe(PlanObserver::class);
         Student::observe(StudentObserver::class);
         Teacher::observe(TeacherObserver::class);
-        AttendanceExcuse::observe(AttendanceExcuseObserver::class);
 
         // --- Paginación ---
         Paginator::defaultView('pagination.orvian-compact');

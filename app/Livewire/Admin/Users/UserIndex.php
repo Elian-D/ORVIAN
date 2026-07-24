@@ -15,7 +15,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 
 #[Title('Usuarios del Sistema')]
-#[Layout('components.admin')]
+#[Layout('layouts.app')]
 class UserIndex extends DataTable
 {
     // ── Filtros ────────────────────────────────────────────
@@ -24,7 +24,6 @@ class UserIndex extends DataTable
     public array $filters = [
         'search'  => '',
         'role'    => '',
-        'status'  => '',
         'trashed' => '',   // '' → activos | 'only' → eliminados
     ];
 
@@ -216,25 +215,5 @@ class UserIndex extends DataTable
         $this->role      = '';
         $this->position  = '';
         $this->resetErrorBag();
-    }
-
-    public static function statusColor(string $status): string
-    {
-        return match ($status) {
-            'online' => 'bg-green-500',
-            'away'   => 'bg-amber-400',
-            'busy'   => 'bg-red-500',
-            default  => 'bg-slate-400',
-        };
-    }
-
-    public static function statusLabel(string $status): string
-    {
-        return match ($status) {
-            'online' => 'En línea',
-            'away'   => 'Ausente',
-            'busy'   => 'Ocupado',
-            default  => 'Desconectado',
-        };
     }
 }

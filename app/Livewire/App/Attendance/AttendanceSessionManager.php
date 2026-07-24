@@ -9,8 +9,10 @@ use App\Models\Tenant\PlantelAttendanceRecord;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Carbon\Carbon;
 
+#[Layout('layouts.app')]
 class AttendanceSessionManager extends Component
 {
     public bool $showStatsModal = false;
@@ -44,6 +46,18 @@ class AttendanceSessionManager extends Component
     public function openSession(int $shiftId, PlantelAttendanceService $service)
     {
         $this->authorize('attendance_plantel.open_session');
+
+        $shift = SchoolShift::findOrFail($shiftId);
+
+        // Validación estricta en el Backend
+        if (!$shift->can_be_opened) {
+            $this->dispatch('notify', 
+                type: 'error', 
+                message: "No se puede abrir la tanda aún. Apertura permitida a partir de las " . 
+                        $shift->start_time->subMinutes(90)->format('h:i A')
+            );
+            return;
+        }
 
         try {
             $service->openDailySession(Auth::user()->school_id, $shiftId, today());
@@ -112,10 +126,6 @@ class AttendanceSessionManager extends Component
 
     public function render()
     {
-
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.session-manager');
-
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
+        return view('livewire.app.attendance.session-manager');
     }
 }

@@ -1,7 +1,5 @@
 <x-guest-layout>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-
-    <div x-data="qrLogin()">
+    <div>
 
         <div class="text-center mb-10">
             <h1 class="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
@@ -15,9 +13,6 @@
         {{-- Añadimos ID al form e incluimos el input oculto --}}
         <form id="login-form" method="POST" action="{{ route('login') }}" x-data="{ showPassword: false }">
             @csrf
-            
-            {{-- CRUCIAL: Input oculto para enviar el código QR leido --}}
-            <input type="hidden" name="qr_code" x-model="qrCode">
 
             {{-- Email Input --}}
             <div class="mb-5 group relative">
@@ -67,97 +62,5 @@
                 Iniciar Sesión
             </button>
         </form>
-
-        {{-- Modal para el Escáner --}}
-        <div x-show="showScanner" x-cloak 
-             class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div class="bg-white dark:bg-[#0d1424] rounded-[2rem] p-6 w-full max-w-md border border-white/10 shadow-2xl">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-gray-900 dark:text-white font-bold">Escanea tu código institucional</h3>
-                    <button @click="stopScanner()" class="text-gray-400 hover:text-gray-600 dark:hover:text-white">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <div id="reader" class="overflow-hidden rounded-xl bg-black aspect-square"></div>
-                <p class="text-center text-xs text-gray-500 mt-4">Apunta con tu cámara al código QR de tu carnet</p>
-            </div>
-        </div>
     </div>
-
-<script>
-function qrLogin() {
-    return {
-        showScanner: false,
-        qrCode: '',
-        html5QrcodeScanner: null,
-
-        /**
-         * Inicializa el componente y escucha el evento global 
-         * disparado desde el botón del layout.
-         */
-        init() {
-            window.addEventListener('open-qr-scanner', () => {
-                this.startScanner();
-            });
-        },
-
-        /**
-         * Activa la cámara y configura el escáner QR.
-         */
-        async startScanner() {
-            this.showScanner = true;
-            
-            // Esperamos a que Alpine renderice el div #reader en el DOM
-            await this.$nextTick();
-            
-            try {
-                this.html5QrcodeScanner = new Html5Qrcode("reader");
-                const config = { 
-                    fps: 10, 
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0 
-                };
-
-                await this.html5QrcodeScanner.start(
-                    { facingMode: "user" }, // Usa "environment" para cámara trasera en móviles
-                    config,
-                    (decodedText) => {
-                        // 1. Asignar el valor directamente al input oculto por ID para mayor seguridad
-                        const qrInput = document.getElementsByName('qr_code')[0];
-                        qrInput.value = decodedText;
-                        this.qrCode = decodedText;
-
-                        // 2. Detener el escáner inmediatamente
-                        this.stopScanner();
-
-                        // 3. Pequeña pausa para que el DOM procese el valor y enviar
-                        setTimeout(() => {
-                            document.getElementById('login-form').submit();
-                        }, 100);
-                    }
-                );
-            } catch (err) {
-                console.error("Error al iniciar el escáner:", err);
-                alert("No se pudo acceder a la cámara. Verifica los permisos.");
-                this.showScanner = false;
-            }
-        },
-
-        /**
-         * Detiene la cámara y limpia la instancia del escáner.
-         */
-        async stopScanner() {
-            if (this.html5QrcodeScanner && this.html5QrcodeScanner.getState() === 2) {
-                try {
-                    await this.html5QrcodeScanner.stop();
-                    this.html5QrcodeScanner = null;
-                } catch (err) {
-                    console.error("Error al detener el escáner:", err);
-                }
-            }
-            this.showScanner = false;
-        }
-    }
-}
-</script>
 </x-guest-layout>
