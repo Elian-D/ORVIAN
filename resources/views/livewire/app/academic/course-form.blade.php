@@ -1,16 +1,15 @@
 {{-- resources/views/livewire/app/academic/course-form.blade.php --}}
 <div>
-    <x-app.module-toolbar>
-        <x-slot:title>Nuevo Curso</x-slot:title>
-        <x-slot:actions>
-            <x-ui.button href="{{ route('app.academic.courses.index') }}"
-                type="ghost" size="sm" iconLeft="heroicon-o-arrow-left">
-                Volver
-            </x-ui.button>
-        </x-slot:actions>
-    </x-app.module-toolbar>
-
     <div class="p-4 md:p-6 max-w-2xl mx-auto">
+
+        <x-ui.page-header title="Nuevo Curso">
+            <x-slot:actions>
+                <x-ui.button href="{{ route('app.academic.courses.index') }}"
+                    type="ghost" size="sm" iconLeft="heroicon-o-arrow-left">
+                    Volver
+                </x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
         {{-- ══ Barra de progreso ══
              - $this->visualStep: paso visual que NUNCA retrocede cuando se salta el paso 3

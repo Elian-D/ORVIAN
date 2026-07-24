@@ -315,7 +315,7 @@ class SchoolShow extends Component
         return $structure;
     }
 
-    #[Layout('components.admin')]
+    #[Layout('layouts.app')]
     public function render()
     {
         return view('livewire.admin.schools.school-show');

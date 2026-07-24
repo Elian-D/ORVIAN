@@ -12,8 +12,10 @@ use App\Models\Tenant\School;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('layouts.app')]
 class CourseForm extends Component
 {
     // ── Estado del wizard ─────────────────────────────────────────
@@ -413,9 +415,6 @@ class CourseForm extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.course-form');
-
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return view('livewire.app.academic.course-form');
     }
 }

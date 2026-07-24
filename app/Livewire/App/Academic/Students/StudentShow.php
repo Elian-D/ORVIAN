@@ -10,7 +10,9 @@ use App\Models\Tenant\PlantelAttendanceRecord;
 use App\Models\Tenant\ClassroomAttendanceRecord;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 
+#[Layout('layouts.app')]
 class StudentShow extends Component
 {
     use WithPagination;
@@ -105,9 +107,6 @@ class StudentShow extends Component
      */
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.students.student-show');
-
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return view('livewire.app.academic.students.student-show');
     }
 }

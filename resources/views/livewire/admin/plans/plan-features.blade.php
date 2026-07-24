@@ -33,7 +33,10 @@
                     <div class="px-8 py-5 bg-slate-50/50 dark:bg-white/[0.02] border-b border-slate-100 dark:border-dark-border flex items-center justify-between">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-xl bg-white dark:bg-dark-border flex items-center justify-center shadow-sm">
-                                <x-dynamic-component :component="$features->first()->getIcon()" class="w-5 h-5 text-orvian-orange" />
+                                <x-ui.module-icon
+                                    :name="$features->first()->getIcon()"
+                                    class="w-5 h-5 opacity-60 group-hover/item:opacity-100 transition-opacity"
+                                />
                             </div>
                             <h3 class="text-lg font-black text-slate-700 dark:text-white tracking-tight">{{ $module }}</h3>
                         </div>

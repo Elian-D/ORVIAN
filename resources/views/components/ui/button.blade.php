@@ -18,9 +18,10 @@
     ─────────────────────────────────────────────────────────────────
     - $tag()      → 'button' si no hay href, 'a' si hay href
     - $hexStyles() → estilos inline calculados si se pasa prop hex
-    - wire:loading.class añade opacidad cuando Livewire está cargando.
-      Combinado con wire:loading.attr="disabled" en el elemento se logra
-      bloqueo completo durante la petición sin JS adicional.
+    - El feedback de wire:loading NO se aplica por defecto (ver REQ-11.1) —
+      cada botón debe declarar explícitamente wire:loading.class + wire:target
+      para evitar que se ilumine ante cualquier acción Livewire de la página,
+      no solo la suya. Ver docs/ui/buttons.md, sección "Estados de Carga".
     - aria-label obligatorio en modo icono para accesibilidad — si no
       se pasa el atributo aria-label externamente, se infiere del componente
       del ícono como fallback.
@@ -40,8 +41,6 @@
     {{ $attributes->except(['type', 'href'])->merge([
         'class' => $getButtonClasses($isIconOnly),
         'style' => $hexStyle,
-        // Livewire loading: opacidad + no interacción durante petición
-        'wire:loading.class' => 'opacity-60 pointer-events-none',
     ]) }}
 >
     @if($isIconOnly)

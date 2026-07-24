@@ -14,4 +14,9 @@ use App\Livewire\App\Users\UserIndex;
 
 
 Route::get('/users', UserIndex::class)->name('users.index')
-->middleware('can:users.view');
+    ->middleware('can:users.view')
+    ->defaults('navigationSearch', [
+        'title'       => 'Usuarios del Centro',
+        'description' => 'Personal administrativo y docente con acceso al sistema',
+        'keywords'    => ['usuarios', 'accesos', 'cuentas', 'personal'],
+    ]);

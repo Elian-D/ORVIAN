@@ -1,22 +1,21 @@
 {{-- resources/views/livewire/app/academic/course-show.blade.php --}}
 <div>
-    <x-app.module-toolbar>
-        <x-slot:title>{{ $section->full_label }}</x-slot:title>
-        <x-slot:actions>
-            <x-ui.button href="{{ route('app.academic.courses.index') }}"
-                type="ghost" size="sm" iconLeft="heroicon-o-arrow-left">
-                Volver
-            </x-ui.button>
-            @if(!$isEditing)
-                <x-ui.button wire:click="startEdit"
-                    variant="secondary" size="sm" iconLeft="heroicon-o-pencil">
-                    Editar
-                </x-ui.button>
-            @endif
-        </x-slot:actions>
-    </x-app.module-toolbar>
-
     <div class="p-4 md:p-6 space-y-6">
+
+        <x-ui.page-header title="{{ $section->full_label }}">
+            <x-slot:actions>
+                <x-ui.button href="{{ route('app.academic.courses.index') }}"
+                    type="ghost" size="sm" iconLeft="heroicon-o-arrow-left">
+                    Volver
+                </x-ui.button>
+                @if(!$isEditing)
+                    <x-ui.button wire:click="startEdit"
+                        variant="secondary" size="sm" iconLeft="heroicon-o-pencil">
+                        Editar
+                    </x-ui.button>
+                @endif
+            </x-slot:actions>
+        </x-ui.page-header>
 
         {{-- Header de la sección --}}
         <div class="bg-white dark:bg-dark-card rounded-2xl border

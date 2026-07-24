@@ -55,27 +55,6 @@
                 :active="true" />
         </div>
 
-        {{-- Asistencia - Basado en attendance_qr --}}
-        <div class="tile-animate" style="animation-delay: 0.10s;">
-            <x-ui.app-tile
-                module="asistencia"
-                title="Asistencia"
-                subtitle="Control"
-                url="{{ route('app.attendance.dashboard') }}"
-                :active="in_array('attendance_qr', $activeModules)" />
-        </div>
-
-        {{-- Conversaciones - Ahora envía fuera de Orvian --}}
-        <div class="tile-animate" style="animation-delay: 0.15s;">
-            <x-ui.app-tile
-                module="conversaciones"
-                title="Mensajería"
-                subtitle="Chatwoot"
-                {{-- Aquí la URL de tu VPS --}}
-                url="https://chat.orvian.com.do" 
-                />
-        </div>
-
         {{-- Académico - Basado en academic_grades --}}
         <div class="tile-animate" style="animation-delay: 0.20s;">
             <x-ui.app-tile
@@ -86,6 +65,27 @@
                 url="{{ route('app.academic.courses.index') }}"
                 />
         </div>
+
+        {{-- Asistencia - Basado en attendance_qr --}}
+        <div class="tile-animate" style="animation-delay: 0.10s;">
+            <x-ui.app-tile
+                module="asistencia"
+                title="Asistencia"
+                subtitle="Control"
+                url="{{ route('app.attendance.hub') }}"
+                :active="in_array('attendance_qr', $activeModules)" />
+        </div>
+
+        {{-- Conversaciones - Ahora envía fuera de Orvian --}}
+        {{-- <div class="tile-animate" style="animation-delay: 0.15s;">
+            <x-ui.app-tile
+                module="conversaciones"
+                title="Mensajería"
+                subtitle="Chatwoot"
+                url="https://chat.orvian.com.do" 
+                />
+        </div> --}}
+
 
         {{-- Notas - Dependiente de academic_grades (Mismo permiso) --}}
         <div class="tile-animate" style="animation-delay: 0.25s;">
@@ -98,14 +98,14 @@
         </div>
 
         {{-- Classroom - Basado en classroom_internal --}}
-        {{-- <div class="tile-animate" style="animation-delay: 0.30s;">
+        <div class="tile-animate" style="animation-delay: 0.30s;">
             <x-ui.app-tile
                 module="classroom"
                 title="Classroom"
                 subtitle="Virtual"
                 :active="in_array('classroom_internal', $activeModules)"
                 comingSoon="true" />
-        </div> --}}
+        </div>
 
         {{-- Horarios - Global --}}
         {{-- <div class="tile-animate" style="animation-delay: 0.35s;">

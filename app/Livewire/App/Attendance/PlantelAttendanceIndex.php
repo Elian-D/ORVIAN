@@ -13,8 +13,10 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Layout;
 use Maatwebsite\Excel\Facades\Excel;
 
+#[Layout('layouts.app')]
 class PlantelAttendanceIndex extends DataTable
 {
     use AuthorizesRequests;
@@ -223,14 +225,11 @@ class PlantelAttendanceIndex extends DataTable
             ->orderByDesc('time')
             ->paginate($this->perPage);
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.plantel-attendance-index', [
+        return view('livewire.app.attendance.plantel-attendance-index', [
             'records'        => $records,
             'sectionOptions' => SchoolSection::withFullRelations()->get()
                 ->pluck('full_label', 'id')
                 ->toArray(),
         ]);
-
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

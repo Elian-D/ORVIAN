@@ -6,9 +6,11 @@ use App\Models\Tenant\Academic\SchoolSection;
 use App\Models\Tenant\Academic\SchoolShift;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+#[Layout('layouts.app')]
 class CourseShow extends Component
 {
     use WithPagination;
@@ -109,9 +111,6 @@ class CourseShow extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.course-show');
-
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return view('livewire.app.academic.course-show');
     }
 }

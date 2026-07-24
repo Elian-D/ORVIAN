@@ -15,8 +15,10 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Layout;
 
 #[Title('Configuración Institucional')]
+#[Layout('layouts.app')]
 class SchoolSettings extends Component
 {
     use WithFileUploads;
@@ -44,6 +46,25 @@ class SchoolSettings extends Component
     public $longitude;
 
     public $current_academic_year;
+
+    // ── Nuevas propiedades para el modal de creación ──────────────
+
+    public bool   $showCreateDeviceModal = false;
+    public string $newDeviceName         = '';
+    public ?string $generatedToken       = null;   // Solo vive mientras el modal está abierto
+
+    // ── Nuevas propiedades para el modal de revocación ────────────
+
+    public bool   $showRevokeModal       = false;
+    public ?int   $tokenToRevokeId       = null;
+    public string $revokeConfirmName     = '';    // El usuario debe tipear el nombre del dispositivo
+    public string $deviceToRevokeName = '';
+
+    // ── Propiedad para gestión del PIN ────────────────────────────
+
+    public string $kioskPin              = '';
+    public string $kioskPinConfirm       = '';
+
 
     public function mount()
     {
@@ -194,6 +215,134 @@ class SchoolSettings extends Component
         }
     }
 
+    /**
+     * Crea un token individual para un dispositivo.
+     * NO revoca tokens existentes.
+     */
+    public function createDeviceToken(): void
+    {
+        $this->authorize('settings.update');
+
+        $this->validate([
+            'newDeviceName' => ['required', 'string', 'min:3', 'max:50'],
+        ]);
+
+        try {
+            $school = Auth::user()->school;
+
+            // Verificar que no existe otro token activo con el mismo nombre
+            $existingNames = $school->tokens()
+                ->where('abilities', json_encode(['kiosk']))
+                ->pluck('name');
+
+            if ($existingNames->contains($this->newDeviceName)) {
+                $this->addError('newDeviceName', 'Ya existe un dispositivo con ese nombre.');
+                return;
+            }
+
+            $this->generatedToken = $school->createToken(
+                $this->newDeviceName,
+                ['kiosk']
+            )->plainTextToken;
+
+            // El modal transiciona a mostrar el token. No se cierra aún.
+            $this->newDeviceName = '';
+
+        } catch (\Exception $e) {
+            Log::error('Error al crear token de dispositivo kiosko', [
+                'school_id' => Auth::user()->school_id,
+                'error'     => $e->getMessage(),
+            ]);
+
+            $this->dispatch('notify',
+                type: 'error',
+                title: 'Error',
+                message: 'No se pudo generar el token. Intente de nuevo.'
+            );
+        }
+    }
+
+    /**
+     * Inicia el flujo de revocación mostrando el modal de confirmación.
+     */
+    public function confirmRevokeDevice(int $tokenId, string $tokenName): void
+    {
+        $this->authorize('settings.update');
+        $this->tokenToRevokeId    = $tokenId;
+        $this->revokeConfirmName  = '';
+        
+        // Almacenamos el nombre original para enviarlo al Placeholder
+        $this->deviceToRevokeName = $tokenName; 
+        
+        // Es recomendable utilizar el evento de Alpine para abrir x-modal
+        $this->dispatch('open-modal', 'showRevokeModal');
+    }
+
+    /**
+     * Ejecuta la revocación tras la confirmación por nombre.
+     */
+    public function revokeDevice(): void
+    {
+        $this->authorize('settings.update');
+
+        $token = Auth::user()->school->tokens()->find($this->tokenToRevokeId);
+
+        if (!$token) {
+            $this->dispatch('notify', type: 'error', message: 'Token no encontrado.');
+            $this->resetRevokeModal();
+            return;
+        }
+
+        // El usuario debe haber tipeado exactamente el nombre del dispositivo
+        if ($this->revokeConfirmName !== $token->name) {
+            $this->addError('revokeConfirmName', 'El nombre no coincide. Escríbelo exactamente.');
+            return;
+        }
+
+        $token->delete();
+        $this->dispatch('close-modal', 'showRevokeModal');
+        $this->dispatch('notify',
+            type: 'success',
+            title: 'Dispositivo desconectado',
+            message: "El dispositivo \"{$token->name}\" ya no tiene acceso al sistema."
+        );
+
+        $this->resetRevokeModal();
+    }
+
+    /**
+     * Guarda o actualiza el PIN de acceso al modo técnico del kiosko.
+     */
+    public function saveKioskPin(): void
+    {
+        $this->authorize('settings.update');
+
+        $this->validate([
+            'kioskPin'        => ['required', 'digits_between:4,6'],
+            'kioskPinConfirm' => ['required', 'same:kioskPin'],
+        ]);
+
+        Auth::user()->school->update([
+            'kiosk_pin' => bcrypt($this->kioskPin),
+        ]);
+
+        $this->kioskPin        = '';
+        $this->kioskPinConfirm = '';
+
+        $this->dispatch('notify',
+            type: 'success',
+            title: 'PIN actualizado',
+            message: 'El nuevo PIN de técnico entrará en efecto en el próximo heartbeat del kiosko.'
+        );
+    }
+
+    private function resetRevokeModal(): void
+    {
+        $this->showRevokeModal  = false;
+        $this->tokenToRevokeId  = null;
+        $this->revokeConfirmName = '';
+    }
+
     public function save()
     {
         $data = $this->validate();
@@ -225,9 +374,6 @@ class SchoolSettings extends Component
 
     public function render()
     {
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.settings.school-settings');
-
-        return $view->layout('layouts.app-module', config('modules.configuracion'));
+        return view('livewire.app.settings.school-settings');
     }
 }

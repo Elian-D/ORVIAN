@@ -7,9 +7,11 @@ use App\Models\Tenant\Student;
 use App\Services\FacialRecognition\FaceEncodingManager;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
+#[Layout('layouts.app')]
 class BiometricKiosk extends Component
 {
     use WithFileUploads;
@@ -127,10 +129,6 @@ class BiometricKiosk extends Component
 
     public function render()
     {
-
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.academic.biometric-kiosk');
-
-        return $view->layout('layouts.app-module', config('modules.academico'));
+        return view('livewire.app.academic.biometric-kiosk');
     }
 }

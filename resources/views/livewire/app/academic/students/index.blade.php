@@ -1,43 +1,4 @@
 <div>
-    {{-- 1. TOOLBAR DEL MÓDULO --}}
-    <x-app.module-toolbar>
-        <x-slot:actions>
-            @can('students.create')
-                @php
-                    $atLimit = $this->studentQuotaStats['atLimit'];
-                @endphp
-
-                <x-ui.button 
-                    variant="primary" 
-                    size="sm" 
-                    iconLeft="heroicon-s-plus" 
-                    {{-- Solo pasamos el href si NO hemos llegado al límite --}}
-                    :href="!$atLimit ? route('app.academic.students.create') : null" 
-                    :disabled="$atLimit"
-                >
-                    Nuevo Estudiante
-                </x-ui.button>
-            @endcan
-            @can('students.import')
-                <x-ui.button
-                    variant="secondary"
-                    type="ghost"
-                    size="sm"
-                    iconLeft="heroicon-s-arrow-up-tray"
-                    href="{{ route('app.academic.students.import') }}"
-                >
-                    Importar
-                </x-ui.button>
-            @endcan
-        </x-slot:actions>
-
-        <x-slot:secondary>            
-            <x-ui.button variant="secondary" type="ghost" size="sm" iconLeft="heroicon-s-document-arrow-down">
-                Exportar
-            </x-ui.button>
-        </x-slot:secondary>
-    </x-app.module-toolbar>
-
     <div class="p-4 md:p-6 flex flex-col gap-6">
 
     {{-- SECCIÓN DE ESTADÍSTICAS Y CAPACIDAD --}}
@@ -77,6 +38,41 @@
         :count="$students->total()"
         countLabel="estudiantes"
     >
+        <x-slot:actions>
+            @can('students.create')
+                @php
+                    $atLimit = $this->studentQuotaStats['atLimit'];
+                @endphp
+
+                <x-ui.button
+                    variant="primary"
+                    size="sm"
+                    iconLeft="heroicon-s-plus"
+                    {{-- Solo pasamos el href si NO hemos llegado al límite --}}
+                    :href="!$atLimit ? route('app.academic.students.create') : null"
+                    :disabled="$atLimit"
+                >
+                    Nuevo Estudiante
+                </x-ui.button>
+            @endcan
+            @can('students.import')
+                <x-ui.button
+                    variant="secondary"
+                    type="ghost"
+                    size="sm"
+                    iconLeft="heroicon-s-arrow-up-tray"
+                    href="{{ route('app.academic.students.import') }}"
+                >
+                    Importar
+                </x-ui.button>
+            @endcan
+        </x-slot:actions>
+
+        <x-slot:secondary>
+            <x-ui.button variant="secondary" type="ghost" size="sm" class="w-full justify-start" iconLeft="heroicon-s-document-arrow-down">
+                Exportar
+            </x-ui.button>
+        </x-slot:secondary>
     </x-ui.page-header>
     
     {{-- 3. TABLA BASE --}}

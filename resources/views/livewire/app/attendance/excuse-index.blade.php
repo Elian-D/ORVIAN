@@ -8,13 +8,12 @@
         countLabel="excusas"
     >
         <x-slot:actions>
-            @can('excuses.submit')
+            @can('manage_excuses')
                 <x-ui.button
                     variant="primary"
                     size="sm"
                     iconLeft="heroicon-s-plus"
-                    {{-- Disparamos el evento directamente o vía Livewire --}}
-                    x-on:click="$dispatch('open-modal', 'register-excuse')"
+                    href="{{ route('app.attendance.excuses.create') }}"
                 >
                     Registrar Excusa
                 </x-ui.button>
@@ -39,9 +38,9 @@
                     label="Estado"
                     filterKey="status"
                     :options="[
-                        'pending'  => 'Pendientes',
-                        'approved' => 'Aprobadas',
-                        'rejected' => 'Rechazadas',
+                        'pending'   => 'Pendientes',
+                        'confirmed' => 'Confirmadas',
+                        'cancelled' => 'Canceladas',
                     ]"
                     placeholder="Todos los estados"
                 />
@@ -69,7 +68,7 @@
                                 {{ $excuse->student->first_name }} {{ $excuse->student->last_name }}
                             </p>
                             <p class="text-[11px] text-slate-500 mt-1">
-                                ID: {{ $excuse->student->rnc ?? 'N/A' }}
+                                {{ $excuse->student->full_section_name }}
                             </p>
                         </div>
                     </div>
@@ -90,9 +89,8 @@
                 <x-data-table.cell column="type" :visible="$visibleColumns">
                     @php
                         $types = [
-                            'full_absence'    => ['label' => 'Ausencia', 'color' => 'red'],
-                            'late_arrival'    => ['label' => 'Tardanza', 'color' => 'amber'],
-                            'early_departure' => ['label' => 'Salida Temp.', 'color' => 'blue'],
+                            \App\Models\Tenant\AttendanceExcuse::TYPE_MEDICAL                => ['label' => 'Médico', 'color' => 'error'],
+                            \App\Models\Tenant\AttendanceExcuse::TYPE_PERSONAL               => ['label' => 'Personal', 'color' => 'warning'],
                         ];
                         $typeData = $types[$excuse->type] ?? ['label' => 'Desconocido', 'color' => 'slate'];
                     @endphp
@@ -103,10 +101,10 @@
 
                 {{-- Columna: Estado --}}
                 <x-data-table.cell column="status" :visible="$visibleColumns">
-                    @if($excuse->status === 'approved')
-                        <x-ui.badge variant="success" size="sm">Aprobada</x-ui.badge>
-                    @elseif($excuse->status === 'rejected')
-                        <x-ui.badge variant="error" size="sm">Rechazada</x-ui.badge>
+                    @if($excuse->status === 'confirmed')
+                        <x-ui.badge variant="success" size="sm">Confirmada</x-ui.badge>
+                    @elseif($excuse->status === 'cancelled')
+                        <x-ui.badge variant="error" size="sm">Cancelada</x-ui.badge>
                     @else
                         <x-ui.badge variant="warning" size="sm">Pendiente</x-ui.badge>
                     @endif
@@ -142,30 +140,39 @@
                         @endif
 
                         @if($excuse->status === 'pending')
-                            @can('excuses.approve')
-                                <x-ui.button 
-                                    variant="success" 
-                                    type="ghost" 
+                            @can('manage_excuses')
+                                <x-ui.button
+                                    variant="secondary"
+                                    type="ghost"
+                                    size="sm"
+                                    icon="heroicon-o-pencil-square"
+                                    href="{{ route('app.attendance.excuses.edit', $excuse) }}"
+                                    title="Editar Excusa"
+                                />
+                                <x-ui.button
+                                    variant="success"
+                                    type="ghost"
                                     size="sm"
                                     icon="heroicon-o-check-circle"
-                                    wire:click="openReview({{ $excuse->id }}, 'approve')" 
-                                    title="Aprobar Excusa"
+                                    wire:click="openConfirm({{ $excuse->id }})"
+                                    title="Confirmar Excusa"
                                 />
                             @endcan
-                            @can('excuses.reject')
-                                <x-ui.button 
-                                    variant="error" 
-                                    type="ghost" 
+                        @elseif($excuse->status === 'confirmed')
+                            @can('manage_excuses')
+                                <x-ui.button
+                                    variant="error"
+                                    type="ghost"
                                     size="sm"
                                     icon="heroicon-o-x-circle"
-                                    wire:click="openReview({{ $excuse->id }}, 'reject')" 
-                                    title="Rechazar Excusa"
+                                    wire:click="openCancel({{ $excuse->id }})"
+                                    title="Cancelar Excusa"
                                 />
                             @endcan
                         @else
-                            <x-ui.button 
-                                variant="secondary" 
-                                type="ghost" 
+                            <x-ui.button
+                                variant="secondary"
+                                type="ghost"
                                 size="sm"
                                 icon="heroicon-o-eye"
                                 title="Ver detalles"
@@ -188,170 +195,156 @@
     </x-data-table.base-table>
 
     {{-- ========================================== --}}
-    {{-- SLIDE-OVER PANEL: CREAR EXCUSA             --}}
+    {{-- MODAL DE CONFIRMACIÓN (pending → confirmed) --}}
+    {{-- Resumen completo como segundo factor antes de confirmar --}}
     {{-- ========================================== --}}
-
-    <x-ui.slide-over 
-        name="register-excuse" 
-        title="Registrar Excusa" 
-        maxWidth="md"
-    >
-        <form wire:submit.prevent="submit" class="space-y-6">
-            
-            {{-- Selección de Estudiante --}}
-            <x-ui.forms.select
-                label="Estudiante"
-                name="studentId"
-                iconLeft="heroicon-o-user"
-                wire:model="studentId"
-                :error="$errors->first('studentId')"
-                required
-            >
-                <option value="">Selecciona un estudiante...</option>
-                @foreach($students as $student)
-                    <option value="{{ $student->id }}">{{ $student->first_name }} {{ $student->last_name }}</option>
-                @endforeach
-            </x-ui.forms.select>
-
-            {{-- Tipo de Justificación --}}
-            <x-ui.forms.select
-                label="Tipo de Justificación"
-                name="type"
-                iconLeft="heroicon-o-tag"
-                wire:model="type"
-                :error="$errors->first('type')"
-                required
-            >
-                <option value="full_absence">Ausencia Completa</option>
-                <option value="late_arrival">Tardanza</option>
-                <option value="early_departure">Salida Temprana</option>
-            </x-ui.forms.select>
-
-            {{-- Rango de Fechas --}}
-            <div class="grid grid-cols-2 gap-4">
-                <x-ui.forms.input 
-                    type="date"
-                    label="Fecha de Inicio" 
-                    name="dateStart"
-                    wire:model="dateStart" 
-                    :error="$errors->first('dateStart')"
-                    required 
-                />
-                <x-ui.forms.input 
-                    type="date"
-                    label="Fecha de Fin" 
-                    name="dateEnd"
-                    wire:model="dateEnd" 
-                    :error="$errors->first('dateEnd')"
-                    required 
-                />
+    <x-modal wire:model="showConfirmModal" name="confirm-excuse" maxWidth="md">
+        <div class="px-6 py-5 bg-white dark:bg-dark-card">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-400">
+                    <x-heroicon-s-check-circle class="w-5 h-5" />
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-800 dark:text-white leading-tight">
+                        ¿Confirmar esta excusa?
+                    </h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                        Revisa el resumen antes de confirmar — luego solo se puede cancelar, no editar.
+                    </p>
+                </div>
             </div>
 
-            {{-- Motivo Detallado --}}
-            <x-ui.forms.textarea
-                label="Motivo detallado"
-                name="reason"
-                placeholder="Explique brevemente la razón de la ausencia..."
-                wire:model="reason"
-                :error="$errors->first('reason')"
-                :rows="4"
-                required
-            />
+            @if ($this->selectedExcuse)
+                @php($excuseToConfirm = $this->selectedExcuse)
+                <div class="rounded-2xl border border-slate-100 dark:border-dark-border p-4 space-y-4">
+                    {{-- Estudiante (con foto — evita confirmar sobre el estudiante equivocado) --}}
+                    <div class="flex items-center gap-3">
+                        <div class="w-14 h-14 rounded-xl overflow-hidden ring-2 ring-orvian-orange/10 bg-slate-100 dark:bg-dark-bg flex-shrink-0">
+                            @if ($excuseToConfirm->student->photo_path)
+                                <img
+                                    src="{{ asset('storage/' . $excuseToConfirm->student->photo_path) }}"
+                                    alt="{{ $excuseToConfirm->student->first_name }} {{ $excuseToConfirm->student->last_name }}"
+                                    class="w-full h-full object-cover"
+                                >
+                            @else
+                                <div class="w-full h-full flex items-center justify-center text-lg font-black text-slate-300 dark:text-slate-600 uppercase">
+                                    {{ Illuminate\Support\Str::substr($excuseToConfirm->student->first_name, 0, 1) }}{{ Illuminate\Support\Str::substr($excuseToConfirm->student->last_name, 0, 1) }}
+                                </div>
+                            @endif
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800 dark:text-white leading-none">
+                                {{ $excuseToConfirm->student->first_name }} {{ $excuseToConfirm->student->last_name }}
+                            </p>
+                            <p class="text-xs text-slate-500 mt-1">
+                                {{ $excuseToConfirm->student->full_section_name }}
+                            </p>
+                        </div>
+                    </div>
 
-            {{-- Archivo Adjunto (Nuevo Componente FileInput) --}}
-            <x-ui.forms.file-input
-                label="Archivo Adjunto"
-                name="attachment"
-                wire:model="attachment"
-                :error="$errors->first('attachment')"
-                accept=".pdf,.jpg,.jpeg,.png"
-                hint="Certificados médicos o notas de padres (Max: 5MB)."
-            />
+                    <div class="border-t border-slate-100 dark:border-dark-border"></div>
 
-        </form>
+                    {{-- Tipo y Fechas --}}
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Motivo</p>
+                            <x-ui.badge :variant="$excuseToConfirm->type === \App\Models\Tenant\AttendanceExcuse::TYPE_MEDICAL ? 'error' : 'warning'" :dot="false" size="sm">
+                                {{ $excuseToConfirm->type_label }}
+                            </x-ui.badge>
+                        </div>
+                        <div>
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Rango de Fechas</p>
+                            <p class="text-slate-700 dark:text-slate-300">
+                                {{ \Carbon\Carbon::parse($excuseToConfirm->date_start)->format('d/m/Y') }}
+                                @if($excuseToConfirm->date_start !== $excuseToConfirm->date_end)
+                                    al {{ \Carbon\Carbon::parse($excuseToConfirm->date_end)->format('d/m/Y') }}
+                                @endif
+                            </p>
+                        </div>
+                    </div>
 
-        {{-- Slot de Footer --}}
-        <x-slot:footer>
-            <div class="flex gap-3">
-                <x-ui.button 
-                    variant="secondary" 
-                    class="flex-1" 
-                    x-on:click="show = false"
+                    {{-- Documento (si aplica) --}}
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Documento Adjunto</p>
+                        @if ($excuseToConfirm->attachment_path)
+                            <a href="{{ Storage::url($excuseToConfirm->attachment_path) }}" target="_blank" class="text-sm text-orvian-orange underline">
+                                Ver documento
+                            </a>
+                        @else
+                            <p class="text-sm text-slate-400">Sin documento adjunto</p>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
+                <x-ui.button
+                    variant="secondary"
+                    size="sm"
+                    wire:click="closeConfirm('')"
                 >
-                    Cancelar
+                    Volver
                 </x-ui.button>
-                
-                <x-ui.button 
-                    variant="primary" 
-                    class="flex-1" 
-                    wire:click="submit"
+                <x-ui.button
+                    variant="success"
+                    size="sm"
+                    wire:click="confirm"
                     wire:loading.attr="disabled"
+                    iconLeft="heroicon-s-check-circle"
                 >
-                    <span wire:loading.remove wire:target="submit">Guardar Excusa</span>
-                    <span wire:loading wire:target="submit">Procesando...</span>
+                    Sí, confirmar
                 </x-ui.button>
             </div>
-        </x-slot:footer>
-    </x-ui.slide-over>
-    
+        </div>
+    </x-modal>
+
     {{-- ========================================== --}}
-    {{-- MODAL DE REVISIÓN (APROBAR / RECHAZAR)     --}}
+    {{-- MODAL DE CANCELACIÓN (confirmed → cancelled) --}}
     {{-- ========================================== --}}
-    <x-modal wire:model="showReview" name="review-excuse" maxWidth="md">
+    <x-modal wire:model="showCancelModal" name="cancel-excuse" maxWidth="md">
         <div class="px-6 py-5 bg-white dark:bg-dark-card">
             <div class="flex flex-col gap-4">
                 <div class="flex items-center gap-3">
-                    <div @class([
-                        'flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center',
-                        'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-400' => $reviewAction === 'approve',
-                        'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400' => $reviewAction === 'reject',
-                    ])>
-                        @if($reviewAction === 'approve')
-                            <x-heroicon-s-check-circle class="w-5 h-5" />
-                        @else
-                            <x-heroicon-s-x-circle class="w-5 h-5" />
-                        @endif
+                    <div class="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400">
+                        <x-heroicon-s-x-circle class="w-5 h-5" />
                     </div>
                     <div>
                         <h3 class="text-base font-bold text-slate-800 dark:text-white leading-tight">
-                            {{ $reviewAction === 'approve' ? 'Aprobar Excusa' : 'Rechazar Excusa' }}
+                            Cancelar Excusa
                         </h3>
                         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                            {{ $reviewAction === 'approve' ? 'Se justificará la asistencia de forma automática.' : 'La excusa será denegada. Es obligatorio dejar una nota.' }}
+                            La excusa ya confirmada quedará cancelada. Los registros de asistencia ya creados no se revierten.
                         </p>
                     </div>
                 </div>
 
-                {{-- Notas de Resolución --}}
-                <div class="mt-2 space-y-1">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Notas u Observaciones @if($reviewAction === 'reject') <span class="text-red-500">*</span> @endif
-                    </label>
-                    <textarea 
-                        wire:model="reviewNotes" 
-                        rows="3" 
-                        class="w-full rounded-xl border-slate-200 dark:border-white/10 dark:bg-dark-card focus:ring-indigo-500 text-sm"
-                        placeholder="Ej. Constancia médica verificada..."
-                    ></textarea>
-                    @error('reviewNotes') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                </div>
+                {{-- Motivo de la Cancelación --}}
+                <x-ui.forms.textarea
+                    label="Motivo de la cancelación"
+                    name="cancelNotes"
+                    placeholder="Explica por qué se cancela esta excusa..."
+                    wire:model="cancelNotes"
+                    :error="$errors->first('cancelNotes')"
+                    :rows="3"
+                    required
+                />
             </div>
 
             <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-white/5">
-                <x-ui.button 
-                    variant="secondary" 
+                <x-ui.button
+                    variant="secondary"
                     size="sm"
-                    wire:click="closeReview('')"
+                    wire:click="closeCancel('')"
                 >
-                    Cancelar
+                    Volver
                 </x-ui.button>
-                <x-ui.button 
-                    variant="{{ $reviewAction === 'approve' ? 'success' : 'error' }}" 
+                <x-ui.button
+                    variant="error"
                     size="sm"
-                    wire:click="processReview" 
+                    wire:click="cancel"
                     wire:loading.attr="disabled"
                 >
-                    Confirmar {{ $reviewAction === 'approve' ? 'Aprobación' : 'Rechazo' }}
+                    Cancelar Excusa
                 </x-ui.button>
             </div>
         </div>

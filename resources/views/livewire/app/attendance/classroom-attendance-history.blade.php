@@ -59,22 +59,6 @@
     </script>
     @endscript
 
-    {{-- ── Toolbar ─────────────────────────────────────────────────────────── --}}
-    <x-app.module-toolbar>
-        <x-slot:actions>
-            <x-ui.button
-                variant="secondary"
-                type="ghost"
-                size="sm"
-                iconLeft="heroicon-s-table-cells"
-                wire:click="exportExcel"
-                wire:loading.attr="disabled"
-            >
-                Excel
-            </x-ui.button>
-        </x-slot:actions>
-    </x-app.module-toolbar>
-
     <div class="p-4 md:p-6 flex flex-col gap-6">
 
         {{-- ── Banner de contexto para maestros ───────────────────────────── --}}
@@ -202,7 +186,20 @@
             description="Registros de pase de lista por clase y maestro."
             :count="$records->total()"
             countLabel="registros"
-        />
+        >
+            <x-slot:actions>
+                <x-ui.button
+                    variant="secondary"
+                    type="ghost"
+                    size="sm"
+                    iconLeft="heroicon-s-table-cells"
+                    wire:click="exportExcel"
+                    wire:loading.attr="disabled"
+                >
+                    Excel
+                </x-ui.button>
+            </x-slot:actions>
+        </x-ui.page-header>
 
         {{-- ── Tabla ────────────────────────────────────────────────────────── --}}
         <x-data-table.base-table
@@ -288,7 +285,7 @@
                     <x-data-table.cell column="section" :visible="$visibleColumns">
                         @php $section = $record->assignment?->section; @endphp
                         @if($section)
-                            <x-ui.badge variant="info" size="sm">
+                            <x-ui.badge class="whitespace-nowrap" variant="info" size="sm">
                                 {{ $section->grade?->name }}° - {{ $section->label }}
                             </x-ui.badge>
                         @else
@@ -324,7 +321,7 @@
 
                     {{-- Hora de Clase --}}
                     <x-data-table.cell column="class_time" :visible="$visibleColumns">
-                        <span class="text-sm font-mono text-slate-600 dark:text-slate-400">
+                        <span class="whitespace-nowrap text-sm font-mono text-slate-600 dark:text-slate-400">
                             {{ $record->class_time
                                 ? \Carbon\Carbon::parse($record->class_time)->format('h:i A')
                                 : '—' }}
@@ -345,6 +342,23 @@
                         <x-ui.badge :variant="$statusVariant" size="sm" dot>
                             {{ $record->status_label }}
                         </x-ui.badge>
+                    </x-data-table.cell>
+
+                    {{-- Registrado por --}}
+                    <x-data-table.cell column="recorded_by" :visible="$visibleColumns">
+                        @php
+                            $isSubstitute = $record->recorded_by_user_id
+                                && $record->teacher
+                                && $record->recorded_by_user_id !== $record->teacher->user_id;
+                        @endphp
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                {{ $record->recordedBy?->name ?? $record->teacher?->full_name ?? '—' }}
+                            </span>
+                            @if($isSubstitute)
+                                <x-ui.badge variant="warning" size="sm">Sustituto</x-ui.badge>
+                            @endif
+                        </div>
                     </x-data-table.cell>
 
                     {{-- Notas --}}

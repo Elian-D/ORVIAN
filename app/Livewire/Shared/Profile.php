@@ -8,10 +8,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 #[Title('Mi Perfil')]
+#[Layout('layouts.app')]
 class Profile extends Component
 {
     use WithFileUploads;
@@ -36,8 +38,6 @@ class Profile extends Component
 
     // Preferencias
     public string $theme = 'system';
-    public bool $sidebar_collapsed = false;
-    public string $loginVersion = 'v2';
 
     public function mount(): void
     {
@@ -53,9 +53,7 @@ class Profile extends Component
         $this->email    = $user->email;
 
         // Cargar preferencias del JSON (usando el helper que creaste en el modelo)
-        $this->theme             = $user->preference('theme', 'system');
-        $this->sidebar_collapsed = (bool) $user->preference('sidebar_collapsed', false);
-        $this->loginVersion      = $user->preference('loginVersion', 'v2');
+        $this->theme = $user->preference('theme', 'system');
     }
     // ── Información personal ───────────────────────────────
 
@@ -160,28 +158,16 @@ class Profile extends Component
     public function savePreferences(): void
     {
         $this->validate([
-            'theme'             => ['required', 'in:light,dark,system'],
-            'sidebar_collapsed' => ['boolean'],
+            'theme' => ['required', 'in:light,dark,system'],
         ]);
 
         /** @var User $user */
         $user = Auth::user();
 
         $preferences = $user->preferences ?? [];
-        $preferences['theme']             = $this->theme;
-        $preferences['sidebar_collapsed'] = $this->isAdmin
-            ? $this->sidebar_collapsed
-            : ($user->preference('sidebar_collapsed', false)); // mantiene el valor anterior sin tocarlo
-        $preferences['login_version'] = $this->loginVersion; // Nuevo
+        $preferences['theme'] = $this->theme;
 
         $user->update(['preferences' => $preferences]);
-        
-        // Sincronizar Cookie para la pre-autenticación (1 año)
-        \Illuminate\Support\Facades\Cookie::queue(
-            'orvian_login_version', 
-            $this->loginVersion, 
-            60 * 24 * 365
-        );
 
         $this->dispatch('notify-redirect',
             type:    'success',
@@ -200,15 +186,6 @@ class Profile extends Component
      */
     public function render()
     {
-        $layout = $this->isAdmin ? 'components.admin' : 'layouts.app-module';
-    
-        $layoutProps = $this->isAdmin
-            ? []
-            : config('modules.configuracion');
-    
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.shared.profile');
-
-        return $view->layout($layout, $layoutProps);
+        return view('livewire.shared.profile');
     }
 }

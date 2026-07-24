@@ -12,20 +12,21 @@ class ClassroomAttendanceTableConfig implements TableConfig
     public static function allColumns(): array
     {
         return [
-            'date'      => 'Fecha',
-            'student'   => 'Estudiante',
-            'section'   => 'Sección',
-            'subject'   => 'Materia',
-            'teacher'   => 'Maestro',
-            'class_time'=> 'Hora de Clase',
-            'status'    => 'Estado',
-            'notes'     => 'Notas',
+            'date'        => 'Fecha',
+            'student'     => 'Estudiante',
+            'section'     => 'Sección',
+            'subject'     => 'Materia',
+            'teacher'     => 'Maestro',
+            'class_time'  => 'Hora de Clase',
+            'status'      => 'Estado',
+            'recorded_by' => 'Registrado por',
+            'notes'       => 'Notas',
         ];
     }
 
     public static function defaultDesktop(): array
     {
-        return ['date', 'student', 'section', 'subject', 'teacher', 'class_time', 'status'];
+        return ['date', 'student', 'section', 'subject', 'teacher', 'class_time', 'status', 'recorded_by'];
     }
 
     public static function defaultMobile(): array

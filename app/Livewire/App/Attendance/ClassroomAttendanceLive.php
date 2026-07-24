@@ -6,13 +6,17 @@ use App\Models\Tenant\Academic\AcademicYear;
 use App\Models\Tenant\Academic\SchoolSection;
 use App\Models\Tenant\Academic\TeacherSubjectSection;
 use App\Models\Tenant\ClassroomAttendanceRecord;
+use App\Models\Tenant\DailyAttendanceSession;
 use App\Models\Tenant\PlantelAttendanceRecord;
 use App\Models\Tenant\Teacher;
 use App\Services\Attendance\ClassroomAttendanceService;
 use App\Services\Attendance\ExcuseService;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('layouts.app')]
 class ClassroomAttendanceLive extends Component
 {
     // ── Selección de clase ────────────────────────────────────────
@@ -36,6 +40,64 @@ class ClassroomAttendanceLive extends Component
     protected function resolveTeacher(): ?Teacher
     {
         return $this->teacher ??= Teacher::where('user_id', Auth::id())->first();
+    }
+
+    // ── Gate de sesión ─────────────────────────────────────────────
+
+    /**
+     * Bloquea el pase de lista mientras la sesión de asistencia de la tanda
+     * correspondiente no exista o no haya sido cerrada. Se evalúa antes de
+     * renderizar cualquier interfaz de pase de lista, no al momento de guardar.
+     */
+    #[Computed]
+    public function sessionGate(): array
+    {
+        if (! $this->selectedAssignmentId && ! $this->substituteSectionId) {
+            return ['locked' => false];
+        }
+
+        $shiftId = $this->resolveRelevantShiftId();
+
+        if (! $shiftId) {
+            return ['locked' => false];
+        }
+
+        $session = DailyAttendanceSession::whereDate('date', today())
+            ->where('school_shift_id', $shiftId)
+            ->first();
+
+        if (! $session) {
+            return [
+                'locked'  => true,
+                'reason'  => 'no_session',
+                'message' => 'La sesión de asistencia de hoy aún no ha sido abierta.',
+            ];
+        }
+
+        if ($session->isOpen()) {
+            return [
+                'locked'  => true,
+                'reason'  => 'session_open',
+                'message' => 'Aún no se ha cerrado la sesión de hoy. Hasta que el director o la portería no la cierre, no es posible pasar la lista.',
+            ];
+        }
+
+        return ['locked' => false];
+    }
+
+    protected function resolveRelevantShiftId(): ?int
+    {
+        if ($this->selectedAssignmentId) {
+            return TeacherSubjectSection::with('section:id,school_shift_id')
+                ->find($this->selectedAssignmentId)
+                ?->section?->school_shift_id;
+        }
+
+        if ($this->substituteSectionId) {
+            return SchoolSection::find($this->substituteSectionId)?->school_shift_id;
+        }
+
+        return null;
     }
 
     // ── Modo sustituto ────────────────────────────────────────────
@@ -67,7 +129,7 @@ class ClassroomAttendanceLive extends Component
 
     public function clearAssignment(): void
     {
-        $this->reset(['selectedAssignmentId', 'studentStatuses', 'plantelStatuses', 'excusedStudentIds', 'studentsLoaded', 'submitted', 'submitResult']);
+        $this->reset(['selectedAssignmentId', 'substituteSectionId', 'studentStatuses', 'plantelStatuses', 'excusedStudentIds', 'studentsLoaded', 'submitted', 'submitResult']);
     }
 
     // ── Carga de estudiantes ──────────────────────────────────────
@@ -80,11 +142,12 @@ class ClassroomAttendanceLive extends Component
     public function loadStudents(ExcuseService $excuseService): void
     {
         if (! $this->selectedAssignmentId) return;
+        if ($this->sessionGate['locked']) return;
 
         $date = today();
 
         $this->excusedStudentIds = $excuseService
-            ->getCoveredStudentsForDate($date)
+            ->getActivelyExcusedStudentIds($date)
             ->toArray();
 
         $assignment = TeacherSubjectSection::with([
@@ -114,27 +177,29 @@ class ClassroomAttendanceLive extends Component
         foreach ($students as $student) {
             $plantelRecord   = $plantelRecords->get($student->id);
             $classroomRecord = $classroomRecords->get($student->id);
+            $activelyExcused = in_array($student->id, $this->excusedStudentIds);
 
             $this->plantelStatuses[$student->id] = $plantelRecord?->status;
 
             if ($classroomRecord) {
                 // Prioridad 1: ya existe registro de aula para hoy → cargar ese estado
                 $this->studentStatuses[$student->id] = $classroomRecord->status;
+            } elseif ($activelyExcused) {
+                // Prioridad 2: excusa activa en este momento — cubre tanto "aún no ha
+                // llegado" como "ya salió", sin importar lo que diga el plantel.
+                $this->studentStatuses[$student->id] = ClassroomAttendanceRecord::STATUS_EXCUSED;
             } elseif ($plantelRecord) {
-                // Prioridad 2: heredar del plantel
+                // Prioridad 3: heredar del plantel
                 $this->studentStatuses[$student->id] = match($plantelRecord->status) {
                     PlantelAttendanceRecord::STATUS_PRESENT,
                     PlantelAttendanceRecord::STATUS_LATE    => ClassroomAttendanceRecord::STATUS_PRESENT,
                     PlantelAttendanceRecord::STATUS_ABSENT  => ClassroomAttendanceRecord::STATUS_ABSENT,
                     PlantelAttendanceRecord::STATUS_EXCUSED => ClassroomAttendanceRecord::STATUS_EXCUSED,
-                    default                                 => ClassroomAttendanceRecord::STATUS_PRESENT,
+                    default                                 => ClassroomAttendanceRecord::STATUS_UNMARKED,
                 };
-            } elseif (in_array($student->id, $this->excusedStudentIds)) {
-                // Prioridad 3: excusa aprobada sin registro de plantel
-                $this->studentStatuses[$student->id] = ClassroomAttendanceRecord::STATUS_EXCUSED;
             } else {
-                // Prioridad 4: sin datos → presente por defecto
-                $this->studentStatuses[$student->id] = ClassroomAttendanceRecord::STATUS_PRESENT;
+                // Prioridad 4: sin ningún dato → pendiente, nunca asumir presente
+                $this->studentStatuses[$student->id] = ClassroomAttendanceRecord::STATUS_UNMARKED;
             }
         }
 
@@ -172,10 +237,13 @@ class ClassroomAttendanceLive extends Component
             return;
         }
 
+        if ($this->sessionGate['locked']) return;
+
         $result = $service->takeClassAttendance(
             $this->selectedAssignmentId,
             today(),
-            $this->studentStatuses
+            $this->studentStatuses,
+            Auth::id()
         );
 
         $this->submitted    = true;
@@ -296,8 +364,7 @@ class ClassroomAttendanceLive extends Component
             ])
         ));
 
-        /** @var \Livewire\Features\SupportPageComponents\View $view */
-        $view = view('livewire.app.attendance.classroom-attendance-live', [
+        return view('livewire.app.attendance.classroom-attendance-live', [
             'myAssignments'            => $myAssignments,
             'substituteSections'       => $substituteSections,
             'sectionAssignments'       => $sectionAssignments,
@@ -307,7 +374,5 @@ class ClassroomAttendanceLive extends Component
             'lockedStudentIds'         => $lockedStudentIds,
             'hasPlantelRecordsToday'   => $hasPlantelRecordsToday,
         ]);
-
-        return $view->layout('layouts.app-module', config('modules.asistencia'));
     }
 }

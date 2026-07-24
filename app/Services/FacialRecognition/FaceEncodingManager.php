@@ -5,6 +5,7 @@ namespace App\Services\FacialRecognition;
 use App\Models\Tenant\Student;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class FaceEncodingManager
 {
@@ -32,6 +33,11 @@ class FaceEncodingManager
             }
 
             $student->update(['face_encoding' => json_encode($result['encoding'])]);
+
+            // Invalidar caché de encodings de esta escuela para que
+            // identifyStudent recargue desde DB en la próxima verificación
+            Cache::forget("facial_encodings_school_{$student->school_id}");
+            
             return true;
         } catch (\Exception $e) {
             Log::error('[FaceEncodingManager] Excepción en enrollStudent: ' . $e->getMessage());
@@ -45,15 +51,17 @@ class FaceEncodingManager
     public function identifyStudent(int $schoolId, UploadedFile $photo): ?array
     {
         try {
-            $knownEncodings = Student::active()
-                ->where('school_id', $schoolId)
-                ->whereNotNull('face_encoding')
-                ->get(['id', 'first_name', 'last_name', 'face_encoding'])
-                ->map(fn($s) => [
-                    'id'       => $s->id,
-                    'name'     => $s->full_name,
-                    'encoding' => json_decode($s->face_encoding, true),
-                ])->toArray();
+            $knownEncodings = Cache::remember("facial_encodings_school_{$schoolId}", 300, function () use ($schoolId) {
+                return Student::active()
+                    ->where('school_id', $schoolId)
+                    ->whereNotNull('face_encoding')
+                    ->get(['id', 'first_name', 'last_name', 'face_encoding'])
+                    ->map(fn($s) => [
+                        'id'       => $s->id,
+                        'name'     => $s->full_name,
+                        'encoding' => json_decode($s->face_encoding, true),
+                    ])->toArray();
+            });
 
             if (empty($knownEncodings)) {
                 Log::warning('[FaceEncodingManager] No hay estudiantes con encoding en school ' . $schoolId);

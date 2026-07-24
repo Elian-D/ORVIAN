@@ -1,11 +1,12 @@
 <div>
-    <x-app.module-toolbar>
-        <x-slot:title>Registro Biométrico</x-slot:title>
-    </x-app.module-toolbar>
+    <div class="px-4 md:px-6 pt-4">
+        <x-ui.page-header title="Registro Biométrico" description="Enrolamiento facial de estudiantes para asistencia biométrica." />
+    </div>
 
         {{-- NUEVO: Barra de Controles Sticky --}}
-        {{-- z-20 y backdrop-blur crean el efecto de cristal flotante al hacer scroll --}}
-        <div class="sticky top-[7rem] z-20 bg-slate-50/90 dark:bg-dark-bg/90 backdrop-blur-md px-4 md:px-6 py-4 border-b border-slate-200/60 dark:border-white/5 shadow-sm">
+        {{-- z-20 y backdrop-blur crean el efecto de cristal flotante al hacer scroll.
+             top-0: ya no hay navbar/toolbar fijo encima (Fase 7, ver REQ-07.14). --}}
+        <div class="sticky top-0 z-20 bg-slate-50/90 dark:bg-dark-bg/90 backdrop-blur-md px-4 md:px-6 py-4 border-b border-slate-200/60 dark:border-white/5 shadow-sm">
             
             <div class="flex flex-wrap items-center gap-3">
                 

@@ -1,4 +1,4 @@
-<x-admin>
+<x-app-layout>
     <x-slot:title>Panel de Control Global</x-slot:title>
 
     <div class="max-w-7xl mx-auto">
@@ -45,4 +45,4 @@
 
         </div>
     </div>
-</x-admin>
+</x-app-layout>

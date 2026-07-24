@@ -14,14 +14,4 @@
             </span>
         @endif
     </div>
-
-    {{-- Indicador de Estado (Status) --}}
-    @if($showStatus)
-        <span @class([
-            "absolute bottom-0 right-0 block rounded-full ring-white dark:ring-dark-card",
-            $statusColor,
-            $statusSize
-        ]) title="{{ ucfirst($user?->status ?? 'offline') }}">
-        </span>
-    @endif
 </div>
